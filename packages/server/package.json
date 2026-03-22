@@ -9,6 +9,7 @@
     "start": "node src/app.js",
     "db:migrate": "node src/db/migrate.js",
     "db:seed": "node src/db/seed.js",
+    "admin:ensure": "node src/db/ensure-admin.js",
     "test": "jest --passWithNoTests"
   },
   "dependencies": {
