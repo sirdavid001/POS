@@ -22,9 +22,12 @@ export function renderLayout(activePage) {
   app.innerHTML = `
     <div class="app-layout">
       <!-- Mobile menu button -->
-      <button id="mobile-menu-btn" class="btn btn-ghost" style="position:fixed;top:1rem;left:1rem;z-index:60;display:none;padding:0.5rem;">
+      <button id="mobile-menu-btn" class="btn btn-ghost" style="position:fixed;top:0.75rem;left:0.75rem;z-index:60;padding:0.5rem;">
         ${icons.menu}
       </button>
+
+      <!-- Sidebar overlay backdrop -->
+      <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-logo">
@@ -64,23 +67,46 @@ export function renderLayout(activePage) {
     window.location.hash = '#/login';
   });
 
-  // Mobile menu
+  // Mobile menu + overlay
   const mobileBtn = document.getElementById('mobile-menu-btn');
   const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
 
-  function checkMobile() {
-    if (window.innerWidth <= 1024) {
-      mobileBtn.style.display = 'flex';
-    } else {
-      mobileBtn.style.display = 'none';
-      sidebar.classList.remove('open');
-    }
+  function openSidebar() {
+    sidebar.classList.add('open');
+    overlay.classList.add('active');
   }
-  checkMobile();
-  window.addEventListener('resize', checkMobile);
+
+  function closeSidebar() {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('active');
+  }
 
   mobileBtn.addEventListener('click', () => {
-    sidebar.classList.toggle('open');
+    if (sidebar.classList.contains('open')) {
+      closeSidebar();
+    } else {
+      openSidebar();
+    }
+  });
+
+  // Close sidebar when tapping overlay
+  overlay.addEventListener('click', closeSidebar);
+
+  // Auto-close sidebar when navigating (on mobile)
+  sidebar.querySelectorAll('.nav-item[data-page]').forEach(link => {
+    link.addEventListener('click', () => {
+      if (window.innerWidth <= 1024) {
+        closeSidebar();
+      }
+    });
+  });
+
+  // Handle resize: close sidebar if expanding to desktop
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 1024) {
+      closeSidebar();
+    }
   });
 
   return document.getElementById('page-content');

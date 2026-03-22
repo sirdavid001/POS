@@ -365,18 +365,196 @@ select.input { appearance: none; cursor: pointer; }
 }
 .empty-state svg { width: 64px; height: 64px; margin-bottom: 1rem; opacity: 0.4; }
 
-/* ===== Responsive ===== */
-@media (max-width: 1024px) {
-  .sidebar { transform: translateX(-100%); }
-  .sidebar.open { transform: translateX(0); }
-  .main-content { margin-left: 0; }
-  .pos-grid { grid-template-columns: 1fr; }
+/* ===== Sidebar overlay backdrop ===== */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: oklch(0 0 0 / 0.5);
+  z-index: 49;
+  animation: fadeIn 0.2s ease-out;
+}
+.sidebar-overlay.active { display: block; }
+
+/* ===== Mobile menu button refinements ===== */
+#mobile-menu-btn {
+  display: none !important;
 }
 
-@media (max-width: 640px) {
-  .main-content { padding: 1rem; }
-  .stat-grid { grid-template-columns: 1fr; }
+/* ===== Responsive helper classes (used by JS pages) ===== */
+.responsive-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
 }
+
+.table-scroll-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ===== Mobile cart toggle (POS) ===== */
+.mobile-cart-toggle {
+  display: none;
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 45;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: white;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  box-shadow: 0 4px 16px oklch(0 0 0 / 0.3);
+  transition: transform 0.2s;
+}
+.mobile-cart-toggle:hover { transform: scale(1.1); }
+.mobile-cart-toggle .cart-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--color-danger);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== Responsive ===== */
+
+/* --- Laptop / Small desktop (≤1200px) --- */
+@media (max-width: 1200px) {
+  .pos-grid { grid-template-columns: 1fr 320px; }
+  .product-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+}
+
+/* --- Tablet (≤1024px) --- */
+@media (max-width: 1024px) {
+  /* Sidebar: off-screen, toggled */
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  #mobile-menu-btn { display: flex !important; }
+  .main-content { margin-left: 0; padding: 1.25rem; padding-top: 3.5rem; }
+
+  /* POS layout remains side-by-side but slightly tighter */
+  .pos-grid { grid-template-columns: 1fr 300px; gap: 1rem; }
+
+  /* Dashboard & inventory 2-col grids */
+  .responsive-grid-2 { grid-template-columns: 1fr 1fr; }
+
+  /* Settings inline grid */
+  .settings-grid-responsive { grid-template-columns: 1fr !important; }
+
+  /* Data tables — enable scroll */
+  .glass-card { overflow: visible; }
+  .data-table { min-width: 600px; }
+
+  /* Stat grid: 2 per row */
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* Page header */
+  .page-header { flex-wrap: wrap; gap: 0.75rem; }
+  .page-header h2 { font-size: 1.25rem; }
+}
+
+/* --- Large phone / Small tablet (≤768px) --- */
+@media (max-width: 768px) {
+  .main-content { padding: 1rem; padding-top: 3.5rem; }
+
+  /* POS: stack vertically and show mobile cart overlay logic */
+  .pos-grid { grid-template-columns: 1fr; height: auto; min-height: calc(100vh - 5rem); }
+  .mobile-cart-toggle { display: flex; align-items: center; justify-content: center; }
+  .cart-panel.mobile-hidden { display: none; }
+  .cart-panel.mobile-visible {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 46;
+    max-height: 85vh;
+    border-radius: 1rem 1rem 0 0;
+    box-shadow: 0 -8px 32px oklch(0 0 0 / 0.3);
+    animation: slideUp 0.3s ease-out;
+  }
+
+  /* Dashboard grids stack */
+  .responsive-grid-2 { grid-template-columns: 1fr; }
+
+  /* Stat grid: 2 per row still */
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .stat-value { font-size: 1.4rem; }
+
+  /* POS product grid: fewer columns */
+  .product-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.5rem; }
+  .product-card { padding: 0.75rem; }
+  .product-card .product-name { font-size: 0.8rem; }
+  .product-card .product-price { font-size: 0.9rem; }
+
+  /* Cart items */
+  .cart-item { gap: 0.5rem; }
+  .cart-item-price { min-width: 60px; font-size: 0.8rem; }
+
+  /* Buttons */
+  .btn { padding: 0.5rem 1rem; font-size: 0.8rem; }
+  .btn-lg { padding: 0.625rem 1.25rem; font-size: 0.9rem; }
+
+  /* Modal */
+  .modal { width: 95%; padding: 1.25rem; max-height: 90vh; }
+
+  /* Login */
+  .login-card { padding: 2rem 1.5rem; }
+}
+
+/* --- Phone (≤480px) --- */
+@media (max-width: 480px) {
+  .main-content { padding: 0.75rem; padding-top: 3.25rem; }
+
+  /* Stat grid: single column */
+  .stat-grid { grid-template-columns: 1fr; }
+  .stat-card { padding: 1rem; }
+  .stat-value { font-size: 1.25rem; }
+
+  /* Product grid: 2 columns */
+  .product-grid { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+  .product-card img, .product-card div[style*="height:90px"] { height: 60px !important; }
+
+  /* Page headers */
+  .page-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+  .page-header h2 { font-size: 1.15rem; }
+  .page-header .btn { width: 100%; }
+
+  /* Data tables: smaller text */
+  .data-table th { padding: 0.5rem; font-size: 0.65rem; }
+  .data-table td { padding: 0.5rem; font-size: 0.8rem; }
+
+  /* Sidebar: full width */
+  .sidebar { width: 100%; }
+
+  /* Toast: full width */
+  .toast-container { left: 1rem; right: 1rem; }
+  .toast { min-width: auto; width: 100%; }
+
+  /* Search / filter rows */
+  .filter-row { flex-direction: column !important; }
+  .filter-row > * { max-width: 100% !important; }
+
+  /* Cart summary */
+  .cart-summary { padding: 0.75rem; }
+  .cart-total { font-size: 1rem; }
+
+  /* Modal full-screen on tiny phones */
+  .modal { width: 100%; max-width: 100%; border-radius: 1rem 1rem 0 0; margin-top: auto; }
+  .modal-overlay { align-items: flex-end; }
+}
+
+/* Slide-up animation for mobile cart */
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
 /* ===== Login Page ===== */
 .login-page {

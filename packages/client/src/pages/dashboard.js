@@ -28,7 +28,7 @@ async function renderManagerDashboard() {
         <div class="stat-card"><div class="spinner"></div></div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;">
+      <div class="responsive-grid-2" style="margin-bottom:1.5rem;">
         <div class="glass-card" style="padding:1.25rem;">
           <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">Recent Orders</h3>
           <div id="recent-orders"><div class="spinner"></div></div>
@@ -165,7 +165,7 @@ async function renderCashierDashboard() {
         <div class="stat-card"><div class="spinner"></div></div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;">
+      <div class="responsive-grid-2" style="margin-bottom:1.5rem;">
         <div class="glass-card" style="padding:1.25rem;">
           <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">Recent Orders</h3>
           <div id="recent-orders"><div class="spinner"></div></div>

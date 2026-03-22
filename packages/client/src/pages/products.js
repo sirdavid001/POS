@@ -13,14 +13,14 @@ export async function renderProducts() {
         <button class="btn btn-primary" id="add-product-btn">${icons.plus} Add Product</button>
       </div>
 
-      <div style="display:flex;gap:1rem;margin-bottom:1rem;">
-        <input class="input" type="text" id="product-search" placeholder="Search products..." style="max-width:320px;">
+      <div class="filter-row" style="display:flex;gap:1rem;margin-bottom:1rem;">
+        <input class="input" type="text" id="product-search" placeholder="Search products..." style="max-width:320px;flex:1;">
         <select class="input" id="category-filter" style="max-width:200px;">
           <option value="">All Categories</option>
         </select>
       </div>
 
-      <div class="glass-card" style="overflow:hidden;">
+      <div class="glass-card table-scroll-wrapper" style="overflow:hidden;">
         <table class="data-table" id="products-table">
           <thead>
             <tr><th style="width:50px;"></th><th>Name</th><th>SKU</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr>

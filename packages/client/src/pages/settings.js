@@ -12,7 +12,7 @@ export async function renderSettings() {
     <div class="animate-fade-in">
       <div class="page-header"><h2>Settings</h2></div>
 
-      <div style="display:grid;grid-template-columns:${isAdmin ? '1fr 1fr' : '1fr'};gap:1.5rem;">
+      <div class="responsive-grid-2 settings-grid-responsive">
         ${isAdmin ? `
         <div class="glass-card" style="padding:1.5rem;">
           <h3 style="font-size:1rem;font-weight:700;margin-bottom:1.25rem;">🏪 Store Information</h3>

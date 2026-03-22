@@ -8,7 +8,7 @@ export async function renderOrders() {
   content.innerHTML = `
     <div class="animate-fade-in">
       <div class="page-header"><h2>Orders</h2></div>
-      <div style="display:flex;gap:1rem;margin-bottom:1rem;">
+      <div class="filter-row" style="display:flex;gap:1rem;margin-bottom:1rem;">
         <select class="input" id="order-status-filter" style="max-width:180px;">
           <option value="">All Statuses</option>
           <option value="completed">Completed</option>
@@ -17,7 +17,7 @@ export async function renderOrders() {
           <option value="refunded">Refunded</option>
         </select>
       </div>
-      <div class="glass-card" style="overflow:hidden;">
+      <div class="glass-card table-scroll-wrapper" style="overflow:hidden;">
         <table class="data-table">
           <thead><tr><th>Order #</th><th>Cashier</th><th>Customer</th><th>Total</th><th>Payment</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
           <tbody id="orders-tbody">

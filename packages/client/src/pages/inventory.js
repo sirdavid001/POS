@@ -12,7 +12,7 @@ export async function renderInventory() {
         <button class="btn btn-primary" id="adjust-stock-btn">${icons.plus} Adjust Stock</button>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">
+      <div class="responsive-grid-2">
         <div class="glass-card" style="padding:1.25rem;">
           <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">Recent Inventory Changes</h3>
           <div id="inventory-logs"><div class="spinner"></div></div>

@@ -49,6 +49,10 @@ function renderCart() {
       </button>
     </div>
   `;
+
+  // Update mobile cart badge
+  const cartBadge = document.getElementById('mobile-cart-badge');
+  if (cartBadge) cartBadge.textContent = cart.reduce((sum, item) => sum + item.qty, 0);
 }
 
 function addToCart(product) {
@@ -317,7 +321,7 @@ export async function renderPOS() {
 
       <div class="pos-grid">
         <div>
-          <div style="margin-bottom:1rem;display:flex;gap:0.5rem;align-items:center;">
+          <div class="filter-row" style="margin-bottom:1rem;display:flex;gap:0.5rem;align-items:center;">
             <div style="flex:1;position:relative;">
               <input class="input" type="text" id="product-search" placeholder="Search products by name, SKU, or barcode..." style="padding-left:2.5rem;">
               <span style="position:absolute;left:0.75rem;top:50%;transform:translateY(-50%);color:var(--color-text-muted);width:18px;height:18px;">${icons.search}</span>
@@ -328,16 +332,41 @@ export async function renderPOS() {
           </div>
         </div>
 
-        <div class="cart-panel">
-          <div class="cart-header">🛒 Cart</div>
+        <div class="cart-panel mobile-hidden" id="cart-panel">
+          <div class="cart-header" style="display:flex;justify-content:space-between;align-items:center;">🛒 Cart <button class="btn btn-ghost btn-sm" id="close-cart-mobile" style="display:none;padding:0.25rem 0.5rem;">✕</button></div>
           <div class="cart-items" id="cart-items">
             <div class="empty-state" style="padding:2rem;"><p>Cart is empty</p><p style="font-size:0.75rem;">Scan a barcode or click products</p></div>
           </div>
           <div class="cart-summary" id="cart-summary"></div>
         </div>
       </div>
+
+      <!-- Mobile cart toggle FAB -->
+      <button class="mobile-cart-toggle" id="mobile-cart-toggle">
+        🛒
+        <span class="cart-badge" id="mobile-cart-badge">0</span>
+      </button>
     </div>
   `;
+
+  // Wire up mobile cart toggle
+  const cartToggleBtn = document.getElementById('mobile-cart-toggle');
+  const cartPanel = document.getElementById('cart-panel');
+  const closeCartBtn = document.getElementById('close-cart-mobile');
+
+  if (cartToggleBtn && cartPanel && closeCartBtn) {
+    cartToggleBtn.addEventListener('click', () => {
+      cartPanel.classList.remove('mobile-hidden');
+      cartPanel.classList.add('mobile-visible');
+      closeCartBtn.style.display = 'block';
+    });
+
+    closeCartBtn.addEventListener('click', () => {
+      cartPanel.classList.add('mobile-hidden');
+      cartPanel.classList.remove('mobile-visible');
+      closeCartBtn.style.display = 'none';
+    });
+  }
 
   // Search
   document.getElementById('product-search').addEventListener('input', (e) => {
