@@ -1,0 +1,58 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pos_user
+          POSTGRES_PASSWORD: pos_password
+          POSTGRES_DB: pos_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build client
+        run: npm run build -w packages/client
+
+      - name: Run migrations
+        run: npm run db:migrate -w packages/server
+        env:
+          DATABASE_URL: postgresql://pos_user:pos_password@localhost:5432/pos_db
+
+      - name: Run seed
+        run: npm run db:seed -w packages/server
+        env:
+          DATABASE_URL: postgresql://pos_user:pos_password@localhost:5432/pos_db
+
+      - name: Run tests
+        run: npm test --if-present
+        env:
+          DATABASE_URL: postgresql://pos_user:pos_password@localhost:5432/pos_db
+          JWT_SECRET: test-secret
+          JWT_REFRESH_SECRET: test-refresh-secret
