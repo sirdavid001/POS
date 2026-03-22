@@ -25,7 +25,7 @@ const server = createServer(app);
 
 // ---- Middleware ----
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors({ origin: config.corsOrigin, credentials: true }));
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -96,11 +96,13 @@ export function broadcast(event, data) {
   });
 }
 
-// ---- Start server ----
-server.listen(config.port, () => {
-  logger.info(`🚀 POS Server running on port ${config.port} (${config.nodeEnv})`);
-  logger.info(`   API: http://localhost:${config.port}/api/v1`);
-  logger.info(`   WS:  ws://localhost:${config.port}/ws`);
-});
+// ---- Start server (local dev only) ----
+if (process.env.VERCEL !== '1') {
+  server.listen(config.port, () => {
+    logger.info(`🚀 POS Server running on port ${config.port} (${config.nodeEnv})`);
+    logger.info(`   API: http://localhost:${config.port}/api/v1`);
+    logger.info(`   WS:  ws://localhost:${config.port}/ws`);
+  });
+}
 
 export default app;
