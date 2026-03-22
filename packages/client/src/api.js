@@ -1,7 +1,29 @@
 // API client with JWT refresh support
 // In production, VITE_API_URL points to the deployed backend (e.g. https://pos-api.vercel.app/api/v1)
 // In dev, Vite proxy forwards /api/v1 to localhost:3001
-const API_BASE = import.meta.env.VITE_API_URL?.trim() || '/api/v1';
+function normalizeApiBase(rawValue) {
+  const fallback = '/api/v1';
+  const value = rawValue?.trim();
+  if (!value) return fallback;
+  if (value.startsWith('/')) return value;
+
+  let normalized = value;
+  if (!/^https?:\/\//i.test(normalized)) {
+    normalized = `https://${normalized}`;
+  }
+
+  try {
+    const url = new URL(normalized);
+    if (url.pathname === '/' || url.pathname === '') {
+      url.pathname = '/api/v1';
+    }
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return fallback;
+  }
+}
+
+const API_BASE = normalizeApiBase(import.meta.env.VITE_API_URL);
 
 class ApiClient {
   constructor() {

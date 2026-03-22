@@ -19,6 +19,7 @@ import customersRouter from './modules/customers/router.js';
 import paymentsRouter from './modules/payments/router.js';
 import reportsRouter from './modules/reports/router.js';
 import settingsRouter from './modules/settings/router.js';
+import { query } from './config/database.js';
 
 const app = express();
 const isVercel = process.env.VERCEL === '1';
@@ -59,10 +60,11 @@ app.use('/api/v1/payments', paymentsRouter);
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/settings', settingsRouter);
 
-const getHealthPayload = () => ({
+const getHealthPayload = (overrides = {}) => ({
   status: 'ok',
   service: 'pos-server',
   timestamp: new Date().toISOString(),
+  ...overrides,
 });
 
 app.get('/', (req, res) => {
@@ -73,13 +75,23 @@ app.get('/', (req, res) => {
   });
 });
 
-app.get('/health', (req, res) => {
-  res.json(getHealthPayload());
-});
+async function handleHealth(req, res) {
+  try {
+    await query('SELECT 1');
+    res.json(getHealthPayload({ database: 'ok' }));
+  } catch (err) {
+    logger.error('Health check failed', {
+      error: err.message,
+      code: err.code,
+      path: req.path,
+      method: req.method,
+    });
+    res.status(503).json(getHealthPayload({ status: 'error', database: 'unavailable' }));
+  }
+}
 
-app.get('/api/health', (req, res) => {
-  res.json(getHealthPayload());
-});
+app.get('/health', handleHealth);
+app.get('/api/health', handleHealth);
 
 // ---- Error handlers ----
 app.use(notFound);
