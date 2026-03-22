@@ -56,22 +56,22 @@ async function seed() {
 
     // Insert sample products
     const products = [
-      [storeId, catMap['Beverages'], 'Coca-Cola 50cl', 'Chilled Coca-Cola bottle', 'BEV-001', '5449000000996', 350.00, 250.00, 100, 20],
-      [storeId, catMap['Beverages'], 'Fanta Orange 50cl', 'Chilled Fanta Orange bottle', 'BEV-002', '5449000000997', 350.00, 250.00, 80, 20],
-      [storeId, catMap['Beverages'], 'Water 75cl', 'Eva table water', 'BEV-003', '5449000000998', 200.00, 120.00, 150, 30],
-      [storeId, catMap['Snacks'], 'Chin Chin (Medium)', 'Crunchy chin chin snack', 'SNK-001', '1234567890001', 500.00, 300.00, 50, 15],
-      [storeId, catMap['Snacks'], 'Plantain Chips', 'Crispy plantain chips', 'SNK-002', '1234567890002', 400.00, 220.00, 60, 15],
-      [storeId, catMap['Electronics'], 'USB Cable Type-C', 'Fast charging cable', 'ELC-001', '2345678901234', 2500.00, 1200.00, 30, 10],
-      [storeId, catMap['Electronics'], 'Earphones', 'In-ear wired earphones', 'ELC-002', '2345678901235', 3500.00, 1800.00, 25, 10],
-      [storeId, catMap['Groceries'], 'Rice (5kg)', 'Long grain rice', 'GRC-001', '3456789012345', 8500.00, 6500.00, 40, 10],
-      [storeId, catMap['Groceries'], 'Cooking Oil (1L)', 'Vegetable cooking oil', 'GRC-002', '3456789012346', 3200.00, 2300.00, 35, 10],
-      [storeId, catMap['Stationery'], 'Notebook A5', 'Ruled exercise notebook', 'STN-001', '4567890123456', 300.00, 150.00, 100, 25],
+      [storeId, catMap['Beverages'], 'Coca-Cola 50cl', 'Chilled Coca-Cola bottle', 'BEV-001', '5449000000996', 350.00, 250.00, 100, 20, '/products/coca-cola.png'],
+      [storeId, catMap['Beverages'], 'Fanta Orange 50cl', 'Chilled Fanta Orange bottle', 'BEV-002', '5449000000997', 350.00, 250.00, 80, 20, '/products/fanta-orange.png'],
+      [storeId, catMap['Beverages'], 'Water 75cl', 'Eva table water', 'BEV-003', '5449000000998', 200.00, 120.00, 150, 30, '/products/water.png'],
+      [storeId, catMap['Snacks'], 'Chin Chin (Medium)', 'Crunchy chin chin snack', 'SNK-001', '1234567890001', 500.00, 300.00, 50, 15, '/products/chin-chin.png'],
+      [storeId, catMap['Snacks'], 'Plantain Chips', 'Crispy plantain chips', 'SNK-002', '1234567890002', 400.00, 220.00, 60, 15, '/products/plantain-chips.png'],
+      [storeId, catMap['Electronics'], 'USB Cable Type-C', 'Fast charging cable', 'ELC-001', '2345678901234', 2500.00, 1200.00, 30, 10, '/products/usb-cable.png'],
+      [storeId, catMap['Electronics'], 'Earphones', 'In-ear wired earphones', 'ELC-002', '2345678901235', 3500.00, 1800.00, 25, 10, '/products/earphones.png'],
+      [storeId, catMap['Groceries'], 'Rice (5kg)', 'Long grain rice', 'GRC-001', '3456789012345', 8500.00, 6500.00, 40, 10, '/products/rice.png'],
+      [storeId, catMap['Groceries'], 'Cooking Oil (1L)', 'Vegetable cooking oil', 'GRC-002', '3456789012346', 3200.00, 2300.00, 35, 10, '/products/cooking-oil.png'],
+      [storeId, catMap['Stationery'], 'Notebook A5', 'Ruled exercise notebook', 'STN-001', '4567890123456', 300.00, 150.00, 100, 25, '/products/notebook.png'],
     ];
 
     for (const p of products) {
       await query(`
-        INSERT INTO products (store_id, category_id, name, description, sku, barcode, price, cost_price, stock_quantity, low_stock_threshold)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        INSERT INTO products (store_id, category_id, name, description, sku, barcode, price, cost_price, stock_quantity, low_stock_threshold, image_url)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         ON CONFLICT DO NOTHING
       `, p);
     }
