@@ -57,7 +57,12 @@ class ApiClient {
       }
     }
 
-    const json = await response.json();
+    let json;
+    try {
+      json = await response.json();
+    } catch {
+      throw new Error(`Server returned an invalid response (HTTP ${response.status}). Please check your connection.`);
+    }
 
     if (!response.ok) {
       throw new Error(json.error || 'Request failed');
