@@ -11,7 +11,7 @@ const server = createServer(app);
 const PORT = 3001;
 const JWT_SECRET = 'demo-secret';
 
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
 // ===== In-memory data =====
@@ -490,9 +490,14 @@ app.get('/api/v1/products/lookup/:barcode', auth, async (req, res) => {
 // ===== Health =====
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
-// ===== Start =====
-server.listen(PORT, () => {
-  console.log(`\n  ⚡ QuickPOS Mock Server running on http://localhost:${PORT}`);
-  console.log(`  📦 ${products.length} products loaded`);
-  console.log(`  👤 Login: admin@posapp.com / admin123\n`);
-});
+// ===== Start (local dev) =====
+if (process.env.VERCEL !== '1') {
+  server.listen(PORT, () => {
+    console.log(`\n  ⚡ QuickPOS Mock Server running on http://localhost:${PORT}`);
+    console.log(`  📦 ${products.length} products loaded`);
+    console.log(`  👤 Login: admin@posapp.com / admin123\n`);
+  });
+}
+
+// Export for Vercel serverless
+export default app;
