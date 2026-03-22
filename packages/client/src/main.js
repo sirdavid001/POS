@@ -1,4 +1,5 @@
 import './styles.css';
+import { registerSW } from 'virtual:pwa-register';
 import { router } from './router.js';
 import { renderLoginPage, renderRegisterPage } from './pages/auth.js';
 import { renderDashboard } from './pages/dashboard.js';
@@ -9,6 +10,16 @@ import { renderInventory } from './pages/inventory.js';
 import { renderCustomers } from './pages/customers.js';
 import { renderReports } from './pages/reports.js';
 import { renderSettings } from './pages/settings.js';
+
+// Setup PWA Service Worker
+const updateSW = registerSW({
+  onNeedRefresh() {
+    console.log('New content available, ready to update.');
+  },
+  onOfflineReady() {
+    console.log('App ready to work offline');
+  },
+});
 
 // Register routes
 router.addRoute('/login', renderLoginPage);

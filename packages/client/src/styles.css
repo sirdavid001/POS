@@ -652,3 +652,28 @@ select.input { appearance: none; cursor: pointer; }
 
   .spinner { border-color: var(--color-border); border-top-color: var(--color-primary); }
 }
+
+/* ===== Print Receipt Styles ===== */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .receipt-printable, .receipt-printable * {
+    visibility: visible;
+  }
+  .receipt-printable {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 100% !important;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+  .receipt-printable .no-print {
+    display: none !important;
+  }
+  @page { margin: 0; }
+}

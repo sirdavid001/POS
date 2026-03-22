@@ -219,7 +219,7 @@ function showReceiptModal(order) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
-    <div class="modal" style="max-width:380px;font-family:monospace;">
+    <div class="modal receipt-printable" style="max-width:380px;font-family:monospace;">
       <div style="text-align:center;border-bottom:1px dashed var(--color-border);padding-bottom:1rem;margin-bottom:1rem;">
         <h3 style="font-size:1.1rem;">⚡ QuickPOS</h3>
         <p style="font-size:0.75rem;color:var(--color-text-muted);">Receipt</p>
@@ -248,7 +248,7 @@ function showReceiptModal(order) {
         </div>
       </div>
 
-      <div style="text-align:center;margin-top:1.5rem;">
+      <div class="no-print" style="text-align:center;margin-top:1.5rem;">
         <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨️ Print</button>
         <button class="btn btn-primary btn-sm" onclick="this.closest('.modal-overlay').remove()">Done</button>
       </div>
@@ -256,6 +256,9 @@ function showReceiptModal(order) {
   `;
   document.body.appendChild(overlay);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  
+  // Auto-trigger print
+  setTimeout(() => window.print(), 300);
 }
 
 async function loadProducts(search = '') {

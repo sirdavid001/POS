@@ -1,6 +1,7 @@
 import { api } from '../api.js';
 import { renderLayout } from './layout.js';
 import { formatCurrency, formatDateTime, icons } from '../utils.js';
+import Chart from 'chart.js/auto';
 
 export async function renderDashboard() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -28,6 +29,13 @@ async function renderManagerDashboard() {
         <div class="stat-card"><div class="spinner"></div></div>
       </div>
 
+      <div class="glass-card" style="padding:1.25rem;margin-bottom:1.5rem;">
+        <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">Revenue Trend</h3>
+        <div style="height:300px;position:relative;width:100%;">
+          <canvas id="revenueChart"></canvas>
+        </div>
+      </div>
+
       <div class="responsive-grid-2" style="margin-bottom:1.5rem;">
         <div class="glass-card" style="padding:1.25rem;">
           <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">Recent Orders</h3>
@@ -51,8 +59,9 @@ async function renderManagerDashboard() {
 
   // Load data in parallel
   try {
-    const [revenue, recentOrders, topProducts, lowStock] = await Promise.all([
+    const [revenue, salesData, recentOrders, topProducts, lowStock] = await Promise.all([
       api.get('/reports/revenue'),
+      api.get('/reports/sales?period=daily'),
       api.get('/reports/recent-orders'),
       api.get('/reports/top-products?limit=5'),
       api.get('/products/low-stock'),
@@ -81,6 +90,61 @@ async function renderManagerDashboard() {
         <div class="stat-change" style="color:var(--color-text-muted);">${revenue.allTime.orders} orders</div>
       </div>
     `;
+
+    // Render Chart
+    const ctx = document.getElementById('revenueChart');
+    if (ctx && salesData.sales) {
+      // Backend returns dates descending (newest first). Reverse it for chronologic left-to-right.
+      const chronological = salesData.sales.slice().reverse();
+      const labels = chronological.map(s => {
+        const d = new Date(s.period);
+        return d.toLocaleDateString('en-NG', { month: 'short', day: 'numeric' });
+      });
+      const data = chronological.map(s => parseFloat(s.revenue));
+
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Daily Revenue',
+            data,
+            borderColor: '#6366f1',
+            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#6366f1',
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context) => formatCurrency(context.parsed.y)
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(128, 128, 128, 0.1)' },
+              ticks: { callback: (val) => '₦' + val.toLocaleString() }
+            },
+            x: {
+              grid: { display: false }
+            }
+          }
+        }
+      });
+    }
 
     // Recent orders
     if (recentOrders.orders.length === 0) {
