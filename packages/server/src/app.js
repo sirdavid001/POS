@@ -59,9 +59,26 @@ app.use('/api/v1/payments', paymentsRouter);
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/settings', settingsRouter);
 
-// Health check
+const getHealthPayload = () => ({
+  status: 'ok',
+  service: 'pos-server',
+  timestamp: new Date().toISOString(),
+});
+
+app.get('/', (req, res) => {
+  res.json({
+    ...getHealthPayload(),
+    apiBase: '/api/v1',
+    health: '/api/health',
+  });
+});
+
+app.get('/health', (req, res) => {
+  res.json(getHealthPayload());
+});
+
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json(getHealthPayload());
 });
 
 // ---- Error handlers ----
