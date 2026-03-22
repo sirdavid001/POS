@@ -71,3 +71,82 @@ export const icons = {
   alert: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
   orders: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
 };
+
+// Data Export Utility
+export function downloadCSV(dataArray, filename) {
+  if (!dataArray || !dataArray.length) {
+    return toast('No data to export', 'warning');
+  }
+  const headers = Object.keys(dataArray[0]);
+  const csvRows = [];
+  
+  csvRows.push(headers.map(h => `"${h}"`).join(','));
+  
+  for (const row of dataArray) {
+    const values = headers.map(header => {
+      let val = row[header];
+      if (val === null || val === undefined) val = '';
+      val = val.toString().replace(/"/g, '""');
+      return `"${val}"`;
+    });
+    csvRows.push(values.join(','));
+  }
+  
+  const csvString = csvRows.join('\n');
+  const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// Manager Auth Utility
+export function promptManagerPIN() {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.style.zIndex = '100000';
+    overlay.innerHTML = `
+      <div class="modal" style="max-width:320px;text-align:center;">
+        <h3 style="font-weight:700;margin-bottom:0.5rem;font-size:1.1rem;">🛡️ Manager Auth</h3>
+        <p style="font-size:0.85rem;color:var(--color-danger);margin-bottom:1.5rem;">This action requires Manager approval.</p>
+        <input type="password" id="manager-pin-input" class="input" placeholder="Enter PIN (1234)" style="text-align:center;font-size:1.5rem;letter-spacing:0.5rem;margin-bottom:1rem;" autocomplete="off">
+        <div style="display:flex;gap:0.5rem;">
+          <button class="btn btn-ghost" id="cancel-pin" style="flex:1;">Cancel</button>
+          <button class="btn btn-primary" id="submit-pin" style="flex:1;">Authorize</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const input = document.getElementById('manager-pin-input');
+    const cancelBtn = document.getElementById('cancel-pin');
+    const submitBtn = document.getElementById('submit-pin');
+
+    setTimeout(() => input.focus(), 100);
+
+    const cleanup = () => { overlay.remove(); };
+
+    const handleSubmit = () => {
+      const pin = input.value.trim();
+      if (pin === '1234') { // Secure default for local environment
+        cleanup();
+        resolve(true);
+      } else {
+        input.value = '';
+        input.style.borderColor = 'var(--color-danger)';
+        toast('Invalid Manager PIN', 'error');
+      }
+    };
+
+    submitBtn.addEventListener('click', handleSubmit);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSubmit(); });
+    cancelBtn.addEventListener('click', () => { cleanup(); resolve(false); });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) { cleanup(); resolve(false); } });
+  });
+}

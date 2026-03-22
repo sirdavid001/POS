@@ -1,6 +1,8 @@
 import { api } from '../api.js';
 import { renderLayout } from './layout.js';
-import { formatCurrency, formatDateTime, toast } from '../utils.js';
+import { formatCurrency, formatDateTime, toast, downloadCSV } from '../utils.js';
+
+let currentOrdersData = [];
 
 export async function renderOrders() {
   const content = renderLayout('orders');
@@ -8,7 +10,7 @@ export async function renderOrders() {
   content.innerHTML = `
     <div class="animate-fade-in">
       <div class="page-header"><h2>Orders</h2></div>
-      <div class="filter-row" style="display:flex;gap:1rem;margin-bottom:1rem;">
+      <div class="filter-row" style="display:flex;gap:1rem;margin-bottom:1rem;justify-content:space-between;align-items:center;">
         <select class="input" id="order-status-filter" style="max-width:180px;">
           <option value="">All Statuses</option>
           <option value="completed">Completed</option>
@@ -16,6 +18,7 @@ export async function renderOrders() {
           <option value="cancelled">Cancelled</option>
           <option value="refunded">Refunded</option>
         </select>
+        <button class="btn btn-ghost btn-sm" id="export-orders-csv">⬇️ Export CSV</button>
       </div>
       <div class="glass-card table-scroll-wrapper" style="overflow:hidden;">
         <table class="data-table">
@@ -34,6 +37,7 @@ export async function renderOrders() {
       let url = '/orders?limit=50';
       if (status) url += `&status=${status}`;
       const data = await api.get(url);
+      currentOrdersData = data.orders;
       const tbody = document.getElementById('orders-tbody');
 
       if (data.orders.length === 0) {
@@ -66,6 +70,21 @@ export async function renderOrders() {
   }
 
   document.getElementById('order-status-filter').addEventListener('change', loadOrders);
+  
+  document.getElementById('export-orders-csv').addEventListener('click', () => {
+    if (!currentOrdersData.length) return toast('No data to export', 'warning');
+    const formattedData = currentOrdersData.map(o => ({
+      'Order Number': o.order_number,
+      'Cashier': o.cashier_name || 'System',
+      'Customer': o.customer_name || 'Walk-in',
+      'Total Amount': o.total,
+      'Payment Method': (o.payment_method || 'cash').toUpperCase(),
+      'Status': o.status,
+      'Date': new Date(o.created_at).toLocaleString()
+    }));
+    downloadCSV(formattedData, `QuickPOS_Orders_${new Date().toISOString().split('T')[0]}.csv`);
+  });
+
   await loadOrders();
 }
 

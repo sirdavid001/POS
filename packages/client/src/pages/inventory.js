@@ -1,6 +1,8 @@
 import { api } from '../api.js';
 import { renderLayout } from './layout.js';
-import { formatCurrency, formatDateTime, toast, icons } from '../utils.js';
+import { formatCurrency, formatDateTime, toast, icons, downloadCSV } from '../utils.js';
+
+let currentLogsData = [];
 
 export async function renderInventory() {
   const content = renderLayout('inventory');
@@ -14,7 +16,10 @@ export async function renderInventory() {
 
       <div class="responsive-grid-2">
         <div class="glass-card" style="padding:1.25rem;">
-          <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">Recent Inventory Changes</h3>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+            <h3 style="font-size:1rem;font-weight:700;margin:0;">Recent Inventory Changes</h3>
+            <button class="btn btn-ghost btn-sm" id="export-inventory-csv">⬇️ Export CSV</button>
+          </div>
           <div id="inventory-logs"><div class="spinner"></div></div>
         </div>
         <div class="glass-card" style="padding:1.25rem;">
@@ -29,6 +34,7 @@ export async function renderInventory() {
   // Load inventory logs
   try {
     const logsData = await api.get('/inventory/logs?limit=20');
+    currentLogsData = logsData.logs;
     const logsDiv = document.getElementById('inventory-logs');
 
     if (logsData.logs.length === 0) {
@@ -136,6 +142,19 @@ export async function renderInventory() {
         renderInventory(); // reload page
       } catch (err) { toast(err.message, 'error'); }
     });
+  });
+
+  document.getElementById('export-inventory-csv').addEventListener('click', () => {
+    if (!currentLogsData.length) return toast('No data to export', 'warning');
+    const formattedData = currentLogsData.map(l => ({
+      'Product Name': l.product_name,
+      'Change Type': l.type.toUpperCase(),
+      'Quantity Adjusted': l.quantity,
+      'User': l.user_name || 'System',
+      'Reason': l.reason || '',
+      'Date': new Date(l.created_at).toLocaleString()
+    }));
+    downloadCSV(formattedData, `QuickPOS_Inventory_Logs_${new Date().toISOString().split('T')[0]}.csv`);
   });
 
   // Add supplier modal

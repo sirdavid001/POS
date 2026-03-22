@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { renderLayout } from './layout.js';
-import { formatCurrency, toast, debounce, icons } from '../utils.js';
+import { formatCurrency, toast, debounce, icons, promptManagerPIN } from '../utils.js';
 import { startUSBScanner, stopUSBScanner, openCameraScanner, scanButtonHTML } from '../scanner.js';
 
 let cart = [];
@@ -103,7 +103,13 @@ window._posRemoveItem = (index) => {
   renderCart();
 };
 
-window._posClearCart = () => {
+window._posClearCart = async () => {
+  if (cart.length === 0) return;
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  if (user.role !== 'admin' && user.role !== 'manager') {
+    const authorized = await promptManagerPIN();
+    if (!authorized) return toast('Cart clear cancelled', 'info');
+  }
   cart = [];
   renderCart();
 };
