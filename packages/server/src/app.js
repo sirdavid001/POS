@@ -21,7 +21,8 @@ import reportsRouter from './modules/reports/router.js';
 import settingsRouter from './modules/settings/router.js';
 
 const app = express();
-const server = createServer(app);
+const isVercel = process.env.VERCEL === '1';
+const server = isVercel ? null : createServer(app);
 
 // ---- Middleware ----
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -68,24 +69,25 @@ app.use(notFound);
 app.use(errorHandler);
 
 // ---- WebSocket ----
-const wss = new WebSocketServer({ server, path: '/ws' });
-
 const wsClients = new Map();
+if (server) {
+  const wss = new WebSocketServer({ server, path: '/ws' });
 
-wss.on('connection', (ws, req) => {
-  const clientId = Date.now().toString(36);
-  wsClients.set(clientId, ws);
-  logger.info(`WebSocket client connected: ${clientId}`);
+  wss.on('connection', (ws) => {
+    const clientId = Date.now().toString(36);
+    wsClients.set(clientId, ws);
+    logger.info(`WebSocket client connected: ${clientId}`);
 
-  ws.on('close', () => {
-    wsClients.delete(clientId);
-    logger.info(`WebSocket client disconnected: ${clientId}`);
+    ws.on('close', () => {
+      wsClients.delete(clientId);
+      logger.info(`WebSocket client disconnected: ${clientId}`);
+    });
+
+    ws.on('error', (err) => {
+      logger.error('WebSocket error', err);
+    });
   });
-
-  ws.on('error', (err) => {
-    logger.error('WebSocket error', err);
-  });
-});
+}
 
 // Broadcast to all connected clients
 export function broadcast(event, data) {
@@ -98,7 +100,7 @@ export function broadcast(event, data) {
 }
 
 // ---- Start server (local dev only) ----
-if (process.env.VERCEL !== '1') {
+if (server) {
   server.listen(config.port, () => {
     logger.info(`🚀 POS Server running on port ${config.port} (${config.nodeEnv})`);
     logger.info(`   API: http://localhost:${config.port}/api/v1`);
