@@ -32,7 +32,21 @@ export async function renderSettings() {
         </div>
         ` : ''}
 
+        ${isAdmin || isManager ? `
         <div class="glass-card" style="padding:1.5rem;">
+          <h3 style="font-size:1rem;font-weight:700;margin-bottom:1.25rem;">🛡️ Security Settings</h3>
+          <form id="security-form" style="display:flex;flex-direction:column;height:100%;">
+            <div class="form-group" style="flex:1;">
+              <label class="label">Checkout Override PIN</label>
+              <input class="input" type="password" id="s-manager-pin" placeholder="Enter 4-digit PIN" maxlength="4" style="letter-spacing:0.5rem;font-size:1.2rem;max-width:180px;">
+              <p style="font-size:0.75rem;color:var(--color-text-muted);margin-top:0.4rem;line-height:1.4;">This PIN is required to authorize voided carts or high-risk actions by cashiers. It is saved locally to this specific terminal.</p>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%;margin-top:auto;">Save Security PIN</button>
+          </form>
+        </div>
+        ` : ''}
+
+        <div class="glass-card" style="padding:1.5rem;grid-column:1/-1;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
             <h3 style="font-size:1rem;font-weight:700;">👥 Staff Management</h3>
             <button class="btn btn-primary btn-sm" id="add-staff-btn">+ Add Staff</button>
@@ -107,6 +121,23 @@ export async function renderSettings() {
         toast('Settings saved', 'success');
       } catch (err) { toast(err.message, 'error'); }
     });
+  }
+
+  if (isAdmin || isManager) {
+    const savedPin = localStorage.getItem('quickpos_manager_pin') || '';
+    const pinInput = document.getElementById('s-manager-pin');
+    if (pinInput && savedPin) pinInput.value = savedPin;
+
+    const secForm = document.getElementById('security-form');
+    if (secForm) {
+      secForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const pin = document.getElementById('s-manager-pin').value.trim();
+        if (pin.length < 4) return toast('PIN should be at least 4 characters', 'error');
+        localStorage.setItem('quickpos_manager_pin', pin);
+        toast('Security PIN saved securely to this terminal', 'success');
+      });
+    }
   }
 
   // Staff list

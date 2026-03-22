@@ -134,7 +134,8 @@ export function promptManagerPIN() {
 
     const handleSubmit = () => {
       const pin = input.value.trim();
-      if (pin === '1234') { // Secure default for local environment
+      const activePin = localStorage.getItem('quickpos_manager_pin') || '1234';
+      if (pin === activePin) { // Dynamic secure PIN
         cleanup();
         resolve(true);
       } else {
