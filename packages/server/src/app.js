@@ -72,21 +72,23 @@ app.get('/', (req, res) => {
     ...getHealthPayload(),
     apiBase: '/api/v1',
     health: '/api/health',
+    databaseSource: config.db.source,
   });
 });
 
 async function handleHealth(req, res) {
   try {
     await query('SELECT 1');
-    res.json(getHealthPayload({ database: 'ok' }));
+    res.json(getHealthPayload({ database: 'ok', databaseSource: config.db.source }));
   } catch (err) {
     logger.error('Health check failed', {
       error: err.message,
       code: err.code,
       path: req.path,
       method: req.method,
+      databaseSource: config.db.source,
     });
-    res.status(503).json(getHealthPayload({ status: 'error', database: 'unavailable' }));
+    res.status(503).json(getHealthPayload({ status: 'error', database: 'unavailable', databaseSource: config.db.source }));
   }
 }
 

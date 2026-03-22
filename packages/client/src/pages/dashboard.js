@@ -3,6 +3,15 @@ import { renderLayout } from './layout.js';
 import { formatCurrency, formatDateTime, icons } from '../utils.js';
 
 export async function renderDashboard() {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  if (user.role === 'cashier') {
+    return renderCashierDashboard();
+  }
+
+  return renderManagerDashboard();
+}
+
+async function renderManagerDashboard() {
   const content = renderLayout('dashboard');
 
   content.innerHTML = `
@@ -115,6 +124,127 @@ export async function renderDashboard() {
     }
 
     // Low stock
+    if (lowStock.products.length === 0) {
+      document.getElementById('low-stock').innerHTML = '<p style="color:var(--color-success);font-size:0.85rem;">✓ All products are well stocked</p>';
+    } else {
+      document.getElementById('low-stock').innerHTML = `
+        <table class="data-table">
+          <thead><tr><th>Product</th><th>Current Stock</th><th>Threshold</th><th>Status</th></tr></thead>
+          <tbody>
+            ${lowStock.products.map(p => `
+              <tr>
+                <td>${p.name}</td>
+                <td style="font-weight:700;color:var(--color-danger);">${p.stock_quantity}</td>
+                <td>${p.low_stock_threshold}</td>
+                <td><span class="badge ${p.stock_quantity === 0 ? 'badge-danger' : 'badge-warning'}">${p.stock_quantity === 0 ? 'Out of Stock' : 'Low'}</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+  } catch (err) {
+    content.innerHTML = `<div class="empty-state"><p>Failed to load dashboard: ${err.message}</p></div>`;
+  }
+}
+
+async function renderCashierDashboard() {
+  const content = renderLayout('dashboard');
+
+  content.innerHTML = `
+    <div class="animate-fade-in">
+      <div class="page-header">
+        <h2>Dashboard</h2>
+        <span style="font-size:0.85rem;color:var(--color-text-muted);">Cashier overview</span>
+      </div>
+
+      <div class="stat-grid" id="stats-grid">
+        <div class="stat-card"><div class="spinner"></div></div>
+        <div class="stat-card"><div class="spinner"></div></div>
+        <div class="stat-card"><div class="spinner"></div></div>
+        <div class="stat-card"><div class="spinner"></div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;">
+        <div class="glass-card" style="padding:1.25rem;">
+          <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">Recent Orders</h3>
+          <div id="recent-orders"><div class="spinner"></div></div>
+        </div>
+        <div class="glass-card" style="padding:1.25rem;">
+          <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">Quick Actions</h3>
+          <div id="quick-actions"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <div class="glass-card" style="padding:1.25rem;">
+        <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">
+          ${icons.alert}
+          <span style="margin-left:0.5rem;">Low Stock Alerts</span>
+        </h3>
+        <div id="low-stock"><div class="spinner"></div></div>
+      </div>
+    </div>
+  `;
+
+  try {
+    const [orders, customers, products, lowStock] = await Promise.all([
+      api.get('/orders?limit=10'),
+      api.get('/customers?limit=1'),
+      api.get('/products?limit=1'),
+      api.get('/products/low-stock'),
+    ]);
+
+    document.getElementById('stats-grid').innerHTML = `
+      <div class="stat-card">
+        <div class="stat-label">Total Orders</div>
+        <div class="stat-value">${orders.total ?? orders.orders.length}</div>
+        <div class="stat-change" style="color:var(--color-text-muted);">Completed sales in your store</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Customers</div>
+        <div class="stat-value">${customers.total ?? customers.customers.length}</div>
+        <div class="stat-change" style="color:var(--color-text-muted);">Active customer records</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Products</div>
+        <div class="stat-value">${products.total ?? products.products.length}</div>
+        <div class="stat-change" style="color:var(--color-text-muted);">Items available to sell</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Low Stock</div>
+        <div class="stat-value" style="color:${lowStock.products.length ? 'var(--color-warning)' : 'var(--color-success)'};">${lowStock.products.length}</div>
+        <div class="stat-change" style="color:var(--color-text-muted);">${lowStock.products.length ? 'Needs attention' : 'All clear'}</div>
+      </div>
+    `;
+
+    if (orders.orders.length === 0) {
+      document.getElementById('recent-orders').innerHTML = '<p style="color:var(--color-text-muted);font-size:0.85rem;">No orders yet. Start a new sale from the POS terminal.</p>';
+    } else {
+      document.getElementById('recent-orders').innerHTML = `
+        <table class="data-table">
+          <thead><tr><th>Order #</th><th>Total</th><th>Payment</th><th>Time</th></tr></thead>
+          <tbody>
+            ${orders.orders.slice(0, 5).map(o => `
+              <tr>
+                <td style="font-weight:600;">${o.order_number}</td>
+                <td>${formatCurrency(o.total)}</td>
+                <td>${(o.payment_method || 'cash').toUpperCase()}</td>
+                <td style="font-size:0.8rem;color:var(--color-text-muted);">${formatDateTime(o.created_at)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    document.getElementById('quick-actions').innerHTML = `
+      <div style="display:grid;gap:0.75rem;">
+        <a href="#/pos" class="btn btn-primary">Open POS Terminal</a>
+        <a href="#/orders" class="btn btn-secondary">View Order History</a>
+        <a href="#/customers" class="btn btn-ghost">Manage Customers</a>
+      </div>
+    `;
+
     if (lowStock.products.length === 0) {
       document.getElementById('low-stock').innerHTML = '<p style="color:var(--color-success);font-size:0.85rem;">✓ All products are well stocked</p>';
     } else {
