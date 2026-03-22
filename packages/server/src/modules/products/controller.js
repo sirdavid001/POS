@@ -73,11 +73,11 @@ export const getProduct = async (req, res, next) => {
 
 export const createProduct = async (req, res, next) => {
   try {
-    const { name, description, category_id, sku, barcode, price, cost_price, stock_quantity, low_stock_threshold } = req.body;
+    const { name, description, category_id, sku, barcode, image_url, price, cost_price, stock_quantity, low_stock_threshold } = req.body;
     const result = await query(
-      `INSERT INTO products (store_id, category_id, name, description, sku, barcode, price, cost_price, stock_quantity, low_stock_threshold)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-      [req.user.store_id, category_id || null, name, description || null, sku || null, barcode || null, price, cost_price || 0, stock_quantity, low_stock_threshold]
+      `INSERT INTO products (store_id, category_id, name, description, sku, barcode, image_url, price, cost_price, stock_quantity, low_stock_threshold)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+      [req.user.store_id, category_id || null, name, description || null, sku || null, barcode || null, image_url || null, price, cost_price || 0, stock_quantity, low_stock_threshold]
     );
     res.status(201).json({ product: result.rows[0] });
   } catch (err) {
