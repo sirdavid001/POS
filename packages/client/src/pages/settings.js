@@ -125,6 +125,7 @@ export async function renderSettings() {
         const roleBadge = u.role === 'admin' ? 'badge-info' : u.role === 'manager' ? 'badge-warning' : 'badge-success';
         const roleIcon = u.role === 'admin' ? '👑' : u.role === 'manager' ? '🏢' : '💳';
         const canModify = isAdmin || (isManager && u.role === 'cashier');
+        const canEdit = canModify && !isSelf;
         const canChangeRole = isAdmin && !isSelf;
         const canDelete = canModify && !isSelf;
         const canToggle = canModify && !isSelf;
@@ -150,6 +151,7 @@ export async function renderSettings() {
                 <span class="badge ${roleBadge}">${u.role}</span>
               `}
               <span class="badge ${u.is_active ? 'badge-success' : 'badge-danger'}" style="cursor:${canToggle ? 'pointer' : 'default'};" ${canToggle ? `data-user-id="${u.id}" data-action="toggle-active" data-active="${u.is_active}"` : ''}>${u.is_active ? 'Active' : 'Inactive'}</span>
+              ${canEdit ? `<button class="btn btn-ghost btn-sm" data-user-id="${u.id}" data-user-name="${u.name}" data-user-email="${u.email}" data-action="edit-staff" style="padding:0.25rem 0.5rem;font-size:0.75rem;" title="Edit credentials">✏️</button>` : ''}
               ${canDelete ? `<button class="btn btn-ghost btn-sm" data-user-id="${u.id}" data-action="delete" style="color:var(--color-danger);padding:0.25rem 0.5rem;font-size:0.75rem;">×</button>` : ''}
             </div>
           </div>
@@ -192,7 +194,80 @@ export async function renderSettings() {
         });
       });
 
+      // Edit staff credentials
+      staffList.querySelectorAll('[data-action="edit-staff"]').forEach(el => {
+        el.addEventListener('click', () => {
+          const uid = el.dataset.userId;
+          const uName = el.dataset.userName;
+          const uEmail = el.dataset.userEmail;
+          showEditStaffModal(uid, uName, uEmail);
+        });
+      });
+
     } catch (err) { toast('Failed to load staff', 'error'); }
+  }
+
+  // Edit staff credentials modal
+  function showEditStaffModal(userId, currentName, currentEmail) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal" style="max-width:420px;">
+        <h3 style="font-weight:700;margin-bottom:0.5rem;">Edit Staff Credentials</h3>
+        <p style="font-size:0.8rem;color:var(--color-text-muted);margin-bottom:1.25rem;">Update login details for <strong>${currentName}</strong></p>
+        <form id="edit-staff-form">
+          <div class="form-group">
+            <label class="label">Full Name</label>
+            <input class="input" name="name" value="${currentName}" placeholder="Full name">
+          </div>
+          <div class="form-group">
+            <label class="label">Email</label>
+            <input class="input" type="email" name="email" value="${currentEmail}" placeholder="Email address">
+          </div>
+          <div class="form-group">
+            <label class="label">New Password</label>
+            <input class="input" type="password" name="password" placeholder="Leave blank to keep current password" minlength="4">
+            <p style="font-size:0.7rem;color:var(--color-text-muted);margin-top:0.25rem;">Only fill this if you want to change the password</p>
+          </div>
+          <div style="display:flex;gap:0.5rem;margin-top:1.25rem;">
+            <button type="button" class="btn btn-ghost" id="cancel-edit" style="flex:1;">Cancel</button>
+            <button type="submit" class="btn btn-primary" style="flex:2;">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+    document.getElementById('cancel-edit').addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+    document.getElementById('edit-staff-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = new FormData(e.target);
+      const updates = {};
+      const newName = form.get('name').trim();
+      const newEmail = form.get('email').trim();
+      const newPassword = form.get('password');
+
+      if (newName && newName !== currentName) updates.name = newName;
+      if (newEmail && newEmail !== currentEmail) updates.email = newEmail;
+      if (newPassword) updates.password = newPassword;
+
+      if (Object.keys(updates).length === 0) {
+        toast('No changes made', 'info');
+        overlay.remove();
+        return;
+      }
+
+      try {
+        await api.patch(`/settings/users/${userId}`, updates);
+        toast('Credentials updated successfully', 'success');
+        overlay.remove();
+        loadStaff();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
   }
 
   loadStaff();

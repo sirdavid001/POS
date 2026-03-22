@@ -365,6 +365,13 @@ app.patch('/api/v1/settings/users/:id', auth, (req, res) => {
   if (req.body.role) user.role = req.body.role;
   if (req.body.is_active !== undefined) user.is_active = req.body.is_active;
   if (req.body.name) user.name = req.body.name;
+  if (req.body.email) {
+    // Check if email is already taken by another user
+    const emailTaken = users.find(u => u.email === req.body.email && u.id !== user.id);
+    if (emailTaken) return res.status(409).json({ error: 'Email already in use by another user' });
+    user.email = req.body.email;
+  }
+  if (req.body.password) user.password = req.body.password;
   res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role, is_active: user.is_active } });
 });
 
