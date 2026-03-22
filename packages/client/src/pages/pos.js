@@ -359,10 +359,6 @@ export async function renderPOS() {
       <div class="page-header" style="margin-bottom:1rem;">
         <h2>POS Terminal</h2>
         <div style="display:flex;align-items:center;gap:0.5rem;">
-          <div style="display:flex;align-items:center;gap:0.35rem;padding:0.4rem 0.75rem;border-radius:0.5rem;background:rgba(130,100,255,0.15);font-size:0.75rem;color:var(--color-primary-light);">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg>
-            Scanner Ready
-          </div>
           ${scanButtonHTML('pos-camera-scan', { label: 'Scan', variant: 'btn-primary btn-sm' })}
         </div>
       </div>
