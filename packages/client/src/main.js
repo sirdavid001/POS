@@ -26,9 +26,18 @@ router.addRoute('/settings', renderSettings);
 router.start();
 
 // WebSocket connection for real-time updates
-function connectWebSocket() {
+function getWebSocketUrl() {
+  const configuredUrl = import.meta.env.VITE_WS_URL?.trim();
+  if (configuredUrl) return configuredUrl;
+  if (!import.meta.env.DEV) return null;
+
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${protocol}//${window.location.host}/ws`;
+  return `${protocol}//${window.location.host}/ws`;
+}
+
+function connectWebSocket() {
+  const wsUrl = getWebSocketUrl();
+  if (!wsUrl) return;
 
   try {
     const ws = new WebSocket(wsUrl);
