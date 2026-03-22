@@ -14,7 +14,7 @@ export function renderLayout(activePage) {
     { id: 'customers', label: 'Customers', icon: icons.customers, hash: '#/customers', roles: ['admin', 'manager', 'cashier'] },
     { id: 'orders', label: 'Orders', icon: icons.orders, hash: '#/orders', roles: ['admin', 'manager', 'cashier'] },
     { id: 'reports', label: 'Reports', icon: icons.reports, hash: '#/reports', roles: ['admin', 'manager'] },
-    { id: 'settings', label: 'Settings', icon: icons.settings, hash: '#/settings', roles: ['admin'] },
+    { id: 'settings', label: 'Settings', icon: icons.settings, hash: '#/settings', roles: ['admin', 'manager'] },
   ];
 
   const visibleNav = navItems.filter(item => item.roles.includes(user.role));

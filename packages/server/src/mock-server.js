@@ -296,17 +296,117 @@ app.get('/api/v1/reports/sales', auth, (req, res) => {
 });
 
 // ===== Settings =====
-app.get('/api/v1/settings/store', auth, (req, res) => res.json({ store }));
-app.patch('/api/v1/settings/store', auth, (req, res) => { Object.assign(store, req.body); res.json({ store }); });
-app.get('/api/v1/settings/users', auth, (req, res) => {
-  res.json({ users: users.map(u => ({ id: u.id, email: u.email, name: u.name, role: u.role, is_active: u.is_active, last_login: u.last_login, created_at: u.created_at })) });
+app.get('/api/v1/settings/store', auth, (req, res) => {
+  if (!['admin', 'manager'].includes(req.user.role)) return res.status(403).json({ error: 'Access denied' });
+  res.json({ store });
 });
+app.patch('/api/v1/settings/store', auth, (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Only admins can modify store settings' });
+  Object.assign(store, req.body);
+  res.json({ store });
+});
+
+app.get('/api/v1/settings/users', auth, (req, res) => {
+  if (!['admin', 'manager'].includes(req.user.role)) return res.status(403).json({ error: 'Access denied' });
+  // Managers can only see cashiers + themselves; admins see all
+  let visibleUsers = users;
+  if (req.user.role === 'manager') {
+    visibleUsers = users.filter(u => u.role === 'cashier' || u.id === req.user.id);
+  }
+  res.json({
+    users: visibleUsers.map(u => ({
+      id: u.id, email: u.email, name: u.name, role: u.role,
+      is_active: u.is_active, last_login: u.last_login,
+      created_by: u.created_by || null, created_at: u.created_at,
+    })),
+  });
+});
+
+// Create new staff member
+app.post('/api/v1/settings/users', auth, (req, res) => {
+  const { name, email, password, role } = req.body;
+  if (!name || !email || !password || !role) return res.status(400).json({ error: 'Name, email, password, and role are required' });
+
+  // Permission checks
+  if (req.user.role === 'cashier') return res.status(403).json({ error: 'Cashiers cannot create staff' });
+  if (req.user.role === 'manager' && role !== 'cashier') return res.status(403).json({ error: 'Managers can only create cashier accounts' });
+  if (role === 'admin' && req.user.role !== 'admin') return res.status(403).json({ error: 'Only admins can create admin accounts' });
+
+  if (users.find(u => u.email === email)) return res.status(409).json({ error: 'Email already in use' });
+
+  const newUser = {
+    id: users.length + 1,
+    store_id: 1,
+    role_id: role === 'admin' ? 1 : role === 'manager' ? 2 : 3,
+    email, password, name, role,
+    is_active: true,
+    created_by: req.user.name,
+    last_login: null,
+    created_at: new Date().toISOString(),
+  };
+  users.push(newUser);
+  res.status(201).json({
+    user: { id: newUser.id, email: newUser.email, name: newUser.name, role: newUser.role, is_active: true, created_by: req.user.name },
+  });
+});
+
 app.patch('/api/v1/settings/users/:id', auth, (req, res) => {
   const user = users.find(u => u.id == req.params.id);
   if (!user) return res.status(404).json({ error: 'User not found' });
+
+  // Permission checks
+  if (req.user.role === 'cashier') return res.status(403).json({ error: 'Access denied' });
+  if (req.user.role === 'manager') {
+    if (user.role !== 'cashier') return res.status(403).json({ error: 'Managers can only modify cashier accounts' });
+    if (req.body.role && req.body.role !== 'cashier') return res.status(403).json({ error: 'Managers cannot promote users beyond cashier' });
+  }
+  if (user.role === 'admin' && req.user.role !== 'admin') return res.status(403).json({ error: 'Only admins can modify admin accounts' });
+
   if (req.body.role) user.role = req.body.role;
   if (req.body.is_active !== undefined) user.is_active = req.body.is_active;
-  res.json({ user: { id: user.id, email: user.email, name: user.name, is_active: user.is_active } });
+  if (req.body.name) user.name = req.body.name;
+  res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role, is_active: user.is_active } });
+});
+
+app.delete('/api/v1/settings/users/:id', auth, (req, res) => {
+  if (req.user.role === 'cashier') return res.status(403).json({ error: 'Access denied' });
+  const idx = users.findIndex(u => u.id == req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'User not found' });
+  const target = users[idx];
+  if (target.role === 'admin' && req.user.role !== 'admin') return res.status(403).json({ error: 'Only admins can delete admin accounts' });
+  if (target.id === req.user.id) return res.status(400).json({ error: 'Cannot delete your own account' });
+  if (req.user.role === 'manager' && target.role !== 'cashier') return res.status(403).json({ error: 'Managers can only delete cashier accounts' });
+  users.splice(idx, 1);
+  res.json({ message: 'User deleted' });
+});
+
+// ===== Permissions endpoint (returns what the current user can do) =====
+app.get('/api/v1/auth/permissions', auth, (req, res) => {
+  const role = req.user.role;
+  const permissions = {
+    admin: {
+      dashboard: true, pos: true, products: { view: true, create: true, edit: true, delete: true },
+      inventory: { view: true, adjust: true, suppliers: true }, orders: { view: true, viewAll: true, refund: true },
+      customers: { view: true, create: true, edit: true, delete: true },
+      reports: { view: true, export: true }, settings: { store: true, staff: true },
+      staff: { view: true, create: ['admin', 'manager', 'cashier'], editRoles: true, delete: true },
+    },
+    manager: {
+      dashboard: true, pos: true, products: { view: true, create: true, edit: true, delete: true },
+      inventory: { view: true, adjust: true, suppliers: true }, orders: { view: true, viewAll: true, refund: false },
+      customers: { view: true, create: true, edit: true, delete: false },
+      reports: { view: true, export: false }, settings: { store: false, staff: true },
+      staff: { view: true, create: ['cashier'], editRoles: false, delete: true },
+    },
+    cashier: {
+      dashboard: true, pos: true, products: { view: true, create: false, edit: false, delete: false },
+      inventory: { view: false, adjust: false, suppliers: false }, orders: { view: true, viewAll: false, refund: false },
+      customers: { view: true, create: true, edit: false, delete: false },
+      reports: { view: false, export: false }, settings: { store: false, staff: false },
+      staff: { view: false, create: [], editRoles: false, delete: false },
+    },
+  };
+  res.json({ role, permissions: permissions[role] || permissions.cashier });
 });
 
 // ===== Barcode Lookup (Online Product Database) =====
