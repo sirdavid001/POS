@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getClient, query } from '../../config/database.js';
 import { authenticate } from '../../middleware/auth.js';
 import logger from '../../config/logger.js';
+import { broadcast } from '../../app.js';
 
 const router = Router();
 router.use(authenticate);
@@ -117,6 +118,13 @@ router.post('/', async (req, res, next) => {
 
     await client.query('COMMIT');
     logger.info(`Order ${orderNumber} created by user ${req.user.id}, total: ${total}`);
+
+    // Broadcast event to connected clients (like Dashboard)
+    broadcast('NEW_ORDER', {
+      order_number: orderNumber,
+      total,
+      cashier_id: req.user.id
+    });
 
     res.status(201).json({
       order: { ...order, items: orderItems },

@@ -3,6 +3,15 @@ import { renderLayout } from './layout.js';
 import { formatCurrency, formatDateTime, icons } from '../utils.js';
 import Chart from 'chart.js/auto';
 
+if (!window._wsDashboardMounted) {
+  window.addEventListener('ws-message', (e) => {
+    if (e.detail?.event === 'NEW_ORDER' && window.location.hash.startsWith('#/dashboard')) {
+      import('./dashboard.js').then(module => module.renderDashboard());
+    }
+  });
+  window._wsDashboardMounted = true;
+}
+
 export async function renderDashboard() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   if (user.role === 'cashier') {

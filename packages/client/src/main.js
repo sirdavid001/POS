@@ -1,5 +1,6 @@
 import './styles.css';
 import { registerSW } from 'virtual:pwa-register';
+import { attemptSync } from './sync.js';
 import { router } from './router.js';
 import { renderLoginPage, renderRegisterPage } from './pages/auth.js';
 import { renderDashboard } from './pages/dashboard.js';
@@ -59,9 +60,9 @@ function connectWebSocket() {
 
     ws.onmessage = (event) => {
       try {
-        const { event: eventName, data } = JSON.parse(event.data);
-        console.log('WS event:', eventName, data);
-        // Could refresh dashboard or show toast on new orders, etc.
+        const payload = JSON.parse(event.data);
+        const { event: eventName, data } = payload;
+        window.dispatchEvent(new CustomEvent('ws-message', { detail: payload }));
       } catch {}
     };
 
@@ -82,3 +83,7 @@ function connectWebSocket() {
 if (localStorage.getItem('user')) {
   connectWebSocket();
 }
+
+window.addEventListener('online', attemptSync);
+document.addEventListener('DOMContentLoaded', attemptSync);
+setTimeout(attemptSync, 2000); // Trigger a sync briefly after app load

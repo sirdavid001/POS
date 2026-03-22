@@ -5,6 +5,11 @@ import { startUSBScanner, stopUSBScanner, openCameraScanner, scanButtonHTML } fr
 
 let cart = [];
 let products = [];
+let storeSettings = {
+  name: 'QuickPOS Store',
+  receipt_header: '',
+  receipt_footer: 'Thank you for your business!'
+};
 
 function getCartTotal() {
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
@@ -214,20 +219,52 @@ function showPaymentModal() {
 
       toast('Sale completed! ' + result.order.order_number, 'success');
     } catch (err) {
-      toast(err.message || 'Payment failed', 'error');
-      confirmBtn.disabled = false;
-      confirmBtn.textContent = 'Confirm Payment';
+      if (!navigator.onLine || err.message === 'Failed to fetch' || err.message.toLowerCase().includes('network')) {
+        const queueObj = { ...orderData, temp_id: Date.now(), created_at: new Date().toISOString() };
+        const queue = JSON.parse(localStorage.getItem('quickpos_offline_orders') || '[]');
+        queue.push(queueObj);
+        localStorage.setItem('quickpos_offline_orders', JSON.stringify(queue));
+        
+        toast('Connection lost. Sale secured locally and will queue.', 'warning', 5000);
+        
+        overlay.remove();
+        
+        // Mock a receipt for the customer before syncing
+        showReceiptModal({
+          order_number: 'OFFLINE-' + queueObj.temp_id,
+          created_at: queueObj.created_at,
+          payment_method: orderData.payment_method,
+          subtotal: getCartTotal(),
+          tax_amount: 0,
+          total: getCartTotal(),
+          items: cart.map(i => ({ product_name: i.name, quantity: i.qty, total: i.price * i.qty }))
+        });
+
+        cart = [];
+        renderCart();
+      } else {
+        toast(err.message || 'Payment failed', 'error');
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Confirm Payment';
+      }
     }
   });
 }
 
 function showReceiptModal(order) {
+  const shopName = storeSettings.name || 'QuickPOS Store';
+  const receiptHeader = storeSettings.receipt_header
+    ? `<div style="text-align:center;font-size:0.8rem;margin-bottom:1rem;color:var(--color-text-muted);white-space:pre-wrap;">${storeSettings.receipt_header}</div>`
+    : '';
+  const receiptFooter = storeSettings.receipt_footer || 'Thank you for your business!';
+
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
     <div class="modal receipt-printable" style="max-width:380px;font-family:monospace;">
       <div style="text-align:center;border-bottom:1px dashed var(--color-border);padding-bottom:1rem;margin-bottom:1rem;">
-        <h3 style="font-size:1.1rem;">⚡ QuickPOS</h3>
+        <h3 style="font-size:1.1rem;">${shopName}</h3>
+        ${receiptHeader}
         <p style="font-size:0.75rem;color:var(--color-text-muted);">Receipt</p>
       </div>
 
@@ -253,6 +290,8 @@ function showReceiptModal(order) {
           <span>TOTAL:</span><span>${formatCurrency(order.total)}</span>
         </div>
       </div>
+
+      <div style="text-align:center;font-size:0.75rem;margin-top:1.5rem;color:var(--color-text-muted);white-space:pre-wrap;">${receiptFooter}</div>
 
       <div class="no-print" style="text-align:center;margin-top:1.5rem;">
         <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨️ Print</button>
