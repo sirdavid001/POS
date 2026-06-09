@@ -1,6 +1,7 @@
 import { api } from '../api.js';
 import { renderLayout } from './layout.js';
 import { formatCurrency, toast } from '../utils.js';
+import { showStatementModal } from './customers.js';
 
 export async function renderReports() {
   const content = renderLayout('reports');
@@ -23,6 +24,26 @@ export async function renderReports() {
         <button class="btn btn-primary" id="load-report-btn">Generate</button>
       </div>
 
+      <div class="glass-card" style="padding:1.25rem;margin-bottom:1.5rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+          <div>
+            <h3 style="font-size:1rem;font-weight:700;">Customer Account Statements</h3>
+            <p style="font-size:0.8rem;color:var(--color-text-muted);margin-top:0.25rem;">
+              Print, download as PDF or Excel, or send a customer's purchase statement by email.
+            </p>
+          </div>
+          <div style="display:flex;gap:0.5rem;align-items:end;flex-wrap:wrap;">
+            <div>
+              <label class="label" for="statement-customer-select">Customer</label>
+              <select class="input" id="statement-customer-select" style="min-width:240px;">
+                <option value="">Loading customers...</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" id="open-statement-btn" disabled>Open Statement</button>
+          </div>
+        </div>
+      </div>
+
       <div class="stat-grid" id="report-stats">
         <div class="stat-card"><div class="spinner"></div></div>
       </div>
@@ -39,6 +60,46 @@ export async function renderReports() {
       </div>
     </div>
   `;
+
+  let statementCustomers = [];
+  const statementSelect = document.getElementById('statement-customer-select');
+  const openStatementButton = document.getElementById('open-statement-btn');
+
+  async function loadStatementCustomers() {
+    try {
+      const data = await api.get('/customers?limit=500');
+      statementCustomers = data.customers;
+      statementSelect.innerHTML = '<option value="">Select a customer</option>';
+
+      statementCustomers.forEach(customer => {
+        const option = document.createElement('option');
+        option.value = customer.id;
+        option.textContent = customer.email
+          ? `${customer.name} (${customer.email})`
+          : customer.name;
+        statementSelect.appendChild(option);
+      });
+
+      if (statementCustomers.length === 0) {
+        statementSelect.innerHTML = '<option value="">No customers available</option>';
+      }
+    } catch {
+      statementSelect.innerHTML = '<option value="">Failed to load customers</option>';
+      toast('Failed to load customers for statements', 'error');
+    }
+  }
+
+  statementSelect.addEventListener('change', () => {
+    openStatementButton.disabled = !statementSelect.value;
+  });
+
+  openStatementButton.addEventListener('click', () => {
+    const customer = statementCustomers.find(item => String(item.id) === statementSelect.value);
+    if (!customer) return toast('Select a customer first', 'warning');
+    showStatementModal(customer);
+  });
+
+  loadStatementCustomers();
 
   async function loadReport() {
     try {

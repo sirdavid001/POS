@@ -147,7 +147,7 @@ export async function renderCustomers() {
   await loadCustomers();
 }
 
-function showStatementModal(customer) {
+export function showStatementModal(customer) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
