@@ -30,6 +30,9 @@ services:
       PORT: 3001
       NODE_ENV: production
       CORS_ORIGIN: http://localhost:5173
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      EMAIL_REPLY_TO: ${EMAIL_REPLY_TO:-}
     depends_on:
       postgres:
         condition: service_healthy

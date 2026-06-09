@@ -110,6 +110,48 @@ class ApiClient {
     }
   }
 
+  async download(path) {
+    const url = `${API_BASE}${path}`;
+    const config = {
+      headers: {},
+    };
+
+    if (this.accessToken) {
+      config.headers.Authorization = `Bearer ${this.accessToken}`;
+    }
+
+    let response = await fetch(url, config);
+
+    if (response.status === 401 && this.refreshToken) {
+      const refreshed = await this.refreshAccessToken();
+      if (refreshed) {
+        config.headers.Authorization = `Bearer ${this.accessToken}`;
+        response = await fetch(url, config);
+      } else {
+        this.clearTokens();
+        window.location.hash = '#/login';
+        throw new Error('Session expired. Please log in again.');
+      }
+    }
+
+    if (!response.ok) {
+      let message = 'Download failed';
+      try {
+        const data = await response.json();
+        message = data.error || message;
+      } catch {}
+      throw new Error(message);
+    }
+
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const filenameMatch = disposition.match(/filename="?([^"]+)"?/i);
+
+    return {
+      blob: await response.blob(),
+      filename: filenameMatch?.[1] || null,
+    };
+  }
+
   get(path) { return this.request('GET', path); }
   post(path, data) { return this.request('POST', path, data); }
   patch(path, data) { return this.request('PATCH', path, data); }

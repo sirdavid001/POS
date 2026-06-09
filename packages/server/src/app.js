@@ -27,8 +27,13 @@ const server = isVercel ? null : createServer(app);
 
 // ---- Middleware ----
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors({ origin: true, credentials: true }));
-app.options('*', cors({ origin: true, credentials: true }));
+const corsOptions = {
+  origin: true,
+  credentials: true,
+  exposedHeaders: ['Content-Disposition'],
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
