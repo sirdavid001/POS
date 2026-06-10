@@ -1,4 +1,5 @@
 import { toast } from './utils.js';
+import { manifestFromGitHubRelease } from '../../shared/src/releases.js';
 
 const MANIFEST_URL =
   import.meta.env.VITE_RELEASE_MANIFEST_URL ||
@@ -46,11 +47,8 @@ async function findAvailableRelease(platform) {
   );
   if (!response.ok) return null;
   const githubRelease = await response.json();
-  const manifestAsset = githubRelease.assets?.find((asset) => asset.name === 'latest.json');
-  if (!manifestAsset) return null;
-  const manifestResponse = await fetch(manifestAsset.browser_download_url, { cache: 'no-store' });
-  if (!manifestResponse.ok) return null;
-  const manifest = await manifestResponse.json();
+  const manifest = manifestFromGitHubRelease(githubRelease);
+  if (!manifest) return null;
   const release = manifest.releases?.find((item) =>
     item.platform === platform && item.status === 'available'
   );

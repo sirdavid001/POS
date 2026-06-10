@@ -1,5 +1,6 @@
 import './styles.css';
 import { inject, track } from '@vercel/analytics';
+import { manifestFromGitHubRelease } from '../../shared/src/releases.js';
 
 inject();
 
@@ -147,11 +148,7 @@ async function loadDownloads() {
       );
       if (response.ok) {
         const release = await response.json();
-        const manifestAsset = release.assets?.find((asset) => asset.name === 'latest.json');
-        if (manifestAsset) {
-          const manifestResponse = await fetch(manifestAsset.browser_download_url, { cache: 'no-store' });
-          if (manifestResponse.ok) manifest = await manifestResponse.json();
-        }
+        manifest = manifestFromGitHubRelease(release);
       }
     }
 
