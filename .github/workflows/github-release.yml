@@ -43,7 +43,8 @@ jobs:
             --version "$VERSION" \
             --minimum "$VERSION" \
             --notes "QuickPOS $VERSION for Windows" \
-            --base-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
+            --base-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}" \
+            --flat-artifact-urls
       - name: Publish GitHub release
         shell: bash
         env:

@@ -99,7 +99,6 @@ async function loadDownloads() {
     const manifestUrls = [
       import.meta.env.VITE_RELEASE_MANIFEST_URL,
       'https://downloads.quickpos.name.ng/latest.json',
-      'https://github.com/sirdavid001/POS/releases/latest/download/latest.json',
     ].filter(Boolean);
     let manifest = null;
 
@@ -111,6 +110,34 @@ async function loadDownloads() {
         break;
       } catch {
         // Try the next release host.
+      }
+    }
+
+    if (!manifest) {
+      const response = await fetch(
+        'https://api.github.com/repos/sirdavid001/POS/releases/latest',
+        { cache: 'no-store' },
+      );
+      if (response.ok) {
+        const release = await response.json();
+        const installer = release.assets?.find((asset) =>
+          /^QuickPOS-Setup-.*\.exe$/i.test(asset.name));
+        if (installer) {
+          const version = release.tag_name.replace(/^v/, '');
+          manifest = {
+            releases: [{
+              platform: 'windows',
+              architecture: 'x64',
+              file_type: '.exe',
+              version,
+              url: installer.browser_download_url,
+              sha256: installer.digest?.replace(/^sha256:/, '') || null,
+              size: installer.size,
+              size_display: `${(installer.size / 1024 ** 2).toFixed(1)} MB`,
+              status: 'available',
+            }],
+          };
+        }
       }
     }
 

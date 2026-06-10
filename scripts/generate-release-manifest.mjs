@@ -44,6 +44,7 @@ const version = argument('version');
 const releaseNotes = argument('notes', `QuickPOS ${version}`);
 const minimumSupportedVersion = argument('minimum', version);
 const baseUrl = argument('base-url', 'https://downloads.quickpos.name.ng').replace(/\/$/, '');
+const flatArtifactUrls = process.argv.includes('--flat-artifact-urls');
 
 if (!version) throw new Error('--version is required');
 
@@ -62,7 +63,9 @@ for (const file of files) {
   releases.push({
     ...details,
     version,
-    url: `${baseUrl}/releases/${version}/${encodeURIComponent(name)}`,
+    url: flatArtifactUrls
+      ? `${baseUrl}/${encodeURIComponent(name)}`
+      : `${baseUrl}/releases/${version}/${encodeURIComponent(name)}`,
     sha256,
     size: stat.size,
     size_display: displaySize(stat.size),
