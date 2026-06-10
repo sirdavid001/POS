@@ -12,15 +12,17 @@ import { renderCustomers } from './pages/customers.js';
 import { renderReports } from './pages/reports.js';
 import { renderSettings } from './pages/settings.js';
 
-// Setup PWA Service Worker
-const updateSW = registerSW({
-  onNeedRefresh() {
-    console.log('New content available, ready to update.');
-  },
-  onOfflineReady() {
-    console.log('App ready to work offline');
-  },
-});
+// Service workers are unavailable when Electron loads the bundled app over file://.
+if (window.location.protocol !== 'file:') {
+  registerSW({
+    onNeedRefresh() {
+      console.log('New content available, ready to update.');
+    },
+    onOfflineReady() {
+      console.log('App ready to work offline');
+    },
+  });
+}
 
 // Register routes
 router.addRoute('/login', renderLoginPage);

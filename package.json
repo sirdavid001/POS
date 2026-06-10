@@ -2,6 +2,7 @@
   "name": "pos-system",
   "version": "1.0.0",
   "private": true,
+  "main": "desktop/main.cjs",
   "workspaces": [
     "packages/shared",
     "packages/server",
@@ -16,15 +17,50 @@
     "db:seed": "npm run db:seed -w packages/server",
     "mobile:sync": "npm run build -w packages/client && cap sync",
     "mobile:android": "npm run mobile:sync && cap open android",
-    "mobile:ios": "npm run mobile:sync && cap open ios"
+    "mobile:ios": "npm run mobile:sync && cap open ios",
+    "desktop:start": "npm run build -w packages/client && electron .",
+    "desktop:win": "npm run build -w packages/client && electron-builder --win nsis --x64"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0"
+    "concurrently": "^9.1.0",
+    "electron": "^42.4.0",
+    "electron-builder": "^26.15.2"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.0",
     "@capacitor/cli": "^8.4.0",
     "@capacitor/core": "^8.4.0",
     "@capacitor/ios": "^8.4.0"
+  },
+  "build": {
+    "appId": "app.quickpos.desktop",
+    "productName": "QuickPOS",
+    "asar": true,
+    "npmRebuild": false,
+    "files": [
+      "desktop/**/*",
+      "packages/client/dist/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "QuickPOS-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   }
 }
