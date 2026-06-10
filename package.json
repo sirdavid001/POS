@@ -49,9 +49,11 @@
       "package.json"
     ],
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "win": {
+      "icon": "build/quickpos.ico",
       "target": [
         {
           "target": "nsis",
@@ -63,12 +65,14 @@
       "artifactName": "QuickPOS-Setup-${version}.${ext}"
     },
     "mac": {
+      "icon": "build/quickpos.icns",
       "target": [
         "dmg"
       ],
       "artifactName": "QuickPOS-${version}-${arch}.${ext}"
     },
     "linux": {
+      "icon": "build/quickpos.png",
       "target": [
         "AppImage",
         "deb"

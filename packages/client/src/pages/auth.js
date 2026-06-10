@@ -2,13 +2,20 @@ import { api } from '../api.js';
 import { saveSubscription } from '../entitlement.js';
 import { toast } from '../utils.js';
 
+const authBrand = `
+  <div class="auth-brand">
+    <img src="./brand/quickpos-mark.svg" alt="" width="48" height="48">
+    <span>QuickPOS</span>
+  </div>
+`;
+
 export function renderLoginPage() {
   const app = document.getElementById('app');
 
   app.innerHTML = `
     <div class="login-page">
       <div class="login-card glass-card animate-fade-in">
-        <h1>⚡ QuickPOS</h1>
+        ${authBrand}
         <p>Sign in to your point of sale system</p>
 
         <form id="login-form">
@@ -65,7 +72,7 @@ export function renderRegisterPage() {
   app.innerHTML = `
     <div class="login-page">
       <div class="login-card glass-card animate-fade-in">
-        <h1>⚡ QuickPOS</h1>
+        ${authBrand}
         <p>Create a new account</p>
 
         <form id="register-form">
@@ -127,7 +134,7 @@ export function renderForgotPasswordPage() {
   app.innerHTML = `
     <div class="login-page">
       <div class="login-card glass-card animate-fade-in">
-        <h1>QuickPOS</h1>
+        ${authBrand}
         <p>Enter your login email and we will send a secure reset link.</p>
 
         <form id="forgot-password-form">
@@ -180,7 +187,7 @@ export function renderResetPasswordPage() {
   app.innerHTML = `
     <div class="login-page">
       <div class="login-card glass-card animate-fade-in">
-        <h1>QuickPOS</h1>
+        ${authBrand}
         <p>Choose a new password for your account.</p>
 
         ${token ? `

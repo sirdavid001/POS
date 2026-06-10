@@ -8,13 +8,13 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'pwa-maskable-512x512.png'],
       manifest: {
         name: 'QuickPOS System',
         short_name: 'QuickPOS',
         description: 'Modern Point of Sale Application',
-        theme_color: '#4f46e5',
-        background_color: '#ffffff',
+        theme_color: '#15161b',
+        background_color: '#15161b',
         display: 'standalone',
         icons: [
           {
@@ -28,7 +28,7 @@ export default defineConfig({
             type: 'image/png'
           },
           {
-            src: 'pwa-512x512.png',
+            src: 'pwa-maskable-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'

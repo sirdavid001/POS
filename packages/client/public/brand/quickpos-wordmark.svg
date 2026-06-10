@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 256" role="img" aria-labelledby="title">
+  <title id="title">QuickPOS</title>
+  <rect width="224" height="224" y="16" rx="49" fill="#15161b"/>
+  <circle cx="99" cy="113" r="55" fill="none" stroke="#6366f1" stroke-width="29"/>
+  <path d="m132 146 48 48" fill="none" stroke="#6366f1" stroke-linecap="round" stroke-width="29"/>
+  <path d="m154 155 29 29" fill="none" stroke="#42d392" stroke-linecap="round" stroke-width="13"/>
+  <text x="268" y="174" fill="#f5f7ff" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="132" font-weight="800" letter-spacing="-7">QuickPOS</text>
+</svg>

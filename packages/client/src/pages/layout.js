@@ -33,7 +33,7 @@ export function renderLayout(activePage) {
 
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-logo">
-          <h1>⚡ QuickPOS</h1>
+          <div class="app-brand"><img src="./brand/quickpos-mark.svg" alt="" width="36" height="36"><span>QuickPOS</span></div>
           <p>${user.name || 'User'} · ${(user.role || 'cashier').charAt(0).toUpperCase() + (user.role || '').slice(1)}</p>
         </div>
         <nav class="sidebar-nav">
