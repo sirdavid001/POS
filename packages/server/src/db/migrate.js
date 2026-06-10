@@ -1,10 +1,12 @@
 import { up as migration001 } from './migrations/001_initial_schema.js';
+import { up as migration002 } from './migrations/002_subscriptions.js';
 import logger from '../config/logger.js';
 
 async function runMigrations() {
   try {
     logger.info('Starting database migrations...');
     await migration001();
+    await migration002();
     logger.info('All migrations completed successfully');
     process.exit(0);
   } catch (err) {

@@ -741,6 +741,112 @@ select.input { appearance: none; cursor: pointer; }
   align-items: end;
 }
 
+.subscription-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.subscription-banner.trial {
+  background: oklch(0.72 0.16 85 / 0.12);
+  border-color: oklch(0.72 0.16 85 / 0.35);
+}
+
+.subscription-banner.expired {
+  background: oklch(0.62 0.21 25 / 0.12);
+  border-color: oklch(0.62 0.21 25 / 0.35);
+}
+
+.billing-status-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.billing-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.billing-plan-card {
+  position: relative;
+  padding: 1.25rem;
+}
+
+.billing-plan-card.featured {
+  border-color: var(--color-primary);
+}
+
+.billing-plan-card p {
+  min-height: 2.5rem;
+  margin: 0.65rem 0 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.billing-plan-label {
+  display: inline-block;
+  margin-bottom: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.billing-plan-label.launch {
+  background: oklch(0.65 0.18 145);
+}
+
+.billing-price {
+  margin-top: 0.45rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.billing-provider-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+}
+
+.app-update-banner {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 680px;
+  padding: 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.8rem;
+  background: var(--color-surface-2);
+  box-shadow: 0 12px 40px oklch(0 0 0 / 0.25);
+}
+
+.app-update-banner div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.app-update-banner span {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
 @media (max-width: 700px) {
   .statement-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -748,5 +854,21 @@ select.input { appearance: none; cursor: pointer; }
 
   .statement-email-controls {
     grid-template-columns: 1fr;
+  }
+
+  .billing-plan-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .billing-status-card,
+  .subscription-banner,
+  .app-update-banner {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .app-update-banner {
+    left: 0.75rem;
+    right: 0.75rem;
   }
 }

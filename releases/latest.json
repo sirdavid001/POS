@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "version": "1.0.0",
+  "published_at": null,
+  "release_notes": "Initial QuickPOS release.",
+  "minimum_supported_version": "1.0.0",
+  "releases": [
+    {
+      "platform": "windows",
+      "architecture": "x64",
+      "file_type": ".exe",
+      "version": "1.0.0",
+      "url": null,
+      "sha256": null,
+      "size": null,
+      "release_notes": "Release pending upload.",
+      "minimum_supported_version": "1.0.0",
+      "status": "coming_soon"
+    },
+    {
+      "platform": "android",
+      "architecture": "universal",
+      "file_type": ".apk",
+      "version": "1.0.0",
+      "url": null,
+      "sha256": null,
+      "size": null,
+      "release_notes": "Signed release pending upload. Debug APKs are never published.",
+      "minimum_supported_version": "1.0.0",
+      "status": "coming_soon"
+    },
+    {
+      "platform": "macos",
+      "architecture": "universal",
+      "file_type": ".dmg",
+      "version": "1.0.0",
+      "url": null,
+      "sha256": null,
+      "size": null,
+      "release_notes": "Signed and notarized macOS release coming soon.",
+      "minimum_supported_version": "1.0.0",
+      "status": "coming_soon"
+    },
+    {
+      "platform": "linux",
+      "architecture": "x64",
+      "file_type": ".AppImage",
+      "version": "1.0.0",
+      "url": null,
+      "sha256": null,
+      "size": null,
+      "release_notes": "Linux AppImage and Debian package coming soon.",
+      "minimum_supported_version": "1.0.0",
+      "status": "coming_soon"
+    },
+    {
+      "platform": "ios",
+      "architecture": "app-store",
+      "file_type": "App Store",
+      "version": "1.0.0",
+      "url": null,
+      "sha256": null,
+      "size": null,
+      "release_notes": "TestFlight and App Store release coming soon. No direct IPA download.",
+      "minimum_supported_version": "1.0.0",
+      "status": "coming_soon"
+    }
+  ]
+}

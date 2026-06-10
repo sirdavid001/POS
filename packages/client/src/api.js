@@ -1,4 +1,6 @@
 // API client with JWT refresh support
+import { clearSubscription, saveSubscription } from './entitlement.js';
+
 // In production, VITE_API_URL points to the deployed backend (e.g. https://pos-api.vercel.app/api/v1)
 // In dev, Vite proxy forwards /api/v1 to localhost:3001
 function normalizeApiBase(rawValue) {
@@ -25,6 +27,16 @@ function normalizeApiBase(rawValue) {
 
 const API_BASE = normalizeApiBase(import.meta.env.VITE_API_URL);
 
+export class ApiError extends Error {
+  constructor(message, response, details = {}) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = response.status;
+    this.code = details.code;
+    this.details = details;
+  }
+}
+
 class ApiClient {
   constructor() {
     this.accessToken = localStorage.getItem('accessToken');
@@ -44,6 +56,7 @@ class ApiClient {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+    clearSubscription();
   }
 
   async request(method, path, data = null, options = {}) {
@@ -86,8 +99,15 @@ class ApiClient {
       throw new Error(`Server returned an invalid response (HTTP ${response.status}). Please check your connection.`);
     }
 
+    if (json.subscription) {
+      saveSubscription(json.subscription);
+    }
+
     if (!response.ok) {
-      throw new Error(json.error || 'Request failed');
+      if (json.code === 'SUBSCRIPTION_EXPIRED') {
+        window.dispatchEvent(new CustomEvent('subscription-expired', { detail: json.subscription }));
+      }
+      throw new ApiError(json.error || 'Request failed', response, json);
     }
 
     return json;
@@ -104,6 +124,7 @@ class ApiClient {
       const data = await res.json();
       this.accessToken = data.accessToken;
       localStorage.setItem('accessToken', data.accessToken);
+      if (data.subscription) saveSubscription(data.subscription);
       return true;
     } catch {
       return false;

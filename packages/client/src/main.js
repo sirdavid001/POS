@@ -11,6 +11,9 @@ import { renderInventory } from './pages/inventory.js';
 import { renderCustomers } from './pages/customers.js';
 import { renderReports } from './pages/reports.js';
 import { renderSettings } from './pages/settings.js';
+import { renderBilling } from './pages/billing.js';
+import { checkForAppUpdate } from './updates.js';
+import { api } from './api.js';
 
 // Service workers are unavailable when Electron loads the bundled app over file://.
 if (window.location.protocol !== 'file:') {
@@ -35,9 +38,20 @@ router.addRoute('/inventory', renderInventory);
 router.addRoute('/customers', renderCustomers);
 router.addRoute('/reports', renderReports);
 router.addRoute('/settings', renderSettings);
+router.addRoute('/billing', renderBilling);
 
-// Start the app
-router.start();
+async function startApplication() {
+  if (localStorage.getItem('user')) {
+    try {
+      await api.get('/auth/me');
+    } catch {
+      // A previously verified entitlement may still permit limited offline use.
+    }
+  }
+  router.start();
+}
+
+startApplication();
 
 // WebSocket connection for real-time updates
 function getWebSocketUrl() {
@@ -89,3 +103,4 @@ if (localStorage.getItem('user')) {
 window.addEventListener('online', attemptSync);
 document.addEventListener('DOMContentLoaded', attemptSync);
 setTimeout(attemptSync, 2000); // Trigger a sync briefly after app load
+setTimeout(checkForAppUpdate, 2500);

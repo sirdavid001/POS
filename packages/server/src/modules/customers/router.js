@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { query } from '../../config/database.js';
 import { authenticate } from '../../middleware/auth.js';
+import { requireActiveSubscription } from '../../middleware/subscription.js';
 
 const router = Router();
 router.use(authenticate);
+router.use(requireActiveSubscription());
 
 // GET all customers
 router.get('/', async (req, res, next) => {

@@ -1,5 +1,5 @@
 {
-  "appId": "quickposs.vercel.app",
-  "appName": "QuickPos",
+  "appId": "ng.name.quickpos",
+  "appName": "QuickPOS",
   "webDir": "packages/client/dist"
 }

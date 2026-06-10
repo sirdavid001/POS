@@ -1,4 +1,4 @@
-package quickposs.vercel.app;
+package ng.name.quickpos;
 
 import com.getcapacitor.BridgeActivity;
 

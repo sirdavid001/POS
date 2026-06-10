@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { saveSubscription } from '../entitlement.js';
 import { toast } from '../utils.js';
 
 export function renderLoginPage() {
@@ -13,7 +14,7 @@ export function renderLoginPage() {
         <form id="login-form">
           <div class="form-group">
             <label class="label" for="login-email">Email Address</label>
-            <input class="input" type="email" id="login-email" placeholder="admin@posapp.com" required autocomplete="email">
+            <input class="input" type="email" id="login-email" placeholder="owner@yourstore.com" required autocomplete="email">
           </div>
           <div class="form-group">
             <label class="label" for="login-password">Password</label>
@@ -44,6 +45,7 @@ export function renderLoginPage() {
       const data = await api.post('/auth/login', { email, password });
       api.setTokens(data.accessToken, data.refreshToken);
       localStorage.setItem('user', JSON.stringify(data.user));
+      saveSubscription(data.subscription);
       toast('Welcome back, ' + data.user.name + '!', 'success');
       window.location.hash = '#/dashboard';
     } catch (err) {
@@ -64,6 +66,10 @@ export function renderRegisterPage() {
         <p>Create a new account</p>
 
         <form id="register-form">
+          <div class="form-group">
+            <label class="label" for="reg-store">Store Name</label>
+            <input class="input" type="text" id="reg-store" placeholder="Your store name" required minlength="2">
+          </div>
           <div class="form-group">
             <label class="label" for="reg-name">Full Name</label>
             <input class="input" type="text" id="reg-name" placeholder="Your name" required>
@@ -97,6 +103,7 @@ export function renderRegisterPage() {
 
     try {
       await api.post('/auth/register', {
+        store_name: document.getElementById('reg-store').value,
         name: document.getElementById('reg-name').value,
         email: document.getElementById('reg-email').value,
         password: document.getElementById('reg-password').value,

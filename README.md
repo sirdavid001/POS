@@ -83,10 +83,9 @@ npm run db:migrate
 npm run db:seed
 ```
 
-This creates the schema and sample data, including a default admin user:
-
-- Email: `admin@posapp.com`
-- Password: `admin123`
+This creates the schema and sample store data. No public admin credentials are
+created. Set `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` in your local
+environment only when a seeded login is required.
 
 ### 5. Start the app in development
 

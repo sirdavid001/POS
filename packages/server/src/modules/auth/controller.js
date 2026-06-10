@@ -1,41 +1,74 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { query } from '../../config/database.js';
+import { getClient, query } from '../../config/database.js';
 import config from '../../config/index.js';
 import logger from '../../config/logger.js';
+import { createTrial, getStoreSubscription } from '../billing/subscription.js';
+import { sendBillingEmail } from '../billing/email.js';
 
 export const register = async (req, res, next) => {
+  let client;
   try {
-    const { email, password, name, phone } = req.body;
+    client = await getClient();
+    const { email, password, name, phone, store_name: storeName } = req.body;
+    await client.query('BEGIN');
 
-    // Check existing user
-    const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
+    const existing = await client.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [email]);
     if (existing.rows.length > 0) {
+      await client.query('ROLLBACK');
       return res.status(409).json({ error: 'Email already registered' });
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-
-    // Default to cashier role, first store
-    const roleResult = await query("SELECT id FROM roles WHERE name = 'cashier'");
-    const storeResult = await query('SELECT id FROM stores LIMIT 1');
-
-    if (!storeResult.rows[0]) {
-      return res.status(400).json({ error: 'No store configured. Please set up a store first.' });
+    const roleResult = await client.query("SELECT id FROM roles WHERE name = 'admin'");
+    if (!roleResult.rows[0]) {
+      throw new Error('Admin role is not configured. Run database seeding first.');
     }
 
-    const result = await query(
-      `INSERT INTO users (store_id, role_id, email, password_hash, name, phone)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, email, name`,
-      [storeResult.rows[0].id, roleResult.rows[0].id, email, passwordHash, name, phone || null]
+    const storeResult = await client.query(
+      `INSERT INTO stores (name, email, phone)
+       VALUES ($1, LOWER($2), $3)
+       RETURNING id, name, email`,
+      [storeName, email, phone || null]
     );
+    const store = storeResult.rows[0];
 
-    logger.info(`User registered: ${email}`);
-    res.status(201).json({ message: 'User registered successfully', user: result.rows[0] });
+    const result = await client.query(
+      `INSERT INTO users (store_id, role_id, email, password_hash, name, phone)
+       VALUES ($1, $2, LOWER($3), $4, $5, $6)
+       RETURNING id, email, name, store_id`,
+      [store.id, roleResult.rows[0].id, email, passwordHash, name, phone || null]
+    );
+    const subscription = await createTrial(client, store.id);
+    await client.query('COMMIT');
+
+    try {
+      await sendBillingEmail({
+        storeId: store.id,
+        to: email,
+        type: 'trial_started',
+        key: subscription.trial_ends_at,
+        subject: 'Your QuickPOS trial has started',
+        heading: `Welcome to QuickPOS, ${name}`,
+        body: `Your store, ${store.name}, now has all QuickPOS features for seven days. Your trial ends on ${new Date(subscription.trial_ends_at).toLocaleDateString('en-NG')}.`,
+      });
+    } catch (emailError) {
+      logger.warn('Trial email could not be sent', { storeId: store.id, error: emailError.message });
+    }
+
+    logger.info(`Owner registered for store ${store.id}: ${email}`);
+    res.status(201).json({
+      message: 'Store and owner account created successfully',
+      user: { ...result.rows[0], role: 'admin' },
+      store,
+      subscription,
+    });
   } catch (err) {
+    if (client) await client.query('ROLLBACK');
     next(err);
+  } finally {
+    client?.release();
   }
 };
 
@@ -81,6 +114,7 @@ export const login = async (req, res, next) => {
 
     // Update last login
     await query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
+    const subscription = await getStoreSubscription(user.store_id);
 
     res.json({
       accessToken,
@@ -92,6 +126,7 @@ export const login = async (req, res, next) => {
         role: user.role,
         storeId: user.store_id,
       },
+      subscription,
     });
   } catch (err) {
     next(err);
@@ -124,7 +159,8 @@ export const refreshAccessToken = async (req, res, next) => {
       { expiresIn: config.jwt.expiry }
     );
 
-    res.json({ accessToken });
+    const subscription = await getStoreSubscription(tokenData.store_id);
+    res.json({ accessToken, subscription });
   } catch (err) {
     next(err);
   }
@@ -143,5 +179,5 @@ export const logout = async (req, res, next) => {
 };
 
 export const getMe = async (req, res) => {
-  res.json({ user: req.user });
+  res.json({ user: req.user, subscription: req.subscription });
 };

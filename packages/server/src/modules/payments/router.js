@@ -2,11 +2,13 @@ import { Router } from 'express';
 import axios from 'axios';
 import { query } from '../../config/database.js';
 import { authenticate } from '../../middleware/auth.js';
+import { requireActiveSubscription } from '../../middleware/subscription.js';
 import config from '../../config/index.js';
 import logger from '../../config/logger.js';
 
 const router = Router();
 router.use(authenticate);
+router.use(requireActiveSubscription());
 
 // Initialize Paystack transaction
 router.post('/paystack/initialize', async (req, res, next) => {

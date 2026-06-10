@@ -2,11 +2,13 @@ import { Router } from 'express';
 import { getProducts, getProduct, createProduct, updateProduct, deleteProduct, getLowStock } from './controller.js';
 import { validate } from '../../middleware/validate.js';
 import { authenticate, authorize } from '../../middleware/auth.js';
+import { requireActiveSubscription } from '../../middleware/subscription.js';
 import { createProductSchema, updateProductSchema } from './schema.js';
 
 const router = Router();
 
 router.use(authenticate);
+router.use(requireActiveSubscription());
 
 router.get('/', getProducts);
 router.get('/low-stock', getLowStock);

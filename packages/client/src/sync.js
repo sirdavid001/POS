@@ -1,9 +1,11 @@
 import { api } from './api.js';
 import { toast } from './utils.js';
+import { canWriteBusinessData } from './entitlement.js';
 
 const QUEUE_KEY = 'quickpos_offline_orders';
 
 export async function attemptSync() {
+  if (!canWriteBusinessData()) return;
   const queueJson = localStorage.getItem(QUEUE_KEY);
   if (!queueJson) return;
 
@@ -23,6 +25,10 @@ export async function attemptSync() {
         // Wait 100ms between calls to avoid rate limits
         await new Promise(r => setTimeout(r, 100));
       } catch (err) {
+        if (err.code === 'SUBSCRIPTION_EXPIRED') {
+          toast('Offline sales are paused until the store renews QuickPOS.', 'warning', 5000);
+          break;
+        }
         console.error('[Offline Sync] Failed to sync order', orderData, err);
         // If it's a 4xx error (e.g. invalid data, insufficient stock), we might want to discard it or alert.
         // For now, only drop on 400s, keep retrying on 500s or network drops.

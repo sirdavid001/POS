@@ -23,9 +23,28 @@ const roles = [
   { id: 3, name: 'cashier' },
 ];
 
-const users = [
-  { id: 1, store_id: 1, role_id: 1, email: 'admin@posapp.com', password: 'admin123', name: 'Admin User', role: 'admin', is_active: true, last_login: new Date().toISOString(), created_at: new Date().toISOString() },
-];
+const users = [];
+if (process.env.SEED_ADMIN_EMAIL && process.env.SEED_ADMIN_PASSWORD) {
+  users.push({
+    id: 1,
+    store_id: 1,
+    role_id: 1,
+    email: process.env.SEED_ADMIN_EMAIL,
+    password: process.env.SEED_ADMIN_PASSWORD,
+    name: 'Seed Admin',
+    role: 'admin',
+    is_active: true,
+    last_login: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+  });
+}
+
+const mockSubscription = {
+  status: 'grandfathered',
+  can_write: true,
+  offline_valid_until: new Date(Date.now() + 7 * 86400000).toISOString(),
+  server_time: new Date().toISOString(),
+};
 
 const categories = [
   { id: 1, store_id: 1, name: 'Beverages', description: 'Drinks and beverages', created_at: new Date().toISOString() },
@@ -76,7 +95,8 @@ function auth(req, res, next) {
   if (!header?.startsWith('Bearer ')) return res.status(401).json({ error: 'Auth required' });
   try {
     const decoded = jwt.verify(header.split(' ')[1], JWT_SECRET);
-    req.user = users.find(u => u.id === decoded.userId) || { id: 1, store_id: 1, role: 'admin', name: 'Admin User' };
+    req.user = users.find(u => u.id === decoded.userId);
+    if (!req.user) return res.status(401).json({ error: 'User not found' });
     next();
   } catch { return res.status(401).json({ error: 'Invalid token' }); }
 }
@@ -94,24 +114,31 @@ app.post('/api/v1/auth/login', (req, res) => {
     accessToken,
     refreshToken,
     user: { id: user.id, email: user.email, name: user.name, role: user.role, storeId: 1 },
+    subscription: mockSubscription,
   });
 });
 
 app.post('/api/v1/auth/register', (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, store_name: storeName } = req.body;
   if (users.find(u => u.email === email)) return res.status(409).json({ error: 'Email already registered' });
-  const newUser = { id: users.length + 1, store_id: 1, role_id: 3, email, password, name, role: 'cashier', is_active: true, created_at: new Date().toISOString() };
+  const newUser = { id: users.length + 1, store_id: 1, role_id: 1, email, password, name, role: 'admin', is_active: true, created_at: new Date().toISOString() };
   users.push(newUser);
-  res.status(201).json({ message: 'User registered successfully', user: { id: newUser.id, email, name } });
+  store.name = storeName || store.name;
+  res.status(201).json({
+    message: 'Store and owner account created successfully',
+    user: { id: newUser.id, email, name, role: 'admin' },
+    store,
+    subscription: mockSubscription,
+  });
 });
 
 app.post('/api/v1/auth/refresh', (req, res) => {
   const accessToken = jwt.sign({ userId: 1, role: 'admin', storeId: 1 }, JWT_SECRET, { expiresIn: '24h' });
-  res.json({ accessToken });
+  res.json({ accessToken, subscription: mockSubscription });
 });
 
 app.post('/api/v1/auth/logout', (req, res) => res.json({ message: 'Logged out' }));
-app.get('/api/v1/auth/me', auth, (req, res) => res.json({ user: req.user }));
+app.get('/api/v1/auth/me', auth, (req, res) => res.json({ user: req.user, subscription: mockSubscription }));
 
 // ===== Products =====
 app.get('/api/v1/products', auth, (req, res) => {
@@ -495,7 +522,7 @@ if (process.env.VERCEL !== '1') {
   server.listen(PORT, () => {
     console.log(`\n  ⚡ QuickPOS Mock Server running on http://localhost:${PORT}`);
     console.log(`  📦 ${products.length} products loaded`);
-    console.log(`  👤 Login: admin@posapp.com / admin123\n`);
+    console.log('  Create an owner account in the app, or set private SEED_ADMIN_* values.\\n');
   });
 }
 

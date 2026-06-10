@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { icons } from '../utils.js';
+import { getSubscription } from '../entitlement.js';
 
 // Render the sidebar + main content shell
 export function renderLayout(activePage) {
@@ -14,6 +15,7 @@ export function renderLayout(activePage) {
     { id: 'customers', label: 'Customers', icon: icons.customers, hash: '#/customers', roles: ['admin', 'manager', 'cashier'] },
     { id: 'orders', label: 'Orders', icon: icons.orders, hash: '#/orders', roles: ['admin', 'manager', 'cashier'] },
     { id: 'reports', label: 'Reports', icon: icons.reports, hash: '#/reports', roles: ['admin', 'manager'] },
+    { id: 'billing', label: 'Billing', icon: icons.billing, hash: '#/billing', roles: ['admin'] },
     { id: 'settings', label: 'Settings', icon: icons.settings, hash: '#/settings', roles: ['admin', 'manager'] },
   ];
 
@@ -50,9 +52,12 @@ export function renderLayout(activePage) {
         </div>
       </aside>
 
-      <main class="main-content" id="page-content">
-        <div style="display:flex;align-items:center;justify-content:center;height:60vh;">
-          <div class="spinner spinner-lg"></div>
+      <main class="main-content">
+        <div id="subscription-banner"></div>
+        <div id="page-content">
+          <div style="display:flex;align-items:center;justify-content:center;height:60vh;">
+            <div class="spinner spinner-lg"></div>
+          </div>
         </div>
       </main>
     </div>
@@ -66,6 +71,31 @@ export function renderLayout(activePage) {
     api.clearTokens();
     window.location.hash = '#/login';
   });
+
+  function renderSubscriptionBanner() {
+    const subscription = getSubscription();
+    const banner = document.getElementById('subscription-banner');
+    if (!banner || !subscription || subscription.status === 'grandfathered') return;
+
+    const show = subscription.status === 'trialing' || !subscription.can_write || subscription.cancel_at_period_end;
+    if (!show) {
+      banner.innerHTML = '';
+      return;
+    }
+    const message = subscription.status === 'trialing'
+      ? `${subscription.days_remaining ?? 0} day${subscription.days_remaining === 1 ? '' : 's'} left in your all-feature trial.`
+      : subscription.cancel_at_period_end && subscription.can_write
+        ? `Renewal is cancelled. Access continues through ${new Date(subscription.current_period_end).toLocaleDateString('en-NG')}.`
+        : 'QuickPOS is read-only. Reports, exports, printing, statement email, and billing are still available.';
+    banner.innerHTML = `
+      <div class="subscription-banner ${subscription.can_write ? 'trial' : 'expired'}">
+        <span>${message}</span>
+        ${user.role === 'admin' ? '<a href="#/billing" class="btn btn-sm btn-primary">View billing</a>' : ''}
+      </div>
+    `;
+  }
+  renderSubscriptionBanner();
+  window.addEventListener('subscription-updated', renderSubscriptionBanner, { once: true });
 
   // Mobile menu + overlay
   const mobileBtn = document.getElementById('mobile-menu-btn');

@@ -65,6 +65,22 @@ const config = {
   paystack: {
     secretKey: process.env.PAYSTACK_SECRET_KEY || '',
     publicKey: process.env.PAYSTACK_PUBLIC_KEY || '',
+    plans: {
+      monthly: process.env.PAYSTACK_PLAN_MONTHLY || '',
+      quarterly: process.env.PAYSTACK_PLAN_QUARTERLY || '',
+      yearly: process.env.PAYSTACK_PLAN_YEARLY || '',
+    },
+  },
+
+  flutterwave: {
+    secretKey: process.env.FLUTTERWAVE_SECRET_KEY || '',
+    publicKey: process.env.FLUTTERWAVE_PUBLIC_KEY || '',
+    webhookSecret: process.env.FLUTTERWAVE_WEBHOOK_SECRET || '',
+    plans: {
+      monthly: process.env.FLUTTERWAVE_PLAN_MONTHLY || '',
+      quarterly: process.env.FLUTTERWAVE_PLAN_QUARTERLY || '',
+      yearly: process.env.FLUTTERWAVE_PLAN_YEARLY || '',
+    },
   },
 
   stripe: {
@@ -74,8 +90,14 @@ const config = {
 
   email: {
     resendApiKey: process.env.RESEND_API_KEY || '',
-    from: process.env.EMAIL_FROM || '',
-    replyTo: process.env.EMAIL_REPLY_TO || '',
+    from: process.env.EMAIL_FROM || 'QuickPOS <billing@quickpos.name.ng>',
+    replyTo: process.env.EMAIL_REPLY_TO || 'support@quickpos.name.ng',
+  },
+
+  billing: {
+    launchOfferEnabled: process.env.LAUNCH_OFFER_ENABLED === 'true',
+    checkoutReturnUrl: process.env.BILLING_RETURN_URL || 'https://quickpos.name.ng/downloads',
+    cronSecret: process.env.CRON_SECRET || '',
   },
 };
 

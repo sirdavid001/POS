@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { query } from '../../config/database.js';
 import { authenticate, authorize } from '../../middleware/auth.js';
+import { requireActiveSubscription } from '../../middleware/subscription.js';
 
 const router = Router();
 router.use(authenticate);
+router.use(requireActiveSubscription());
 
 // POST adjust stock
 router.post('/adjust', authorize('admin', 'manager'), async (req, res, next) => {

@@ -19,6 +19,8 @@ import customersRouter from './modules/customers/router.js';
 import paymentsRouter from './modules/payments/router.js';
 import reportsRouter from './modules/reports/router.js';
 import settingsRouter from './modules/settings/router.js';
+import billingRouter from './modules/billing/router.js';
+import jobsRouter from './modules/jobs/router.js';
 import { query } from './config/database.js';
 
 const app = express();
@@ -34,7 +36,12 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, res, buffer) => {
+    req.rawBody = buffer;
+  },
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // Rate limiting
@@ -64,6 +71,8 @@ app.use('/api/v1/customers', customersRouter);
 app.use('/api/v1/payments', paymentsRouter);
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/settings', settingsRouter);
+app.use('/api/v1/billing', billingRouter);
+app.use('/api/v1/jobs', jobsRouter);
 
 const getHealthPayload = (overrides = {}) => ({
   status: 'ok',

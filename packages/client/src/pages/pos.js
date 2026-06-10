@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { canWriteBusinessData } from '../entitlement.js';
 import { renderLayout } from './layout.js';
 import { formatCurrency, toast, debounce, icons, promptManagerPIN } from '../utils.js';
 import { startUSBScanner, stopUSBScanner, openCameraScanner, scanButtonHTML } from '../scanner.js';
@@ -191,20 +192,25 @@ function showPaymentModal() {
 
   // Confirm
   document.getElementById('confirm-payment').addEventListener('click', async () => {
+    if (!canWriteBusinessData()) {
+      toast('QuickPOS is read-only. Ask the store owner to renew the subscription.', 'warning', 5000);
+      return;
+    }
+
     const confirmBtn = document.getElementById('confirm-payment');
     confirmBtn.disabled = true;
     confirmBtn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;"></div> Processing...';
 
-    try {
-      const orderData = {
-        items: cart.map(item => ({
-          product_id: item.id,
-          quantity: item.qty,
-        })),
-        payment_method: selectedMethod,
-        customer_id: document.getElementById('customer-select').value || null,
-      };
+    const orderData = {
+      items: cart.map(item => ({
+        product_id: item.id,
+        quantity: item.qty,
+      })),
+      payment_method: selectedMethod,
+      customer_id: document.getElementById('customer-select').value || null,
+    };
 
+    try {
       const result = await api.post('/orders', orderData);
 
       overlay.remove();
@@ -219,7 +225,11 @@ function showPaymentModal() {
 
       toast('Sale completed! ' + result.order.order_number, 'success');
     } catch (err) {
-      if (!navigator.onLine || err.message === 'Failed to fetch' || err.message.toLowerCase().includes('network')) {
+      if (err.code === 'SUBSCRIPTION_EXPIRED') {
+        toast('QuickPOS is read-only until the store renews.', 'warning', 5000);
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Confirm Payment';
+      } else if (!navigator.onLine || err.message === 'Failed to fetch' || err.message.toLowerCase().includes('network')) {
         const queueObj = { ...orderData, temp_id: Date.now(), created_at: new Date().toISOString() };
         const queue = JSON.parse(localStorage.getItem('quickpos_offline_orders') || '[]');
         queue.push(queueObj);

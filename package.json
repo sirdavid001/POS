@@ -6,11 +6,12 @@
   "workspaces": [
     "packages/shared",
     "packages/server",
-    "packages/client"
+    "packages/client",
+    "packages/website"
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev -w packages/server\" \"npm run dev -w packages/client\"",
-    "build": "npm run build --workspaces",
+    "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "db:migrate": "npm run db:migrate -w packages/server",
@@ -19,7 +20,11 @@
     "mobile:android": "npm run mobile:sync && cap open android",
     "mobile:ios": "npm run mobile:sync && cap open ios",
     "desktop:start": "npm run build -w packages/client && electron .",
-    "desktop:win": "npm run build -w packages/client && electron-builder --win nsis --x64"
+    "desktop:win": "npm run build -w packages/client && electron-builder --win nsis --x64",
+    "desktop:mac": "npm run build -w packages/client && electron-builder --mac dmg",
+    "desktop:linux": "npm run build -w packages/client && electron-builder --linux AppImage deb --x64",
+    "website:dev": "npm run dev -w packages/website",
+    "website:build": "npm run build -w packages/website"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",
@@ -30,7 +35,8 @@
     "@capacitor/android": "^8.4.0",
     "@capacitor/cli": "^8.4.0",
     "@capacitor/core": "^8.4.0",
-    "@capacitor/ios": "^8.4.0"
+    "@capacitor/ios": "^8.4.0",
+    "electron-updater": "^6.6.2"
   },
   "build": {
     "appId": "app.quickpos.desktop",
@@ -55,6 +61,19 @@
         }
       ],
       "artifactName": "QuickPOS-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "artifactName": "QuickPOS-${version}-${arch}.${ext}"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "artifactName": "QuickPOS-${version}-${arch}.${ext}",
+      "category": "Office"
+    },
+    "publish": {
+      "provider": "generic",
+      "url": "https://downloads.quickpos.name.ng/desktop/windows"
     },
     "nsis": {
       "oneClick": false,

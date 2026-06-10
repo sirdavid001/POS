@@ -31,7 +31,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install dependencies
@@ -42,6 +42,9 @@ jobs:
 
       - name: Build client
         run: npm run build -w packages/client
+
+      - name: Build website
+        run: npm run build -w packages/website
 
       - name: Run migrations
         run: npm run db:migrate -w packages/server

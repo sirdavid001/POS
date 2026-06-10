@@ -26,16 +26,28 @@ async function seed() {
 
     const storeId = storeResult.rows[0]?.id || 1;
 
-    // Insert admin user (password: admin123)
-    const passwordHash = await bcrypt.hash('admin123', 12);
-    const adminRole = await query(`SELECT id FROM roles WHERE name = 'admin'`);
+    await query(
+      `INSERT INTO store_subscriptions (store_id, status, last_verified_at, metadata)
+       VALUES ($1, 'grandfathered', NOW(), '{"seeded":true}'::jsonb)
+       ON CONFLICT (store_id) DO NOTHING`,
+      [storeId]
+    );
 
-    await query(`
-      INSERT INTO users (store_id, role_id, email, password_hash, name)
-      VALUES ($1, $2, 'admin@posapp.com', $3, 'Admin User')
-      ON CONFLICT (email) DO NOTHING
-    `, [storeId, adminRole.rows[0].id, passwordHash]);
-    logger.info('Admin user seeded (admin@posapp.com / admin123)');
+    const seedAdminEmail = process.env.SEED_ADMIN_EMAIL;
+    const seedAdminPassword = process.env.SEED_ADMIN_PASSWORD;
+    if (seedAdminEmail && seedAdminPassword) {
+      const passwordHash = await bcrypt.hash(seedAdminPassword, 12);
+      const adminRole = await query(`SELECT id FROM roles WHERE name = 'admin'`);
+      await query(
+        `INSERT INTO users (store_id, role_id, email, password_hash, name)
+         VALUES ($1, $2, LOWER($3), $4, 'Seed Admin')
+         ON CONFLICT (email) DO NOTHING`,
+        [storeId, adminRole.rows[0].id, seedAdminEmail, passwordHash]
+      );
+      logger.info(`Seed admin created for ${seedAdminEmail}`);
+    } else {
+      logger.info('No seed admin created; set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD when needed');
+    }
 
     // Insert sample categories
     await query(`

@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import config from '../config/index.js';
 import { query } from '../config/database.js';
+import { getStoreSubscription } from '../modules/billing/subscription.js';
 
 // Verify JWT and attach user to request
 export const authenticate = async (req, res, next) => {
@@ -26,6 +27,7 @@ export const authenticate = async (req, res, next) => {
     }
 
     req.user = result.rows[0];
+    req.subscription = await getStoreSubscription(req.user.store_id);
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {

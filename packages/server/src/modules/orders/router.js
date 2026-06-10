@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { getClient, query } from '../../config/database.js';
 import { authenticate } from '../../middleware/auth.js';
+import { requireActiveSubscription } from '../../middleware/subscription.js';
 import logger from '../../config/logger.js';
 import { broadcast } from '../../app.js';
 
 const router = Router();
 router.use(authenticate);
+router.use(requireActiveSubscription());
 
 // Generate unique order number
 function generateOrderNumber() {
