@@ -9,5 +9,6 @@ dist/
 coverage/
 .turbo/
 release/
+.credentials/
 .vercel
 .env*.local

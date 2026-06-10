@@ -369,6 +369,10 @@ h3 { letter-spacing: -0.025em; }
   min-height: 52px;
 }
 .primary-download-button svg { width: 19px; height: 19px; margin-right: 8px; }
+.alternate-downloads { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; color: var(--muted); font-size: 12px; }
+.alternate-download { display: inline-flex; align-items: center; gap: 6px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); font-weight: 750; }
+.alternate-download svg { width: 15px; height: 15px; }
+.release-warning { margin: 12px 0 0; padding: 10px 12px; border: 1px solid oklch(0.75 0.16 85 / 0.35); border-radius: 10px; background: oklch(0.75 0.16 85 / 0.1); color: var(--muted); font-size: 12px; line-height: 1.55; }
 .checksum-note {
   position: relative;
   z-index: 1;

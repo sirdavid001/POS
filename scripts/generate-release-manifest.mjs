@@ -24,11 +24,24 @@ function artifactDetails(file) {
   if (/debug|unsigned/i.test(name)) {
     throw new Error(`Refusing to publish untrusted artifact: ${name}`);
   }
-  if (/^QuickPOS-Setup-.*\.exe$/i.test(name)) return { platform: 'windows', architecture: 'x64', file_type: '.exe' };
-  if (/^QuickPOS-.*\.apk$/i.test(name)) return { platform: 'android', architecture: 'universal', file_type: '.apk' };
-  if (/^QuickPOS-.*\.dmg$/i.test(name)) return { platform: 'macos', architecture: name.includes('arm64') ? 'arm64' : 'x64', file_type: '.dmg' };
-  if (/^QuickPOS-.*\.AppImage$/i.test(name)) return { platform: 'linux', architecture: 'x64', file_type: '.AppImage' };
-  if (/^QuickPOS-.*\.deb$/i.test(name)) return { platform: 'linux', architecture: 'x64', file_type: '.deb' };
+  if (/^QuickPOS-Setup-.*\.exe$/i.test(name)) {
+    return { platform: 'windows', architecture: 'x64', file_type: '.exe', signature_status: 'unsigned' };
+  }
+  if (/^QuickPOS-.*\.apk$/i.test(name)) {
+    return { platform: 'android', architecture: 'universal', file_type: '.apk', signature_status: 'signed' };
+  }
+  if (/^QuickPOS-.*\.dmg$/i.test(name)) {
+    const architecture = name.includes('universal')
+      ? 'universal'
+      : name.includes('arm64') ? 'arm64' : 'x64';
+    return { platform: 'macos', architecture, file_type: '.dmg', signature_status: 'unsigned_preview' };
+  }
+  if (/^QuickPOS-.*\.AppImage$/i.test(name)) {
+    return { platform: 'linux', architecture: 'x64', file_type: '.AppImage', signature_status: 'checksum' };
+  }
+  if (/^QuickPOS-.*\.deb$/i.test(name)) {
+    return { platform: 'linux', architecture: 'x64', file_type: '.deb', signature_status: 'checksum' };
+  }
   return null;
 }
 
@@ -45,6 +58,7 @@ const releaseNotes = argument('notes', `QuickPOS ${version}`);
 const minimumSupportedVersion = argument('minimum', version);
 const baseUrl = argument('base-url', 'https://downloads.quickpos.name.ng').replace(/\/$/, '');
 const flatArtifactUrls = process.argv.includes('--flat-artifact-urls');
+const iosWebUrl = argument('ios-web-url');
 
 if (!version) throw new Error('--version is required');
 
@@ -80,7 +94,6 @@ const comingSoon = [
   ['android', 'universal', '.apk', 'Signed Android release coming soon. Debug APKs are never published.'],
   ['macos', 'universal', '.dmg', 'Signed and notarized macOS release coming soon.'],
   ['linux', 'x64', '.AppImage', 'Linux AppImage and Debian package coming soon.'],
-  ['ios', 'app-store', 'App Store', 'TestFlight and App Store release coming soon. No direct IPA download.'],
 ];
 
 for (const [platform, architecture, fileType, notes] of comingSoon) {
@@ -98,6 +111,36 @@ for (const [platform, architecture, fileType, notes] of comingSoon) {
       status: 'coming_soon',
     });
   }
+}
+
+if (iosWebUrl) {
+  releases.push({
+    platform: 'ios',
+    architecture: 'web',
+    file_type: 'PWA',
+    version,
+    url: iosWebUrl,
+    sha256: null,
+    size: null,
+    size_display: 'No download required',
+    release_notes: 'Open QuickPOS in Safari and choose Add to Home Screen. Native App Store distribution will follow.',
+    minimum_supported_version: minimumSupportedVersion,
+    signature_status: 'web',
+    status: 'available',
+  });
+} else {
+  releases.push({
+    platform: 'ios',
+    architecture: 'app-store',
+    file_type: 'App Store',
+    version,
+    url: null,
+    sha256: null,
+    size: null,
+    release_notes: 'TestFlight and App Store release coming soon. No direct IPA download.',
+    minimum_supported_version: minimumSupportedVersion,
+    status: 'coming_soon',
+  });
 }
 
 const manifest = {

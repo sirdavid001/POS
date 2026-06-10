@@ -33,13 +33,12 @@ async function findAvailableRelease(platform) {
       const release = manifest.releases?.find((item) =>
         item.platform === platform && item.status === 'available'
       );
+      if (platform === 'ios' && release?.file_type === 'PWA') return null;
       if (release) return { release, manifest };
     }
   } catch {
     // Fall back to GitHub Releases while the R2 release host is unavailable.
   }
-
-  if (platform !== 'windows') return null;
 
   const response = await fetch(
     'https://api.github.com/repos/sirdavid001/POS/releases/latest',
@@ -47,20 +46,16 @@ async function findAvailableRelease(platform) {
   );
   if (!response.ok) return null;
   const githubRelease = await response.json();
-  const installer = githubRelease.assets?.find((asset) =>
-    /^QuickPOS-Setup-.*\.exe$/i.test(asset.name));
-  if (!installer) return null;
-
-  return {
-    release: {
-      platform: 'windows',
-      version: githubRelease.tag_name.replace(/^v/, ''),
-      url: installer.browser_download_url,
-      release_notes: githubRelease.name,
-      status: 'available',
-    },
-    manifest: {},
-  };
+  const manifestAsset = githubRelease.assets?.find((asset) => asset.name === 'latest.json');
+  if (!manifestAsset) return null;
+  const manifestResponse = await fetch(manifestAsset.browser_download_url, { cache: 'no-store' });
+  if (!manifestResponse.ok) return null;
+  const manifest = await manifestResponse.json();
+  const release = manifest.releases?.find((item) =>
+    item.platform === platform && item.status === 'available'
+  );
+  if (platform === 'ios' && release?.file_type === 'PWA') return null;
+  return release ? { release, manifest } : null;
 }
 
 export async function checkForAppUpdate() {

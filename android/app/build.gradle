@@ -24,6 +24,7 @@ android {
         if (releaseKeystore) {
             release {
                 storeFile file(releaseKeystore)
+                storeType System.getenv("QUICKPOS_ANDROID_STORE_TYPE") ?: "JKS"
                 storePassword System.getenv("QUICKPOS_ANDROID_STORE_PASSWORD")
                 keyAlias System.getenv("QUICKPOS_ANDROID_KEY_ALIAS")
                 keyPassword System.getenv("QUICKPOS_ANDROID_KEY_PASSWORD")

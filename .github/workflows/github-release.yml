@@ -1,4 +1,4 @@
-name: Publish Windows fallback release
+name: Publish multi-platform fallback release
 
 on:
   push:
@@ -33,30 +33,147 @@ jobs:
             --publish never \
             --config.extraMetadata.version="$VERSION" \
             --config.directories.output=release-ci
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            release-ci/*.exe
+            release-ci/*.blockmap
+            release-ci/latest.yml
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - name: Restore Android release key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/quickpos-release.p12
+      - name: Build and verify signed Android APK
+        env:
+          QUICKPOS_ANDROID_KEYSTORE: ../quickpos-release.p12
+          QUICKPOS_ANDROID_STORE_TYPE: PKCS12
+          QUICKPOS_ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          QUICKPOS_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          QUICKPOS_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          QUICKPOS_VERSION_NAME: ${{ github.ref_name }}
+          QUICKPOS_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          export QUICKPOS_VERSION_NAME="$VERSION"
+          export VITE_APP_VERSION="$VERSION"
+          npm run mobile:sync
+          chmod +x android/gradlew
+          cd android
+          ./gradlew assembleRelease
+          APKSIGNER="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
+          "$APKSIGNER" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
+          mkdir -p ../release-ci
+          cp app/build/outputs/apk/release/app-release.apk "../release-ci/QuickPOS-${VERSION}.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: release-ci/*.apk
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build macOS Intel and Apple-silicon previews
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          export VITE_APP_VERSION="$VERSION"
+          npm run build -w packages/client
+          npx electron-builder \
+            --mac dmg \
+            --x64 \
+            --arm64 \
+            --publish never \
+            --config.extraMetadata.version="$VERSION" \
+            --config.directories.output=release-ci
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: release-ci/*.dmg
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build Linux AppImage and Debian package
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          export VITE_APP_VERSION="$VERSION"
+          npm run build -w packages/client
+          npx electron-builder \
+            --linux AppImage deb \
+            --x64 \
+            --publish never \
+            --config.extraMetadata.version="$VERSION" \
+            --config.directories.output=release-ci
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            release-ci/*.AppImage
+            release-ci/*.deb
+
+  publish:
+    needs: [windows, android, macos, linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
       - name: Generate release manifest and checksums
-        shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           node scripts/generate-release-manifest.mjs \
-            --artifacts release-ci \
+            --artifacts release-artifacts \
             --output publish/latest.json \
             --version "$VERSION" \
             --minimum "$VERSION" \
-            --notes "QuickPOS $VERSION for Windows" \
+            --notes "QuickPOS $VERSION multi-platform release" \
             --base-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}" \
-            --flat-artifact-urls
+            --flat-artifact-urls \
+            --ios-web-url "https://quickposs.vercel.app"
       - name: Publish GitHub release
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          find release-artifacts -type f \
+            \( -name '*.exe' -o -name '*.blockmap' -o -name '*.yml' -o -name '*.apk' -o -name '*.dmg' -o -name '*.AppImage' -o -name '*.deb' \) \
+            -exec cp {} publish/ \;
           gh release create "$GITHUB_REF_NAME" \
-            release-ci/*.exe \
-            release-ci/*.blockmap \
-            release-ci/latest.yml \
-            publish/latest.json \
-            publish/SHA256SUMS.txt \
+            publish/* \
             --repo "$GITHUB_REPOSITORY" \
             --title "QuickPOS $VERSION" \
-            --notes "Windows x64 release of QuickPOS $VERSION. Windows may show a SmartScreen warning until the installer is code-signed."
+            --notes "QuickPOS $VERSION for Windows, Android, macOS, Linux, and the iPhone web app. The macOS download is an unsigned preview and may require manual approval in Privacy & Security."

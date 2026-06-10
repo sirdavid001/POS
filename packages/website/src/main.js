@@ -94,7 +94,7 @@ const platformDetails = {
   },
   macos: {
     label: 'macOS',
-    description: 'Signed and notarized DMG',
+    description: 'DMG previews for Intel and Apple silicon',
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.7 12.8c0-2.5 2.1-3.8 2.2-3.9a4.8 4.8 0 0 0-3.8-2.1c-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.3-.9-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.3 2.5 1.3-.1 1.8-.8 3.4-.8s2 .8 3.4.8c1.4 0 2.3-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.9-1.1-2.9-3.8ZM14.1 5.1c.7-.9 1.2-2.1 1.1-3.3-1.1 0-2.4.7-3.2 1.6-.7.8-1.3 2-1.1 3.2 1.2.1 2.4-.6 3.2-1.5Z"/></svg>',
   },
   linux: {
@@ -104,7 +104,7 @@ const platformDetails = {
   },
   ios: {
     label: 'iPhone and iPad',
-    description: 'TestFlight and App Store',
+    description: 'Installable Safari web app',
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.7 12.8c0-2.5 2.1-3.8 2.2-3.9a4.8 4.8 0 0 0-3.8-2.1c-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.3-.9-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.3 2.5 1.3-.1 1.8-.8 3.4-.8s2 .8 3.4.8c1.4 0 2.3-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.9-1.1-2.9-3.8ZM14.1 5.1c.7-.9 1.2-2.1 1.1-3.3-1.1 0-2.4.7-3.2 1.6-.7.8-1.3 2-1.1 3.2 1.2.1 2.4-.6 3.2-1.5Z"/></svg>',
   },
 };
@@ -147,48 +147,57 @@ async function loadDownloads() {
       );
       if (response.ok) {
         const release = await response.json();
-        const installer = release.assets?.find((asset) =>
-          /^QuickPOS-Setup-.*\.exe$/i.test(asset.name));
-        if (installer) {
-          const version = release.tag_name.replace(/^v/, '');
-          manifest = {
-            releases: [{
-              platform: 'windows',
-              architecture: 'x64',
-              file_type: '.exe',
-              version,
-              url: installer.browser_download_url,
-              sha256: installer.digest?.replace(/^sha256:/, '') || null,
-              size: installer.size,
-              size_display: `${(installer.size / 1024 ** 2).toFixed(1)} MB`,
-              status: 'available',
-            }],
-          };
+        const manifestAsset = release.assets?.find((asset) => asset.name === 'latest.json');
+        if (manifestAsset) {
+          const manifestResponse = await fetch(manifestAsset.browser_download_url, { cache: 'no-store' });
+          if (manifestResponse.ok) manifest = await manifestResponse.json();
         }
       }
     }
 
     if (!manifest) throw new Error('Release manifest unavailable');
 
-    const releases = new Map((manifest.releases || []).map((release) => [release.platform, release]));
+    const releaseGroups = new Map();
+    (manifest.releases || []).forEach((release) => {
+      const group = releaseGroups.get(release.platform) || [];
+      group.push(release);
+      releaseGroups.set(release.platform, group);
+    });
+    const preferredRelease = (platform) => {
+      const group = releaseGroups.get(platform) || [];
+      const preferredTypes = {
+        windows: ['.exe'],
+        android: ['.apk'],
+        macos: ['.dmg'],
+        linux: ['.AppImage', '.deb'],
+        ios: ['PWA', 'App Store'],
+      };
+      return preferredTypes[platform]
+        ?.map((type) => group.find((release) => release.file_type === type))
+        .find(Boolean) || group[0];
+    };
     const availablePlatforms = platforms.filter((platform) => {
-      const release = releases.get(platform);
+      const release = preferredRelease(platform);
       return release?.status === 'available' && release.url;
     });
     const primaryPlatform = availablePlatforms.includes(detected) ? detected : availablePlatforms[0];
-    const primaryRelease = releases.get(primaryPlatform);
+    const primaryRelease = preferredRelease(primaryPlatform);
     const upcomingPlatforms = platforms.filter((platform) => !availablePlatforms.includes(platform));
 
     const availableCards = availablePlatforms
       .filter((platform) => platform !== primaryPlatform)
       .map((platform) => {
-        const release = releases.get(platform);
+        const release = preferredRelease(platform);
         const detail = platformDetails[platform];
+        const status = release.signature_status === 'unsigned_preview'
+          ? 'Unsigned preview'
+          : release.signature_status === 'signed' ? 'Signed' : release.file_type;
+        const actionLabel = platform === 'ios' ? 'Open' : 'Download';
         return `
           <article class="compact-download-card">
             <span class="platform-icon">${detail.icon}</span>
-            <div><strong>${detail.label}</strong><span>Version ${release.version} · ${release.size_display || release.architecture || 'Release'}</span></div>
-            <a class="icon-download download-link" href="${release.url}" aria-label="Download QuickPOS for ${detail.label}" data-platform="${platform}" data-version="${release.version}">${utilityIcons.download}</a>
+            <div><strong>${detail.label}</strong><span>Version ${release.version} · ${status || release.architecture || 'Release'}</span></div>
+            <a class="icon-download download-link" href="${release.url}" aria-label="${actionLabel} QuickPOS for ${detail.label}" data-platform="${platform}" data-version="${release.version}">${utilityIcons.download}</a>
           </article>
         `;
       }).join('');
@@ -206,27 +215,54 @@ async function loadDownloads() {
 
     if (!primaryPlatform || !primaryRelease) throw new Error('No releases available');
     const primaryDetail = platformDetails[primaryPlatform];
+    const releaseBadge = primaryRelease.signature_status === 'signed'
+      ? `${utilityIcons.shield} Signed release`
+      : primaryRelease.signature_status === 'unsigned_preview'
+        ? `${utilityIcons.shield} Unsigned preview`
+        : `${utilityIcons.shield} Checksum verified`;
+    const primaryAction = primaryPlatform === 'ios'
+      ? 'Open QuickPOS on iPhone'
+      : primaryPlatform === 'macos'
+        ? `Download macOS ${primaryRelease.architecture}`
+        : `Download for ${primaryDetail.label}`;
+    const primaryCopy = primaryPlatform === 'ios'
+      ? primaryRelease.release_notes
+      : `${primaryDetail.description}. Install the complete POS application, create your store, and activate five months of access.`;
+    const alternateDownloads = (releaseGroups.get(primaryPlatform) || [])
+      .filter((release) => release !== primaryRelease && release.status === 'available' && release.url)
+      .map((release) => `
+        <a class="alternate-download download-link" href="${release.url}" data-platform="${primaryPlatform}" data-version="${release.version}">
+          ${utilityIcons.download} ${release.file_type} ${release.architecture}
+        </a>
+      `).join('');
+    const integrityText = primaryPlatform === 'ios'
+      ? 'Secure installable web app'
+      : primaryRelease.sha256
+        ? 'SHA-256 checksum included in release details'
+        : 'Versioned official installer';
     target.innerHTML = `
       <div class="download-showcase">
         <article class="primary-download-card">
           <div class="primary-card-top">
             <span class="platform-icon platform-icon-large">${primaryDetail.icon}</span>
-            <span class="verified-badge">${utilityIcons.shield} Verified release</span>
+            <span class="verified-badge">${releaseBadge}</span>
           </div>
           <div class="primary-card-copy">
             <span class="recommended-label">${detected === primaryPlatform ? 'Recommended for this device' : 'Available now'}</span>
             <h2>QuickPOS for ${primaryDetail.label}</h2>
-            <p>${primaryDetail.description}. Install the complete POS application, create your store, and activate five months of access.</p>
+            <p>${primaryCopy}</p>
           </div>
           <div class="release-meta">
             <span><small>Version</small><strong>${primaryRelease.version}</strong></span>
-            <span><small>File</small><strong>${primaryRelease.file_type || 'Installer'}</strong></span>
+            <span><small>File</small><strong>${primaryRelease.file_type || 'Installer'} · ${primaryRelease.architecture || 'universal'}</strong></span>
             <span><small>Size</small><strong>${primaryRelease.size_display || 'See download'}</strong></span>
           </div>
           <a class="button primary-download-button download-link" href="${primaryRelease.url}" data-platform="${primaryPlatform}" data-version="${primaryRelease.version}">
-            ${utilityIcons.download} Download for ${primaryDetail.label}
+            ${utilityIcons.download} ${primaryAction}
           </a>
-          <div class="checksum-note">${utilityIcons.hash}<span>${primaryRelease.sha256 ? 'SHA-256 checksum included in release details' : 'Versioned official installer'}</span></div>
+          ${alternateDownloads ? `<div class="alternate-downloads"><span>Other format</span>${alternateDownloads}</div>` : ''}
+          ${primaryRelease.signature_status === 'unsigned_preview' ? '<p class="release-warning">macOS may block this preview because it is not yet signed or notarized. Open Privacy & Security to approve it manually.</p>' : ''}
+          <div class="checksum-note">${utilityIcons.hash}<span>${integrityText}</span></div>
         </article>
         <aside class="platform-panel">
           ${availableCards ? `<div class="platform-panel-group"><div class="panel-title"><span>Other available builds</span><small>Direct download</small></div>${availableCards}</div>` : ''}
