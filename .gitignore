@@ -9,3 +9,5 @@ dist/
 coverage/
 .turbo/
 release/
+.vercel
+.env*.local
