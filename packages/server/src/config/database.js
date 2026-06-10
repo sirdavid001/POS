@@ -6,9 +6,6 @@ const { Pool } = pg;
 
 const pool = new Pool({
   connectionString: config.db.connectionString,
-  ssl: config.db.connectionString?.includes('neon.tech') || config.db.connectionString?.includes('sslmode=require')
-    ? { rejectUnauthorized: false }
-    : false,
   max: 5,
   idleTimeoutMillis: 30000,
 });

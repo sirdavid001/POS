@@ -4,6 +4,18 @@ if (process.env.VERCEL !== '1') {
   dotenv.config({ path: '../../.env' });
 }
 
+function normalizeDatabaseUrl(value) {
+  const url = new URL(value);
+  const sslMode = url.searchParams.get('sslmode');
+  if (
+    ['prefer', 'require', 'verify-ca'].includes(sslMode) &&
+    url.searchParams.get('uselibpqcompat') !== 'true'
+  ) {
+    url.searchParams.set('sslmode', 'verify-full');
+  }
+  return url.toString();
+}
+
 function buildDatabaseConfig() {
   const connectionStringEnvVars = [
     ['DATABASE_URL', process.env.DATABASE_URL],
@@ -14,7 +26,7 @@ function buildDatabaseConfig() {
 
   for (const [source, value] of connectionStringEnvVars) {
     if (value) {
-      return { connectionString: value, source };
+      return { connectionString: normalizeDatabaseUrl(value), source };
     }
   }
 
@@ -32,7 +44,7 @@ function buildDatabaseConfig() {
       process.env.NODE_ENV === 'production';
 
     if (needsSsl) {
-      url.searchParams.set('sslmode', 'require');
+      url.searchParams.set('sslmode', 'verify-full');
     }
 
     return {
