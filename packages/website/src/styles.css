@@ -414,6 +414,22 @@ h3 { letter-spacing: -0.025em; }
 .roadmap-card strong { font-size: 14px; }
 .compact-download-card span,
 .roadmap-card span { color: var(--muted); font-size: 11px; }
+.compact-download-actions {
+  display: flex !important;
+  justify-content: flex-end;
+  gap: 6px !important;
+}
+.compact-download-action {
+  padding: 7px 9px;
+  border: 1px solid oklch(0.55 0.2 260 / 0.28);
+  border-radius: 8px;
+  color: var(--color-primary-light);
+  background: oklch(0.55 0.2 260 / 0.08);
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.compact-download-action:hover { background: oklch(0.55 0.2 260 / 0.16); }
 .icon-download {
   display: grid;
   place-items: center;
@@ -535,6 +551,9 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
   .release-meta strong { overflow-wrap: anywhere; }
   .primary-download-button { width: 100%; }
   .compact-download-card, .roadmap-card { padding: 11px 8px; }
+  .compact-download-card { grid-template-columns: auto minmax(0, 1fr); }
+  .compact-download-actions { grid-column: 1 / -1; justify-content: stretch; }
+  .compact-download-action { flex: 1; text-align: center; }
   .roadmap-card .coming-badge { display: none; }
   .release-error { grid-template-columns: auto 1fr; }
   .release-error .button { grid-column: 1 / -1; }

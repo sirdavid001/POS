@@ -117,6 +117,15 @@ const utilityIcons = {
   update: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5m10.2-3A8 8 0 0 0 5.5 6M4.8 15A8 8 0 0 0 18.5 18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>',
 };
 
+function releaseVariantLabel(platform, release) {
+  if (platform === 'macos') return release.architecture === 'arm64' ? 'Apple silicon' : 'Intel';
+  if (platform === 'linux') return release.file_type === '.deb' ? 'Debian' : 'AppImage';
+  if (platform === 'android') return 'APK';
+  if (platform === 'windows') return 'Windows';
+  if (platform === 'ios') return 'Open';
+  return release.file_type || release.architecture || 'Download';
+}
+
 async function loadDownloads() {
   const target = document.querySelector('[data-download-grid]');
   if (!target) return;
@@ -185,16 +194,25 @@ async function loadDownloads() {
       .filter((platform) => platform !== primaryPlatform)
       .map((platform) => {
         const release = preferredRelease(platform);
+        const platformReleases = (releaseGroups.get(platform) || [])
+          .filter((item) => item.status === 'available' && item.url);
         const detail = platformDetails[platform];
         const status = release.signature_status === 'unsigned_preview'
           ? 'Unsigned preview'
           : release.signature_status === 'signed' ? 'Signed' : release.file_type;
-        const actionLabel = platform === 'ios' ? 'Open' : 'Download';
+        const actions = platformReleases.map((item) => {
+          const actionLabel = releaseVariantLabel(platform, item);
+          return `
+            <a class="compact-download-action download-link" href="${item.url}" aria-label="${actionLabel} QuickPOS for ${detail.label}" data-platform="${platform}" data-version="${item.version}">
+              ${actionLabel}
+            </a>
+          `;
+        }).join('');
         return `
           <article class="compact-download-card">
             <span class="platform-icon">${detail.icon}</span>
             <div><strong>${detail.label}</strong><span>Version ${release.version} · ${status || release.architecture || 'Release'}</span></div>
-            <a class="icon-download download-link" href="${release.url}" aria-label="${actionLabel} QuickPOS for ${detail.label}" data-platform="${platform}" data-version="${release.version}">${utilityIcons.download}</a>
+            <div class="compact-download-actions">${actions}</div>
           </article>
         `;
       }).join('');
@@ -220,7 +238,7 @@ async function loadDownloads() {
     const primaryAction = primaryPlatform === 'ios'
       ? 'Open QuickPOS on iPhone'
       : primaryPlatform === 'macos'
-        ? `Download macOS ${primaryRelease.architecture}`
+        ? `Download for ${releaseVariantLabel(primaryPlatform, primaryRelease)}`
         : `Download for ${primaryDetail.label}`;
     const primaryCopy = primaryPlatform === 'ios'
       ? primaryRelease.release_notes
@@ -229,7 +247,7 @@ async function loadDownloads() {
       .filter((release) => release !== primaryRelease && release.status === 'available' && release.url)
       .map((release) => `
         <a class="alternate-download download-link" href="${release.url}" data-platform="${primaryPlatform}" data-version="${release.version}">
-          ${utilityIcons.download} ${release.file_type} ${release.architecture}
+          ${utilityIcons.download} ${releaseVariantLabel(primaryPlatform, release)} (${release.file_type})
         </a>
       `).join('');
     const integrityText = primaryPlatform === 'ios'
