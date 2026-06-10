@@ -7,6 +7,7 @@
     "email": "support@quickpos.name.ng"
   },
   "homepage": "https://quickpos.name.ng",
+  "desktopName": "QuickPOS",
   "private": true,
   "main": "desktop/main.cjs",
   "workspaces": [
@@ -48,7 +49,6 @@
   "build": {
     "appId": "app.quickpos.desktop",
     "productName": "QuickPOS",
-    "desktopName": "QuickPOS",
     "asar": true,
     "npmRebuild": false,
     "files": [
