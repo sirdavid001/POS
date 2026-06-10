@@ -1,5 +1,5 @@
 {
   "appId": "quickposs.vercel.app",
   "appName": "QuickPos",
-  "webDir": "https://quickposs.vercel.app/"
+  "webDir": "packages/client/dist"
 }
