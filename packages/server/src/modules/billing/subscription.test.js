@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { serializeSubscription } from './subscription.js';
+import { addMonths, serializeSubscription } from './subscription.js';
 
 const now = new Date('2026-06-10T12:00:00.000Z');
 
@@ -45,5 +45,10 @@ describe('subscription entitlement boundaries', () => {
 
     expect(subscription.can_write).toBe(true);
     expect(subscription.offline_valid_until).toBe('2026-06-17T12:00:00.000Z');
+  });
+
+  test('keeps month-end billing on the final valid calendar day', () => {
+    expect(addMonths(new Date('2026-01-31T12:00:00.000Z'), 1).toISOString())
+      .toBe('2026-02-28T12:00:00.000Z');
   });
 });

@@ -27,7 +27,7 @@
     "website:build": "npm run build -w packages/website"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0",
+    "concurrently": "^10.0.3",
     "electron": "^42.4.0",
     "electron-builder": "^26.15.2"
   },
@@ -63,11 +63,16 @@
       "artifactName": "QuickPOS-Setup-${version}.${ext}"
     },
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "artifactName": "QuickPOS-${version}-${arch}.${ext}"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "artifactName": "QuickPOS-${version}-${arch}.${ext}",
       "category": "Office"
     },

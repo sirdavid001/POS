@@ -175,7 +175,7 @@ router.delete('/users/:id', authorize('admin', 'manager'), async (req, res, next
       const admins = await query(
         `SELECT COUNT(*)::int AS count
          FROM users u JOIN roles r ON r.id = u.role_id
-         WHERE u.store_id = $1 AND r.name = 'admin'`,
+         WHERE u.store_id = $1 AND r.name = 'admin' AND u.is_active = true`,
         [req.user.store_id]
       );
       if (admins.rows[0].count <= 1) {

@@ -257,7 +257,7 @@ export async function renderSettings() {
           </div>
           <div class="form-group">
             <label class="label">New Password</label>
-            <input class="input" type="password" name="password" placeholder="Leave blank to keep current password" minlength="4">
+            <input class="input" type="password" name="password" placeholder="Leave blank to keep current password" minlength="6">
             <p style="font-size:0.7rem;color:var(--color-text-muted);margin-top:0.25rem;">Only fill this if you want to change the password</p>
           </div>
           <div style="display:flex;gap:0.5rem;margin-top:1.25rem;">
@@ -323,7 +323,7 @@ export async function renderSettings() {
           </div>
           <div class="form-group">
             <label class="label">Password *</label>
-            <input class="input" type="password" name="password" placeholder="Set initial password" minlength="4" required>
+            <input class="input" type="password" name="password" placeholder="Set initial password" minlength="6" required>
           </div>
           <div class="form-group">
             <label class="label">Role *</label>

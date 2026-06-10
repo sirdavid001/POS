@@ -109,6 +109,14 @@ export async function getPlan(planCode, queryFn = query) {
 
 export function addMonths(date, months) {
   const next = new Date(date);
+  const day = next.getUTCDate();
+  next.setUTCDate(1);
   next.setUTCMonth(next.getUTCMonth() + Number(months));
+  const finalDay = new Date(Date.UTC(
+    next.getUTCFullYear(),
+    next.getUTCMonth() + 1,
+    0
+  )).getUTCDate();
+  next.setUTCDate(Math.min(day, finalDay));
   return next;
 }
