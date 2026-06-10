@@ -1,0 +1,61 @@
+name: Publish Windows fallback release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build Windows x64 installer
+        shell: bash
+        env:
+          VITE_APP_VERSION: ${{ github.ref_name }}
+          CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          npm run build -w packages/client
+          npx electron-builder \
+            --win nsis \
+            --x64 \
+            --publish never \
+            --config.extraMetadata.version="$VERSION" \
+            --config.directories.output=release-ci
+      - name: Generate release manifest and checksums
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          node scripts/generate-release-manifest.mjs \
+            --artifacts release-ci \
+            --output publish/latest.json \
+            --version "$VERSION" \
+            --minimum "$VERSION" \
+            --notes "QuickPOS $VERSION for Windows" \
+            --base-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" \
+            release-ci/*.exe \
+            release-ci/*.blockmap \
+            release-ci/latest.yml \
+            publish/latest.json \
+            publish/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "QuickPOS $VERSION" \
+            --notes "Windows x64 release of QuickPOS $VERSION. Windows may show a SmartScreen warning until the installer is code-signed."

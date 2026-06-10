@@ -96,12 +96,25 @@ async function loadDownloads() {
   const platforms = ['windows', 'android', 'macos', 'linux', 'ios'];
 
   try {
-    const manifestUrl =
-      import.meta.env.VITE_RELEASE_MANIFEST_URL ||
-      'https://downloads.quickpos.name.ng/latest.json';
-    const response = await fetch(manifestUrl, { cache: 'no-store' });
-    if (!response.ok) throw new Error('Release manifest unavailable');
-    const manifest = await response.json();
+    const manifestUrls = [
+      import.meta.env.VITE_RELEASE_MANIFEST_URL,
+      'https://downloads.quickpos.name.ng/latest.json',
+      'https://github.com/sirdavid001/POS/releases/latest/download/latest.json',
+    ].filter(Boolean);
+    let manifest = null;
+
+    for (const manifestUrl of manifestUrls) {
+      try {
+        const response = await fetch(manifestUrl, { cache: 'no-store' });
+        if (!response.ok) continue;
+        manifest = await response.json();
+        break;
+      } catch {
+        // Try the next release host.
+      }
+    }
+
+    if (!manifest) throw new Error('Release manifest unavailable');
 
     target.innerHTML = platforms.map((platform) => {
       const release = manifest.releases?.find((item) => item.platform === platform);
