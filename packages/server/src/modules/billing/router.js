@@ -8,6 +8,12 @@ import config from '../../config/index.js';
 import logger from '../../config/logger.js';
 import { addMonths, getPlan, getStoreSubscription } from './subscription.js';
 import { sendBillingEmail } from './email.js';
+import {
+  getProviderAvailability,
+  providerError,
+  verifyFlutterwaveWebhook,
+  verifyPaystackWebhook,
+} from './providers.js';
 
 const router = Router();
 const checkoutSchema = z.object({
@@ -15,32 +21,20 @@ const checkoutSchema = z.object({
   plan_code: z.enum(['monthly', 'quarterly', 'yearly', 'launch_6m']),
 });
 
-function safeEqual(left, right) {
-  if (!left || !right) return false;
-  const leftBuffer = Buffer.from(left);
-  const rightBuffer = Buffer.from(right);
-  return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
-}
-
 function verifyPaystackSignature(req) {
-  const expected = crypto
-    .createHmac('sha512', config.paystack.secretKey)
-    .update(req.rawBody || Buffer.from(JSON.stringify(req.body)))
-    .digest('hex');
-  return safeEqual(expected, req.get('x-paystack-signature'));
+  return verifyPaystackWebhook(
+    req.rawBody || Buffer.from(JSON.stringify(req.body)),
+    req.get('x-paystack-signature'),
+    config.paystack.secretKey
+  );
 }
 
 function verifyFlutterwaveSignature(req) {
-  const signature = req.get('flutterwave-signature');
-  if (signature) {
-    const expected = crypto
-      .createHmac('sha256', config.flutterwave.webhookSecret)
-      .update(req.rawBody || Buffer.from(JSON.stringify(req.body)))
-      .digest('base64');
-    return safeEqual(expected, signature);
-  }
-
-  return safeEqual(config.flutterwave.webhookSecret, req.get('verif-hash'));
+  return verifyFlutterwaveWebhook(
+    req.rawBody || Buffer.from(JSON.stringify(req.body)),
+    req.get('flutterwave-signature') || req.get('verif-hash'),
+    config.flutterwave.webhookSecret
+  );
 }
 
 function eventKey(provider, req) {
@@ -119,7 +113,10 @@ async function verifyFlutterwaveTransaction(transactionId) {
     { headers: { Authorization: `Bearer ${config.flutterwave.secretKey}` } }
   );
   const data = response.data?.data;
-  if (response.data?.status !== 'success' || data?.status !== 'successful') {
+  if (
+    response.data?.status !== 'success' ||
+    !['successful', 'succeeded'].includes(data?.status)
+  ) {
     throw new Error('Flutterwave transaction is not successful');
   }
   return {
@@ -238,13 +235,14 @@ async function activateVerifiedPayment(provider, verified) {
     await client.query(
       `UPDATE store_subscriptions SET
          plan_code = $1,
-         status = CASE WHEN cancel_at_period_end THEN 'cancelled' ELSE 'active' END,
+         status = 'active',
          provider = $2,
          current_period_start = $3,
          current_period_end = GREATEST(COALESCE(current_period_end, $4), $4),
          provider_customer_id = COALESCE($5, provider_customer_id),
          provider_subscription_id = COALESCE($6, provider_subscription_id),
          provider_email_token = COALESCE($7, provider_email_token),
+         cancel_at_period_end = false,
          launch_offer_redeemed = launch_offer_redeemed OR $8,
          last_verified_at = NOW(),
          metadata = metadata || $9::jsonb,
@@ -344,6 +342,7 @@ async function finishWebhook(id, status, error = null) {
 
 router.get('/plans', async (req, res, next) => {
   try {
+    const providers = getProviderAvailability(config);
     const result = await query(
       `SELECT code, name, price_ngn, duration_months, billing_interval, recurring, is_promotional
        FROM subscription_plans WHERE is_active = true ORDER BY price_ngn`
@@ -353,7 +352,12 @@ router.get('/plans', async (req, res, next) => {
         ...plan,
         price_ngn: Number(plan.price_ngn),
         available: plan.code !== 'launch_6m' || config.billing.launchOfferEnabled,
+        provider_availability: {
+          paystack: Boolean(providers.paystack.plans[plan.code]),
+          flutterwave: Boolean(providers.flutterwave.plans[plan.code]),
+        },
       })),
+      providers,
       launch_offer_enabled: config.billing.launchOfferEnabled,
     });
   } catch (error) {
@@ -441,7 +445,10 @@ router.post('/webhooks/flutterwave', async (req, res) => {
   try {
     const type = req.body?.event || req.body?.type;
     const data = req.body?.data || {};
-    if (['charge.completed', 'charge.successful'].includes(type) && data.status === 'successful') {
+    if (
+      ['charge.completed', 'charge.successful'].includes(type) &&
+      ['successful', 'succeeded'].includes(data.status)
+    ) {
       await activateVerifiedPayment('flutterwave', await verifyFlutterwaveTransaction(data.id));
     } else if (type?.includes('failed')) {
       const failed = await query(
@@ -503,12 +510,13 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
     const { provider, plan_code: planCode } = parsed.data;
     const plan = await getPlan(planCode);
     const subscription = await getStoreSubscription(req.user.store_id);
+    const providers = getProviderAvailability(config);
     if (!plan) return res.status(404).json({ error: 'Plan not found' });
-    if (provider === 'paystack' && !config.paystack.secretKey) {
-      return res.status(503).json({ error: 'Paystack is not configured' });
-    }
-    if (provider === 'flutterwave' && !config.flutterwave.secretKey) {
-      return res.status(503).json({ error: 'Flutterwave is not configured' });
+    if (!providers[provider].plans[planCode]) {
+      return res.status(503).json({
+        error: `${provider === 'paystack' ? 'Paystack' : 'Flutterwave'} checkout is not configured for this plan`,
+        code: 'PAYMENT_PROVIDER_UNAVAILABLE',
+      });
     }
     if (planCode === 'launch_6m' && !(await launchOfferEligible(req.user.store_id, subscription))) {
       return res.status(403).json({ error: 'The launch offer is not available for this store' });
@@ -554,9 +562,14 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
         metadata,
       };
       if (plan.recurring) payload.plan = providerPlanId(provider, planCode);
-      const response = await axios.post('https://api.paystack.co/transaction/initialize', payload, {
-        headers: { Authorization: `Bearer ${config.paystack.secretKey}` },
-      });
+      let response;
+      try {
+        response = await axios.post('https://api.paystack.co/transaction/initialize', payload, {
+          headers: { Authorization: `Bearer ${config.paystack.secretKey}` },
+        });
+      } catch (error) {
+        throw providerError(error, 'Paystack');
+      }
       authorizationUrl = response.data?.data?.authorization_url;
     } else {
       const payload = {
@@ -569,9 +582,14 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
         meta: metadata,
       };
       if (plan.recurring) payload.payment_plan = Number(providerPlanId(provider, planCode));
-      const response = await axios.post('https://api.flutterwave.com/v3/payments', payload, {
-        headers: { Authorization: `Bearer ${config.flutterwave.secretKey}` },
-      });
+      let response;
+      try {
+        response = await axios.post('https://api.flutterwave.com/v3/payments', payload, {
+          headers: { Authorization: `Bearer ${config.flutterwave.secretKey}` },
+        });
+      } catch (error) {
+        throw providerError(error, 'Flutterwave');
+      }
       authorizationUrl = response.data?.data?.link;
     }
 
@@ -585,16 +603,28 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
 router.post('/cancel', authorize('admin'), async (req, res, next) => {
   try {
     const subscriptionResult = await query(
-      'SELECT * FROM store_subscriptions WHERE store_id = $1',
+      `SELECT ss.*, sp.recurring
+       FROM store_subscriptions ss
+       LEFT JOIN subscription_plans sp ON sp.code = ss.plan_code
+       WHERE ss.store_id = $1`,
       [req.user.store_id]
     );
     const subscription = subscriptionResult.rows[0];
     if (!subscription || !subscription.provider) {
       return res.status(400).json({ error: 'There is no recurring subscription to cancel' });
     }
+    if (!subscription.recurring) {
+      return res.status(400).json({ error: 'This plan does not renew automatically' });
+    }
+    if (!subscription.provider_subscription_id) {
+      return res.status(409).json({
+        error: 'The provider is still creating this subscription. Try cancelling again in a few minutes.',
+        code: 'SUBSCRIPTION_PROVIDER_PENDING',
+      });
+    }
 
-    if (subscription.provider_subscription_id) {
-      if (subscription.provider === 'paystack') {
+    if (subscription.provider === 'paystack') {
+      try {
         await axios.post(
           'https://api.paystack.co/subscription/disable',
           {
@@ -603,12 +633,18 @@ router.post('/cancel', authorize('admin'), async (req, res, next) => {
           },
           { headers: { Authorization: `Bearer ${config.paystack.secretKey}` } }
         );
-      } else if (subscription.provider === 'flutterwave') {
+      } catch (error) {
+        throw providerError(error, 'Paystack', 'Subscription cancellation failed');
+      }
+    } else if (subscription.provider === 'flutterwave') {
+      try {
         await axios.put(
           `https://api.flutterwave.com/v3/subscriptions/${encodeURIComponent(subscription.provider_subscription_id)}/cancel`,
           {},
           { headers: { Authorization: `Bearer ${config.flutterwave.secretKey}` } }
         );
+      } catch (error) {
+        throw providerError(error, 'Flutterwave', 'Subscription cancellation failed');
       }
     }
 

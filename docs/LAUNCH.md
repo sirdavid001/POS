@@ -78,6 +78,19 @@ Create recurring monthly, quarterly, and yearly plans in both providers:
 The six-month NGN 20,000 launch offer is initialized as a one-time payment and
 does not need a provider plan.
 
+After adding valid provider keys to `.env`, create or reuse the exact recurring
+plans and print their environment values:
+
+```bash
+npm run billing:configure
+```
+
+To write the generated plan identifiers into the local `.env` file:
+
+```bash
+npm run billing:configure -- --write=.env
+```
+
 Set the production server environment variables from `.env.example`, including
 the provider plan codes/IDs. Set `LAUNCH_OFFER_ENABLED=true` only while the
 promotion is available.

@@ -123,7 +123,7 @@ export async function renderBilling() {
   function pollForActivation(planCode) {
     let attempts = 0;
     const timer = setInterval(async () => {
-      if (window.location.hash !== '#/billing' || attempts++ >= 30) {
+      if (!window.location.hash.startsWith('#/billing') || attempts++ >= 30) {
         clearInterval(timer);
         return;
       }
@@ -141,7 +141,7 @@ export async function renderBilling() {
   }
 
   try {
-    const [{ plans }, statusResult] = await Promise.all([
+    const [{ plans, providers }, statusResult] = await Promise.all([
       api.get('/billing/plans'),
       api.get('/billing/status'),
     ]);
@@ -151,7 +151,17 @@ export async function renderBilling() {
     const visiblePlans = plans.filter((plan) =>
       plan.code !== 'launch_6m' || (plan.available && statusResult.launch_offer_eligible)
     );
-    document.getElementById('billing-plans').innerHTML = visiblePlans.map((plan) => `
+    const configuredProviderCount = Object.values(providers || {})
+      .filter((provider) => provider.available).length;
+    document.getElementById('billing-plans').innerHTML = `
+      ${configuredProviderCount === 0 ? `
+        <div class="glass-card billing-provider-notice">
+          Online subscription checkout is temporarily unavailable. Contact
+          <a href="mailto:support@quickpos.name.ng">support@quickpos.name.ng</a>
+          for activation assistance.
+        </div>
+      ` : ''}
+      ${visiblePlans.map((plan) => `
       <article class="glass-card billing-plan-card ${plan.code === 'yearly' ? 'featured' : ''}">
         ${plan.code === 'yearly' ? '<span class="billing-plan-label">Best value</span>' : ''}
         ${plan.code === 'launch_6m' ? '<span class="billing-plan-label launch">Launch offer</span>' : ''}
@@ -159,14 +169,22 @@ export async function renderBilling() {
         <div class="billing-price">${formatCurrency(plan.price_ngn).replace('.00', '')}</div>
         <p>${planDescription(plan)}</p>
         <div class="billing-provider-actions">
-          <button class="btn btn-primary" data-checkout-provider="paystack" data-plan="${plan.code}">Paystack</button>
-          <button class="btn btn-ghost" data-checkout-provider="flutterwave" data-plan="${plan.code}">Flutterwave</button>
+          <button class="btn btn-primary" data-checkout-provider="paystack" data-plan="${plan.code}"
+            ${plan.provider_availability?.paystack ? '' : 'disabled title="Paystack is not available for this plan"'}>
+            ${plan.provider_availability?.paystack ? 'Paystack' : 'Paystack unavailable'}
+          </button>
+          <button class="btn btn-ghost" data-checkout-provider="flutterwave" data-plan="${plan.code}"
+            ${plan.provider_availability?.flutterwave ? '' : 'disabled title="Flutterwave is not available for this plan"'}>
+            ${plan.provider_availability?.flutterwave ? 'Flutterwave' : 'Flutterwave unavailable'}
+          </button>
         </div>
       </article>
-    `).join('');
+      `).join('')}
+    `;
 
     document.querySelectorAll('[data-checkout-provider]').forEach((button) => {
       button.addEventListener('click', async () => {
+        if (button.disabled) return;
         const original = button.textContent;
         button.disabled = true;
         button.textContent = 'Opening...';

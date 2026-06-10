@@ -16,6 +16,7 @@
     "test": "npm run test --workspaces --if-present",
     "db:migrate": "npm run db:migrate -w packages/server",
     "db:seed": "npm run db:seed -w packages/server",
+    "billing:configure": "node scripts/configure-billing-providers.mjs",
     "mobile:sync": "npm run build -w packages/client && cap sync",
     "mobile:android": "npm run mobile:sync && cap open android",
     "mobile:ios": "npm run mobile:sync && cap open ios",
