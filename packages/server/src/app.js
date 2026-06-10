@@ -28,6 +28,9 @@ const isVercel = process.env.VERCEL === '1';
 const server = isVercel ? null : createServer(app);
 
 // ---- Middleware ----
+if (isVercel) {
+  app.set('trust proxy', 1);
+}
 app.use(helmet({ contentSecurityPolicy: false }));
 const corsOptions = {
   origin: true,
