@@ -1,6 +1,12 @@
 {
   "name": "pos-system",
   "version": "1.0.0",
+  "description": "QuickPOS point-of-sale software for modern retail stores.",
+  "author": {
+    "name": "QuickPOS",
+    "email": "support@quickpos.name.ng"
+  },
+  "homepage": "https://quickpos.name.ng",
   "private": true,
   "main": "desktop/main.cjs",
   "workspaces": [
@@ -42,6 +48,7 @@
   "build": {
     "appId": "app.quickpos.desktop",
     "productName": "QuickPOS",
+    "desktopName": "QuickPOS",
     "asar": true,
     "npmRebuild": false,
     "files": [
@@ -74,6 +81,7 @@
     },
     "linux": {
       "icon": "build/quickpos.png",
+      "syncDesktopName": true,
       "target": [
         "AppImage",
         "deb"
