@@ -95,11 +95,6 @@ const config = {
     },
   },
 
-  stripe: {
-    secretKey: process.env.STRIPE_SECRET_KEY || '',
-    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
-  },
-
   email: {
     resendApiKey: process.env.RESEND_API_KEY || '',
     from: process.env.EMAIL_FROM || 'QuickPOS <billing@quickpos.name.ng>',

@@ -28,7 +28,7 @@ export const PAYMENT_STATUS = {
 export const PAYMENT_PROVIDERS = {
   CASH: 'cash',
   PAYSTACK: 'paystack',
-  STRIPE: 'stripe',
+  FLUTTERWAVE: 'flutterwave',
 };
 
 export const INVENTORY_LOG_TYPES = {
