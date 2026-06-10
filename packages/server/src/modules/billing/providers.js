@@ -34,7 +34,7 @@ export function getProviderAvailability(config) {
   );
 
   const buildPlanAvailability = (provider, configured) => ({
-    launch_6m: configured,
+    activation_5m: configured,
     ...Object.fromEntries(RECURRING_PLAN_CODES.map((code) => [
       code,
       configured && Boolean(config[provider].plans[code]),

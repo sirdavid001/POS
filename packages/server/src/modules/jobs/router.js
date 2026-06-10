@@ -64,9 +64,9 @@ async function runSubscriptionReminders(req, res, next) {
         message = {
           type: 'trial_reminder',
           key: `${row.trial_ends_at}:${days}`,
-          subject: `Your QuickPOS trial ends in ${days} day${days === 1 ? '' : 's'}`,
-          heading: 'Your free trial is nearly complete',
-          body: `Choose a plan before ${new Date(row.trial_ends_at).toLocaleDateString('en-NG')} to keep recording sales without interruption.`,
+          subject: `Your existing QuickPOS trial ends in ${days} day${days === 1 ? '' : 's'}`,
+          heading: 'Your existing trial is nearly complete',
+          body: `Complete the ₦20,000 initial activation before ${new Date(row.trial_ends_at).toLocaleDateString('en-NG')} to unlock the next five months without interruption.`,
         };
       } else {
         const days = Math.max(1, Math.ceil((new Date(row.current_period_end) - Date.now()) / 86400000));

@@ -77,13 +77,19 @@ export function renderLayout(activePage) {
     const banner = document.getElementById('subscription-banner');
     if (!banner || !subscription || subscription.status === 'grandfathered') return;
 
-    const show = subscription.status === 'trialing' || !subscription.can_write || subscription.cancel_at_period_end;
+    const show =
+      subscription.activation_required ||
+      subscription.status === 'trialing' ||
+      !subscription.can_write ||
+      subscription.cancel_at_period_end;
     if (!show) {
       banner.innerHTML = '';
       return;
     }
-    const message = subscription.status === 'trialing'
-      ? `${subscription.days_remaining ?? 0} day${subscription.days_remaining === 1 ? '' : 's'} left in your all-feature trial.`
+    const message = subscription.activation_required && subscription.status === 'pending_activation'
+      ? 'Activate QuickPOS for ₦20,000 to unlock all features for five months.'
+      : subscription.status === 'trialing'
+        ? `${subscription.days_remaining ?? 0} day${subscription.days_remaining === 1 ? '' : 's'} left in your existing trial. Initial activation is required afterward.`
       : subscription.cancel_at_period_end && subscription.can_write
         ? `Renewal is cancelled. Access continues through ${new Date(subscription.current_period_end).toLocaleDateString('en-NG')}.`
         : 'QuickPOS is read-only. Reports, exports, printing, statement email, and billing are still available.';

@@ -75,8 +75,8 @@ Create recurring monthly, quarterly, and yearly plans in both providers:
 | Quarterly | NGN 13,500 | Every 3 months |
 | Yearly | NGN 50,000 | Yearly |
 
-The six-month NGN 20,000 launch offer is initialized as a one-time payment and
-does not need a provider plan.
+The required five-month NGN 20,000 initial activation is initialized as a
+one-time payment and does not need a provider plan.
 
 After adding valid provider keys to `.env`, create or reuse the exact recurring
 plans and print their environment values:
@@ -92,8 +92,7 @@ npm run billing:configure -- --write=.env
 ```
 
 Set the production server environment variables from `.env.example`, including
-the provider plan codes/IDs. Set `LAUNCH_OFFER_ENABLED=true` only while the
-promotion is available.
+the provider plan codes/IDs.
 
 Register these webhook URLs:
 
@@ -129,7 +128,7 @@ Configure a real mailbox or Cloudflare Email Routing destination for
 an inbox.
 
 Set `CRON_SECRET` on the server. Vercel invokes
-`/api/v1/jobs/subscription-reminders` daily at 08:00 UTC for trial, renewal, and
+`/api/v1/jobs/subscription-reminders` daily at 08:00 UTC for renewal and
 expiry messages.
 
 Resend domain guide:
@@ -159,12 +158,14 @@ through `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD`.
 
 Verify:
 
-1. Two owner registrations create different stores and seven-day trials.
+1. Two owner registrations create different stores in pending activation.
 2. Owners and managers can create only permitted staff inside their store.
-3. Expired stores receive `402 SUBSCRIPTION_EXPIRED` for mutations.
-4. Reports, statement PDF/Excel, printing, statement email, and billing remain
+3. New stores receive `402 INITIAL_ACTIVATION_REQUIRED` for mutations until
+   the ₦20,000 activation is verified.
+4. Expired stores receive `402 SUBSCRIPTION_EXPIRED` for mutations.
+5. Reports, statement PDF/Excel, printing, statement email, and billing remain
    available after expiry.
-5. Duplicate and invalid-signature webhooks do not change access.
+6. Duplicate and invalid-signature webhooks do not change access.
 
 ## 6. Publish Windows and Android
 

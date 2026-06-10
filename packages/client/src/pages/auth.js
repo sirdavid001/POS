@@ -57,7 +57,10 @@ export function renderLoginPage() {
       localStorage.setItem('user', JSON.stringify(data.user));
       saveSubscription(data.subscription);
       toast('Welcome back, ' + data.user.name + '!', 'success');
-      window.location.hash = '#/dashboard';
+      window.location.hash =
+        data.user.role === 'admin' && data.subscription?.activation_required
+          ? '#/billing'
+          : '#/dashboard';
     } catch (err) {
       toast(err.message || 'Login failed', 'error');
       btn.disabled = false;
@@ -118,7 +121,7 @@ export function renderRegisterPage() {
         email: document.getElementById('reg-email').value,
         password: document.getElementById('reg-password').value,
       });
-      toast('Account created! Please sign in.', 'success');
+      toast('Account created. Sign in to activate your store.', 'success');
       window.location.hash = '#/login';
     } catch (err) {
       toast(err.message || 'Registration failed', 'error');

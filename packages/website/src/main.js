@@ -216,7 +216,7 @@ async function loadDownloads() {
           <div class="primary-card-copy">
             <span class="recommended-label">${detected === primaryPlatform ? 'Recommended for this device' : 'Available now'}</span>
             <h2>QuickPOS for ${primaryDetail.label}</h2>
-            <p>${primaryDetail.description}. Install the complete POS application and begin your seven-day trial.</p>
+            <p>${primaryDetail.description}. Install the complete POS application, create your store, and activate five months of access.</p>
           </div>
           <div class="release-meta">
             <span><small>Version</small><strong>${primaryRelease.version}</strong></span>

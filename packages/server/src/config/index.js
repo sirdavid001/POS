@@ -102,7 +102,6 @@ const config = {
   },
 
   billing: {
-    launchOfferEnabled: process.env.LAUNCH_OFFER_ENABLED === 'true',
     checkoutReturnUrl:
       process.env.BILLING_RETURN_URL ||
       'https://quickposs.vercel.app/#/billing?checkout=complete',

@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import { getClient, query } from '../../config/database.js';
 import config from '../../config/index.js';
 import logger from '../../config/logger.js';
-import { createTrial, getStoreSubscription } from '../billing/subscription.js';
+import { createPendingActivation, getStoreSubscription } from '../billing/subscription.js';
 import { sendBillingEmail } from '../billing/email.js';
 import { sendPasswordResetEmail } from './email.js';
 import {
@@ -49,21 +49,21 @@ export const register = async (req, res, next) => {
        RETURNING id, email, name, store_id`,
       [store.id, roleResult.rows[0].id, email, passwordHash, name, phone || null]
     );
-    const subscription = await createTrial(client, store.id);
+    const subscription = await createPendingActivation(client, store.id);
     await client.query('COMMIT');
 
     try {
       await sendBillingEmail({
         storeId: store.id,
         to: email,
-        type: 'trial_started',
-        key: subscription.trial_ends_at,
-        subject: 'Your QuickPOS trial has started',
+        type: 'activation_required',
+        key: 'initial_activation',
+        subject: 'Activate your QuickPOS store',
         heading: `Welcome to QuickPOS, ${name}`,
-        body: `Your store, ${store.name}, now has all QuickPOS features for seven days. Your trial ends on ${new Date(subscription.trial_ends_at).toLocaleDateString('en-NG')}.`,
+        body: `Your store, ${store.name}, is ready. Complete the one-time ₦20,000 initial activation to unlock all QuickPOS features for five months.`,
       });
     } catch (emailError) {
-      logger.warn('Trial email could not be sent', { storeId: store.id, error: emailError.message });
+      logger.warn('Activation email could not be sent', { storeId: store.id, error: emailError.message });
     }
 
     logger.info(`Owner registered for store ${store.id}: ${email}`);

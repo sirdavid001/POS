@@ -18,7 +18,7 @@ import {
 const router = Router();
 const checkoutSchema = z.object({
   provider: z.enum(['paystack', 'flutterwave']),
-  plan_code: z.enum(['monthly', 'quarterly', 'yearly', 'launch_6m']),
+  plan_code: z.enum(['activation_5m', 'monthly', 'quarterly', 'yearly']),
 });
 
 function verifyPaystackSignature(req) {
@@ -72,8 +72,8 @@ async function getBillingIdentity(storeId) {
   return result.rows[0];
 }
 
-async function launchOfferEligible(storeId, subscription) {
-  if (!config.billing.launchOfferEnabled || subscription.launch_offer_redeemed) return false;
+async function initialActivationEligible(storeId, subscription) {
+  if (subscription.activation_fee_paid) return false;
   const result = await query(
     `SELECT EXISTS(
        SELECT 1 FROM billing_transactions
@@ -81,7 +81,7 @@ async function launchOfferEligible(storeId, subscription) {
      ) AS has_paid`,
     [storeId]
   );
-  return !result.rows[0].has_paid && subscription.status === 'trialing';
+  return !result.rows[0].has_paid;
 }
 
 async function verifyPaystackTransaction(reference) {
@@ -243,7 +243,7 @@ async function activateVerifiedPayment(provider, verified) {
          provider_subscription_id = COALESCE($6, provider_subscription_id),
          provider_email_token = COALESCE($7, provider_email_token),
          cancel_at_period_end = false,
-         launch_offer_redeemed = launch_offer_redeemed OR $8,
+         activation_fee_paid = activation_fee_paid OR $8,
          last_verified_at = NOW(),
          metadata = metadata || $9::jsonb,
          updated_at = NOW()
@@ -256,7 +256,7 @@ async function activateVerifiedPayment(provider, verified) {
         verified.providerCustomerId || null,
         verified.providerSubscriptionId || null,
         verified.providerEmailToken || null,
-        plan.code === 'launch_6m',
+        plan.code === 'activation_5m',
         JSON.stringify({ last_payment_reference: verified.reference }),
         transaction.store_id,
       ]
@@ -351,14 +351,13 @@ router.get('/plans', async (req, res, next) => {
       plans: result.rows.map((plan) => ({
         ...plan,
         price_ngn: Number(plan.price_ngn),
-        available: plan.code !== 'launch_6m' || config.billing.launchOfferEnabled,
+        available: true,
         provider_availability: {
           paystack: Boolean(providers.paystack.plans[plan.code]),
           flutterwave: Boolean(providers.flutterwave.plans[plan.code]),
         },
       })),
       providers,
-      launch_offer_enabled: config.billing.launchOfferEnabled,
     });
   } catch (error) {
     next(error);
@@ -493,8 +492,8 @@ router.use(authenticate);
 router.get('/status', async (req, res, next) => {
   try {
     const subscription = await getStoreSubscription(req.user.store_id);
-    const offerEligible = await launchOfferEligible(req.user.store_id, subscription);
-    res.json({ subscription, launch_offer_eligible: offerEligible });
+    const activationEligible = await initialActivationEligible(req.user.store_id, subscription);
+    res.json({ subscription, initial_activation_eligible: activationEligible });
   } catch (error) {
     next(error);
   }
@@ -518,8 +517,18 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
         code: 'PAYMENT_PROVIDER_UNAVAILABLE',
       });
     }
-    if (planCode === 'launch_6m' && !(await launchOfferEligible(req.user.store_id, subscription))) {
-      return res.status(403).json({ error: 'The launch offer is not available for this store' });
+    const activationEligible = await initialActivationEligible(req.user.store_id, subscription);
+    if (subscription.activation_required && planCode !== 'activation_5m') {
+      return res.status(403).json({
+        error: 'Complete the ₦20,000 initial activation before choosing a renewal plan',
+        code: 'INITIAL_ACTIVATION_REQUIRED',
+      });
+    }
+    if (planCode === 'activation_5m' && !activationEligible) {
+      return res.status(403).json({
+        error: 'Initial activation has already been completed for this store',
+        code: 'INITIAL_ACTIVATION_ALREADY_PAID',
+      });
     }
     const currentEnd = subscription.current_period_end ? new Date(subscription.current_period_end) : null;
     if (

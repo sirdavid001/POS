@@ -41,7 +41,7 @@ describe('billing providers', () => {
 
     expect(availability.paystack.plans.monthly).toBe(true);
     expect(availability.paystack.plans.quarterly).toBe(false);
-    expect(availability.paystack.plans.launch_6m).toBe(true);
+    expect(availability.paystack.plans.activation_5m).toBe(true);
     expect(availability.flutterwave.available).toBe(false);
   });
 });

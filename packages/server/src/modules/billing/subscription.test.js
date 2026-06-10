@@ -4,6 +4,21 @@ import { addMonths, serializeSubscription } from './subscription.js';
 const now = new Date('2026-06-10T12:00:00.000Z');
 
 describe('subscription entitlement boundaries', () => {
+  test('keeps a new store pending until the initial activation is paid', () => {
+    const subscription = serializeSubscription({
+      id: 4,
+      store_id: 4,
+      status: 'pending_activation',
+      activation_fee_paid: false,
+      current_period_end: null,
+      cancel_at_period_end: false,
+    }, now);
+
+    expect(subscription.status).toBe('pending_activation');
+    expect(subscription.activation_required).toBe(true);
+    expect(subscription.can_write).toBe(false);
+  });
+
   test('allows an active trial but never caches it beyond its known expiry', () => {
     const subscription = serializeSubscription({
       id: 1,
@@ -13,10 +28,12 @@ describe('subscription entitlement boundaries', () => {
       current_period_end: null,
       cancel_at_period_end: false,
       launch_offer_redeemed: false,
+      activation_fee_paid: false,
     }, now);
 
     expect(subscription.can_write).toBe(true);
     expect(subscription.status).toBe('trialing');
+    expect(subscription.activation_required).toBe(true);
     expect(subscription.offline_valid_until).toBe('2026-06-12T12:00:00.000Z');
   });
 
@@ -28,6 +45,7 @@ describe('subscription entitlement boundaries', () => {
       current_period_end: now.toISOString(),
       cancel_at_period_end: false,
       launch_offer_redeemed: false,
+      activation_fee_paid: true,
     }, now);
 
     expect(subscription.status).toBe('expired');

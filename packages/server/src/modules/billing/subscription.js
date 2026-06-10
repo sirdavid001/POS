@@ -27,7 +27,7 @@ export function serializeSubscription(row, now = new Date()) {
   let effectiveStatus = row.status;
 
   if (
-    effectiveStatus !== 'grandfathered' &&
+    !['grandfathered', 'pending_activation'].includes(effectiveStatus) &&
     (!knownEntitlementEnd || knownEntitlementEnd.getTime() <= now.getTime())
   ) {
     effectiveStatus = 'expired';
@@ -66,6 +66,9 @@ export function serializeSubscription(row, now = new Date()) {
     current_period_end: row.current_period_end,
     cancel_at_period_end: row.cancel_at_period_end,
     launch_offer_redeemed: row.launch_offer_redeemed,
+    activation_fee_paid: Boolean(row.activation_fee_paid),
+    activation_required:
+      row.status !== 'grandfathered' && !Boolean(row.activation_fee_paid),
     last_verified_at: row.last_verified_at,
     can_write: canWrite,
     entitlement_ends_at: knownEntitlementEnd?.toISOString() || null,
@@ -87,12 +90,12 @@ export async function getStoreSubscription(storeId, queryFn = query) {
   return serializeSubscription(result.rows[0]);
 }
 
-export async function createTrial(client, storeId) {
+export async function createPendingActivation(client, storeId) {
   const result = await client.query(
     `INSERT INTO store_subscriptions (
-       store_id, status, trial_started_at, trial_ends_at, last_verified_at
+       store_id, status, activation_fee_paid, last_verified_at
      )
-     VALUES ($1, 'trialing', NOW(), NOW() + INTERVAL '7 days', NOW())
+     VALUES ($1, 'pending_activation', false, NOW())
      RETURNING *`,
     [storeId]
   );

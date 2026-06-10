@@ -43,4 +43,27 @@ describe('subscription mutation enforcement', () => {
       code: 'SUBSCRIPTION_EXPIRED',
     }));
   });
+
+  test('returns the activation-specific 402 response for a new store', () => {
+    const next = jest.fn();
+    const res = response();
+    requireActiveSubscription()(
+      {
+        method: 'POST',
+        path: '/',
+        subscription: {
+          can_write: false,
+          status: 'pending_activation',
+          activation_required: true,
+        },
+      },
+      res,
+      next
+    );
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(402);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      code: 'INITIAL_ACTIVATION_REQUIRED',
+    }));
+  });
 });

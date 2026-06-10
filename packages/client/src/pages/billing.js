@@ -6,8 +6,11 @@ import { formatCurrency, formatDate, toast } from '../utils.js';
 function statusCopy(subscription) {
   if (!subscription) return 'Checking your subscription...';
   if (subscription.status === 'grandfathered') return 'Your store has grandfathered access.';
+  if (subscription.activation_required && subscription.status === 'pending_activation') {
+    return 'Pay the one-time ₦20,000 activation fee to unlock every feature for five months.';
+  }
   if (subscription.status === 'trialing') {
-    return `All features are included in your trial through ${formatDate(subscription.trial_ends_at)}.`;
+    return `Your existing trial remains active through ${formatDate(subscription.trial_ends_at)}. Initial activation is required afterward.`;
   }
   if (subscription.status === 'expired') {
     return 'QuickPOS is read-only. Reports, exports, printing, statement email, and billing remain available.';
@@ -19,10 +22,11 @@ function statusCopy(subscription) {
 }
 
 function planDescription(plan) {
+  if (plan.code === 'activation_5m') return 'Required once for new stores, with five months of access';
   if (plan.code === 'monthly') return 'Flexible monthly billing';
   if (plan.code === 'quarterly') return 'Save ₦1,500 every three months';
   if (plan.code === 'yearly') return 'Best value, save ₦10,000 each year';
-  return 'First payment only, six months of access';
+  return 'All QuickPOS features included';
 }
 
 export async function renderBilling() {
@@ -49,7 +53,7 @@ export async function renderBilling() {
         </div>
       </div>
       <div id="billing-status" class="glass-card billing-status-card"></div>
-      <h3 style="margin:1.5rem 0 0.8rem;">Choose a plan</h3>
+      <h3 id="billing-plan-heading" style="margin:1.5rem 0 0.8rem;">Choose a plan</h3>
       <div id="billing-plans" class="billing-plan-grid">
         <div class="spinner" style="margin:2rem auto;"></div>
       </div>
@@ -64,10 +68,13 @@ export async function renderBilling() {
     const status = document.getElementById('billing-status');
     if (!status) return;
     const badgeClass = subscription?.can_write ? 'badge-success' : 'badge-danger';
+    const planName = subscription?.activation_required && subscription?.status === 'pending_activation'
+      ? 'Initial activation required'
+      : subscription?.plan_name || (subscription?.status === 'trialing' ? 'Existing free trial' : 'QuickPOS subscription');
     status.innerHTML = `
       <div>
         <span class="badge ${badgeClass}">${subscription?.status || 'checking'}</span>
-        <h3 style="margin-top:0.7rem;">${subscription?.plan_name || (subscription?.status === 'trialing' ? '7-day free trial' : 'QuickPOS subscription')}</h3>
+        <h3 style="margin-top:0.7rem;">${planName}</h3>
         <p style="color:var(--color-text-muted);margin-top:0.35rem;">${statusCopy(subscription)}</p>
       </div>
       ${subscription?.provider && subscription?.recurring && !subscription?.cancel_at_period_end ? `
@@ -135,6 +142,7 @@ export async function renderBilling() {
           clearInterval(timer);
           toast('Payment confirmed. QuickPOS is active.', 'success', 5000);
           loadTransactions();
+          setTimeout(() => renderBilling(), 600);
         }
       } catch {}
     }, 4000);
@@ -148,9 +156,17 @@ export async function renderBilling() {
     saveSubscription(statusResult.subscription);
     renderStatus(statusResult.subscription);
 
+    const needsActivation = Boolean(statusResult.subscription.activation_required);
+    const activationPeriodActive =
+      statusResult.subscription.plan_code === 'activation_5m' &&
+      statusResult.subscription.can_write;
     const visiblePlans = plans.filter((plan) =>
-      plan.code !== 'launch_6m' || (plan.available && statusResult.launch_offer_eligible)
+      needsActivation ? plan.code === 'activation_5m' : plan.code !== 'activation_5m'
     );
+    const planHeading = document.getElementById('billing-plan-heading');
+    if (planHeading) {
+      planHeading.textContent = needsActivation ? 'Activate your store' : 'Renewal plans';
+    }
     const configuredProviderCount = Object.values(providers || {})
       .filter((provider) => provider.available).length;
     document.getElementById('billing-plans').innerHTML = `
@@ -161,20 +177,27 @@ export async function renderBilling() {
           for activation assistance.
         </div>
       ` : ''}
+      ${activationPeriodActive ? `
+        <div class="glass-card billing-provider-notice">
+          Your five-month activation period is active through
+          ${formatDate(statusResult.subscription.current_period_end)}.
+          Renewal checkout becomes available after this period.
+        </div>
+      ` : ''}
       ${visiblePlans.map((plan) => `
       <article class="glass-card billing-plan-card ${plan.code === 'yearly' ? 'featured' : ''}">
         ${plan.code === 'yearly' ? '<span class="billing-plan-label">Best value</span>' : ''}
-        ${plan.code === 'launch_6m' ? '<span class="billing-plan-label launch">Launch offer</span>' : ''}
+        ${plan.code === 'activation_5m' ? '<span class="billing-plan-label launch">Required once</span>' : ''}
         <h3>${plan.name}</h3>
         <div class="billing-price">${formatCurrency(plan.price_ngn).replace('.00', '')}</div>
         <p>${planDescription(plan)}</p>
         <div class="billing-provider-actions">
           <button class="btn btn-primary" data-checkout-provider="paystack" data-plan="${plan.code}"
-            ${plan.provider_availability?.paystack ? '' : 'disabled title="Paystack is not available for this plan"'}>
+            ${plan.provider_availability?.paystack && !activationPeriodActive ? '' : `disabled title="${activationPeriodActive ? 'Available after the current activation period' : 'Paystack is not available for this plan'}"`}>
             ${plan.provider_availability?.paystack ? 'Paystack' : 'Paystack unavailable'}
           </button>
           <button class="btn btn-ghost" data-checkout-provider="flutterwave" data-plan="${plan.code}"
-            ${plan.provider_availability?.flutterwave ? '' : 'disabled title="Flutterwave is not available for this plan"'}>
+            ${plan.provider_availability?.flutterwave && !activationPeriodActive ? '' : `disabled title="${activationPeriodActive ? 'Available after the current activation period' : 'Flutterwave is not available for this plan'}"`}>
             ${plan.provider_availability?.flutterwave ? 'Flutterwave' : 'Flutterwave unavailable'}
           </button>
         </div>
