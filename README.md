@@ -7,7 +7,7 @@ QuickPOS is a full-stack point-of-sale application built as an npm workspace mon
 - POS terminal with cart management, receipt printing, and checkout flows
 - Role-based authentication for `admin`, `manager`, and `cashier`
 - Product, category, customer, inventory, supplier, and order management
-- Printable customer account statements with PDF, Excel, and email delivery
+- Store-wide sales statements for owners with print, PDF, Excel, and email delivery
 - Sales reporting with dashboard metrics and Chart.js visualizations
 - Barcode support through camera scanning and USB/Bluetooth scanners
 - Offline-friendly frontend with PWA support and queued local sales sync
@@ -64,7 +64,7 @@ Important values:
 - `VITE_API_URL` defaults to `http://localhost:3001/api/v1`
 - `VITE_WS_URL` defaults to `ws://localhost:3001`
 - `PAYSTACK_*` keys are required only if you want Paystack enabled
-- `RESEND_API_KEY` and `EMAIL_FROM` are required only for emailing account statements
+- `RESEND_API_KEY` and `EMAIL_FROM` are required only for emailing store sales statements
 
 ### 3. Start PostgreSQL
 
@@ -160,7 +160,7 @@ The backend exposes versioned routes under `/api/v1`.
 
 - `/auth` for login, registration, token refresh, logout, and profile
 - `/products`, `/categories`, `/customers`, `/orders` for core POS data
-- `/customers/:id/statement` for customer purchase statements, downloads, and email delivery
+- `/reports/statement` for store sales statements, downloads, and owner email delivery
 - `/inventory` for stock adjustments, logs, suppliers, and purchase orders
 - `/payments` for payment recording and Paystack flows
 - `/reports` for revenue, sales, top products, and recent order summaries

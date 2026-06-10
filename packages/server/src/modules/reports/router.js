@@ -1,10 +1,103 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { query } from '../../config/database.js';
 import { authenticate, authorize } from '../../middleware/auth.js';
+import logger from '../../config/logger.js';
+import {
+  createStatementFile,
+  createStatementFilename,
+  getStoreStatement,
+  sendStatementEmail,
+} from './statement.js';
 
 const router = Router();
 router.use(authenticate);
 router.use(authorize('admin', 'manager'));
+
+const statementEmailSchema = z.object({
+  email: z.string().trim().email().optional(),
+  format: z.enum(['pdf', 'xlsx']).default('pdf'),
+  start_date: z.string().optional(),
+  end_date: z.string().optional(),
+});
+
+// Store-wide sales statement for the owner
+router.get('/statement', async (req, res, next) => {
+  try {
+    const statement = await getStoreStatement(req.user.store_id, req.query);
+    res.json({ statement });
+  } catch (err) { next(err); }
+});
+
+router.get('/statement/export', async (req, res, next) => {
+  try {
+    const format = req.query.format || 'pdf';
+    const statement = await getStoreStatement(req.user.store_id, req.query);
+    const file = await createStatementFile(statement, format);
+    const filename = createStatementFilename(statement, file.extension);
+
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', file.buffer.length);
+    res.send(file.buffer);
+  } catch (err) { next(err); }
+});
+
+router.post('/statement/email', async (req, res, next) => {
+  try {
+    const parsed = statementEmailSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: parsed.error.issues.map((issue) => ({
+          field: issue.path.join('.'),
+          message: issue.message,
+        })),
+      });
+    }
+
+    const { email, format, start_date, end_date } = parsed.data;
+    const statement = await getStoreStatement(
+      req.user.store_id,
+      { start_date, end_date }
+    );
+    const recipient = email || statement.store.email;
+
+    if (!recipient) {
+      return res.status(400).json({ error: 'No owner email is configured. Enter a recipient email.' });
+    }
+
+    const delivery = await sendStatementEmail({ statement, recipient, format });
+
+    try {
+      await query(
+        `INSERT INTO audit_logs (store_id, user_id, entity_type, entity_id, action, new_values)
+         VALUES ($1,$2,'store',$3,'statement_email',$4)`,
+        [
+          req.user.store_id,
+          req.user.id,
+          req.user.store_id,
+          JSON.stringify({
+            recipient,
+            format,
+            start_date: statement.period.start_date,
+            end_date: statement.period.end_date,
+            email_id: delivery.id,
+          }),
+        ]
+      );
+    } catch (auditError) {
+      logger.warn('Sales statement sent but audit logging failed', {
+        error: auditError.message,
+        storeId: req.user.store_id,
+        userId: req.user.id,
+      });
+    }
+
+    logger.info(`Sales statement emailed for store ${req.user.store_id} by user ${req.user.id}`);
+    res.json({ message: 'Statement emailed successfully', delivery });
+  } catch (err) { next(err); }
+});
 
 // Sales summary (daily/weekly/monthly)
 router.get('/sales', async (req, res, next) => {

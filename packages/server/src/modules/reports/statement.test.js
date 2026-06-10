@@ -4,18 +4,11 @@ import {
   createStatementExcel,
   createStatementFilename,
   createStatementPdf,
-  getCustomerStatement,
+  getStoreStatement,
   normalizeStatementFilters,
 } from './statement.js';
 
 const baseStatement = {
-  customer: {
-    id: 7,
-    name: 'Ada Customer',
-    email: 'ada@example.com',
-    phone: '+234 800 000 0000',
-    address: 'Lagos',
-  },
   store: {
     id: 1,
     name: 'QuickPOS Store',
@@ -32,10 +25,11 @@ const baseStatement = {
   summary: {
     total_orders: 1,
     completed_orders: 1,
-    total_spent: 1250,
+    total_sales: 1250,
     total_tax: 50,
     total_discount: 0,
-    average_order_value: 1250,
+    total_items: 2,
+    average_sale: 1250,
   },
   transactions: [{
     id: 1,
@@ -54,7 +48,7 @@ const baseStatement = {
   generated_at: '2026-06-09T13:00:00.000Z',
 };
 
-describe('customer account statements', () => {
+describe('store sales statements', () => {
   test('validates statement date filters', () => {
     expect(normalizeStatementFilters({
       start_date: '2026-06-01',
@@ -73,21 +67,15 @@ describe('customer account statements', () => {
       .toThrow('start_date is not a valid date');
   });
 
-  test('builds totals and excludes cancelled orders from cumulative spend', async () => {
+  test('builds store totals and excludes cancelled orders from cumulative revenue', async () => {
     const queryFn = jest.fn()
       .mockResolvedValueOnce({
         rows: [{
-          id: 7,
-          name: 'Ada Customer',
-          email: 'ada@example.com',
-          phone: null,
-          address: null,
-          loyalty_points: 0,
-          created_at: '2026-01-01T00:00:00.000Z',
+          id: 1,
+          name: 'QuickPOS Store',
+          currency: 'NGN',
+          email: 'owner@example.com',
         }],
-      })
-      .mockResolvedValueOnce({
-        rows: [{ id: 1, name: 'QuickPOS Store', currency: 'NGN' }],
       })
       .mockResolvedValueOnce({
         rows: [
@@ -120,8 +108,7 @@ describe('customer account statements', () => {
         ],
       });
 
-    const statement = await getCustomerStatement(
-      7,
+    const statement = await getStoreStatement(
       1,
       { start_date: '2026-06-01', end_date: '2026-06-30' },
       queryFn
@@ -129,7 +116,8 @@ describe('customer account statements', () => {
 
     expect(statement.summary.total_orders).toBe(2);
     expect(statement.summary.completed_orders).toBe(1);
-    expect(statement.summary.total_spent).toBe(1075);
+    expect(statement.summary.total_sales).toBe(1075);
+    expect(statement.summary.total_items).toBe(2);
     expect(statement.transactions.map((item) => item.cumulative_total)).toEqual([1075, 1075]);
   });
 
@@ -143,6 +131,6 @@ describe('customer account statements', () => {
     expect((pdf.toString('latin1').match(/\/Type \/Page\b/g) || []).length).toBe(1);
     expect(excel.subarray(0, 2).toString()).toBe('PK');
     expect(createStatementFilename(baseStatement, 'pdf'))
-      .toBe('statement-ada-customer-2026-06-30.pdf');
+      .toBe('sales-statement-quickpos-store-2026-06-30.pdf');
   });
 });
