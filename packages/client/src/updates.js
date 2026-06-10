@@ -6,8 +6,8 @@ const MANIFEST_URL =
 const CURRENT_VERSION = import.meta.env.VITE_APP_VERSION || '1.0.0';
 
 function compareVersions(left, right) {
-  const a = String(left).split('.').map(Number);
-  const b = String(right).split('.').map(Number);
+  const a = String(left).replace(/^v/, '').split('.').map(Number);
+  const b = String(right).replace(/^v/, '').split('.').map(Number);
   for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
     const difference = (a[index] || 0) - (b[index] || 0);
     if (difference !== 0) return difference;
@@ -25,18 +25,53 @@ function currentPlatform() {
   return null;
 }
 
+async function findAvailableRelease(platform) {
+  try {
+    const response = await fetch(MANIFEST_URL, { cache: 'no-store' });
+    if (response.ok) {
+      const manifest = await response.json();
+      const release = manifest.releases?.find((item) =>
+        item.platform === platform && item.status === 'available'
+      );
+      if (release) return { release, manifest };
+    }
+  } catch {
+    // Fall back to GitHub Releases while the R2 release host is unavailable.
+  }
+
+  if (platform !== 'windows') return null;
+
+  const response = await fetch(
+    'https://api.github.com/repos/sirdavid001/POS/releases/latest',
+    { cache: 'no-store' },
+  );
+  if (!response.ok) return null;
+  const githubRelease = await response.json();
+  const installer = githubRelease.assets?.find((asset) =>
+    /^QuickPOS-Setup-.*\.exe$/i.test(asset.name));
+  if (!installer) return null;
+
+  return {
+    release: {
+      platform: 'windows',
+      version: githubRelease.tag_name.replace(/^v/, ''),
+      url: installer.browser_download_url,
+      release_notes: githubRelease.name,
+      status: 'available',
+    },
+    manifest: {},
+  };
+}
+
 export async function checkForAppUpdate() {
   if (!localStorage.getItem('user')) return;
   const platform = currentPlatform();
   if (!platform) return;
 
   try {
-    const response = await fetch(MANIFEST_URL, { cache: 'no-store' });
-    if (!response.ok) return;
-    const manifest = await response.json();
-    const release = manifest.releases?.find((item) =>
-      item.platform === platform && item.status === 'available'
-    );
+    const result = await findAvailableRelease(platform);
+    if (!result) return;
+    const { release, manifest } = result;
     if (!release || compareVersions(release.version, CURRENT_VERSION) <= 0) return;
 
     const banner = document.createElement('div');

@@ -122,6 +122,13 @@ expiry messages.
 Resend domain guide:
 https://resend.com/docs/dashboard/domains/introduction
 
+Password recovery also uses Resend. Set:
+
+```text
+PASSWORD_RESET_URL=https://quickposs.vercel.app/#/reset-password
+PASSWORD_RESET_EXPIRY_MINUTES=30
+```
+
 ## 5. Migrate and verify the backend
 
 Deploy the server changes and run:
@@ -131,6 +138,8 @@ npm run db:migrate
 ```
 
 Migration `002_subscriptions` marks all existing stores as `grandfathered`.
+Migration `003_password_resets` adds hashed, expiring, single-use password
+reset tokens.
 Review those stores manually before changing their status. Public seed
 credentials have been removed; optional seed credentials must be supplied
 through `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD`.

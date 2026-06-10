@@ -3,6 +3,18 @@ const { autoUpdater } = require('electron-updater');
 const path = require('node:path');
 
 const APP_URL = `file://${path.join(__dirname, '..', 'packages', 'client', 'dist', 'index.html')}`;
+let githubUpdateFallbackStarted = false;
+
+async function checkGitHubUpdateFallback() {
+  if (githubUpdateFallbackStarted) return;
+  githubUpdateFallbackStarted = true;
+  autoUpdater.setFeedURL({
+    provider: 'github',
+    owner: 'sirdavid001',
+    repo: 'POS',
+  });
+  await autoUpdater.checkForUpdates();
+}
 
 function createWindow() {
   const window = new BrowserWindow({
@@ -49,7 +61,10 @@ app.whenReady().then(() => {
   if (app.isPackaged && process.platform === 'win32') {
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;
-    autoUpdater.checkForUpdates().catch(() => {});
+    autoUpdater.checkForUpdates().catch(() => checkGitHubUpdateFallback().catch(() => {}));
+    autoUpdater.on('error', () => {
+      checkGitHubUpdateFallback().catch(() => {});
+    });
 
     autoUpdater.on('update-available', async (info) => {
       const result = await dialog.showMessageBox({

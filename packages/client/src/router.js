@@ -17,17 +17,19 @@ class Router {
       return;
     }
 
-    const hash = window.location.hash.slice(1) || '/login';
+    const rawHash = window.location.hash.slice(1) || '/login';
+    const hash = rawHash.split('?')[0];
     const user = localStorage.getItem('user');
+    const publicRoutes = new Set(['/login', '/register', '/forgot-password', '/reset-password']);
 
     // Redirect to login if not authenticated
-    if (!user && hash !== '/login' && hash !== '/register') {
+    if (!user && !publicRoutes.has(hash)) {
       window.location.hash = '#/login';
       return;
     }
 
     // Redirect to dashboard if already logged in and trying to access login
-    if (user && (hash === '/login' || hash === '/register')) {
+    if (user && ['/login', '/register', '/forgot-password'].includes(hash)) {
       window.location.hash = '#/dashboard';
       return;
     }

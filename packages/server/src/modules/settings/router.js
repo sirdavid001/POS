@@ -52,8 +52,8 @@ router.get('/users', authorize('admin', 'manager'), async (req, res, next) => {
 router.post('/users', authorize('admin', 'manager'), async (req, res, next) => {
   try {
     const { name, email, password, role = 'cashier', phone } = req.body;
-    if (!name?.trim() || !email?.trim() || !password || password.length < 6) {
-      return res.status(400).json({ error: 'Name, email, and a password of at least 6 characters are required' });
+    if (!name?.trim() || !email?.trim() || !password || password.length < 8) {
+      return res.status(400).json({ error: 'Name, email, and a password of at least 8 characters are required' });
     }
     if (!['admin', 'manager', 'cashier'].includes(role)) {
       return res.status(400).json({ error: 'Invalid role' });
@@ -105,8 +105,8 @@ router.patch('/users/:id', authorize('admin', 'manager'), async (req, res, next)
     if (req.user.role === 'manager' && role && role !== 'cashier') {
       return res.status(403).json({ error: 'Managers can assign the cashier role only' });
     }
-    if (password && password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    if (password && password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
 
     let roleId = null;

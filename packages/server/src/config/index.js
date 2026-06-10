@@ -94,6 +94,13 @@ const config = {
     replyTo: process.env.EMAIL_REPLY_TO || 'support@quickpos.name.ng',
   },
 
+  auth: {
+    passwordResetUrl:
+      process.env.PASSWORD_RESET_URL ||
+      'https://quickposs.vercel.app/#/reset-password',
+    passwordResetExpiryMinutes: Number(process.env.PASSWORD_RESET_EXPIRY_MINUTES) || 30,
+  },
+
   billing: {
     launchOfferEnabled: process.env.LAUNCH_OFFER_ENABLED === 'true',
     checkoutReturnUrl: process.env.BILLING_RETURN_URL || 'https://quickpos.name.ng/downloads',

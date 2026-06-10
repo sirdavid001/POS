@@ -21,11 +21,11 @@ jobs:
       - name: Build Windows x64 installer
         shell: bash
         env:
-          VITE_APP_VERSION: ${{ github.ref_name }}
           CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          export VITE_APP_VERSION="$VERSION"
           npm run build -w packages/client
           npx electron-builder \
             --win nsis \

@@ -19,6 +19,9 @@ export function renderLoginPage() {
           <div class="form-group">
             <label class="label" for="login-password">Password</label>
             <input class="input" type="password" id="login-password" placeholder="Enter your password" required autocomplete="current-password">
+            <div class="auth-field-link">
+              <a href="#/forgot-password">Forgot password?</a>
+            </div>
           </div>
           <button type="submit" class="btn btn-primary btn-lg" id="login-submit" style="width:100%;margin-top:0.5rem;">
             Sign In
@@ -80,7 +83,7 @@ export function renderRegisterPage() {
           </div>
           <div class="form-group">
             <label class="label" for="reg-password">Password</label>
-            <input class="input" type="password" id="reg-password" placeholder="Min 6 characters" required minlength="6">
+            <input class="input" type="password" id="reg-password" placeholder="Min 8 characters" required minlength="8" autocomplete="new-password">
           </div>
           <button type="submit" class="btn btn-primary btn-lg" id="reg-submit" style="width:100%;margin-top:0.5rem;">
             Create Account
@@ -114,6 +117,123 @@ export function renderRegisterPage() {
       toast(err.message || 'Registration failed', 'error');
       btn.disabled = false;
       btn.textContent = 'Create Account';
+    }
+  });
+}
+
+export function renderForgotPasswordPage() {
+  const app = document.getElementById('app');
+
+  app.innerHTML = `
+    <div class="login-page">
+      <div class="login-card glass-card animate-fade-in">
+        <h1>QuickPOS</h1>
+        <p>Enter your login email and we will send a secure reset link.</p>
+
+        <form id="forgot-password-form">
+          <div class="form-group">
+            <label class="label" for="forgot-email">Email Address</label>
+            <input class="input" type="email" id="forgot-email" placeholder="owner@yourstore.com" required autocomplete="email">
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg" id="forgot-submit" style="width:100%;margin-top:0.5rem;">
+            Send Reset Link
+          </button>
+        </form>
+
+        <p class="auth-footer">
+          Remembered your password? <a href="#/login">Sign in</a>
+        </p>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('forgot-password-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = document.getElementById('forgot-submit');
+    button.disabled = true;
+    button.innerHTML = '<div class="spinner" style="width:20px;height:20px;border-width:2px;"></div> Sending...';
+
+    try {
+      const result = await api.post('/auth/forgot-password', {
+        email: document.getElementById('forgot-email').value,
+      });
+      document.getElementById('forgot-password-form').innerHTML = `
+        <div class="auth-success">
+          <strong>Check your email</strong>
+          <p>${result.message}</p>
+        </div>
+        <a class="btn btn-primary btn-lg" href="#/login" style="width:100%;">Back to Sign In</a>
+      `;
+    } catch (error) {
+      toast(error.message || 'Could not request a password reset', 'error');
+      button.disabled = false;
+      button.textContent = 'Send Reset Link';
+    }
+  });
+}
+
+export function renderResetPasswordPage() {
+  const app = document.getElementById('app');
+  const query = window.location.hash.split('?')[1] || '';
+  const token = new URLSearchParams(query).get('token') || '';
+
+  app.innerHTML = `
+    <div class="login-page">
+      <div class="login-card glass-card animate-fade-in">
+        <h1>QuickPOS</h1>
+        <p>Choose a new password for your account.</p>
+
+        ${token ? `
+          <form id="reset-password-form">
+            <div class="form-group">
+              <label class="label" for="reset-password">New Password</label>
+              <input class="input" type="password" id="reset-password" placeholder="At least 8 characters" required minlength="8" autocomplete="new-password">
+            </div>
+            <div class="form-group">
+              <label class="label" for="reset-password-confirm">Confirm Password</label>
+              <input class="input" type="password" id="reset-password-confirm" placeholder="Enter it again" required minlength="8" autocomplete="new-password">
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg" id="reset-submit" style="width:100%;margin-top:0.5rem;">
+              Reset Password
+            </button>
+          </form>
+        ` : `
+          <div class="auth-error">
+            This reset link is incomplete. Request a new password reset email.
+          </div>
+          <a class="btn btn-primary btn-lg" href="#/forgot-password" style="width:100%;">Request New Link</a>
+        `}
+
+        <p class="auth-footer">
+          <a href="#/login">Back to sign in</a>
+        </p>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('reset-password-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const password = document.getElementById('reset-password').value;
+    const confirmation = document.getElementById('reset-password-confirm').value;
+    const button = document.getElementById('reset-submit');
+
+    if (password !== confirmation) {
+      toast('Passwords do not match', 'error');
+      return;
+    }
+
+    button.disabled = true;
+    button.innerHTML = '<div class="spinner" style="width:20px;height:20px;border-width:2px;"></div> Resetting...';
+
+    try {
+      const result = await api.post('/auth/reset-password', { token, password });
+      api.clearTokens();
+      toast(result.message, 'success');
+      window.location.hash = '#/login';
+    } catch (error) {
+      toast(error.message || 'Could not reset password', 'error');
+      button.disabled = false;
+      button.textContent = 'Reset Password';
     }
   });
 }

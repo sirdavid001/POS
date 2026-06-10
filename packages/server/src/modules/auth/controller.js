@@ -6,6 +6,15 @@ import config from '../../config/index.js';
 import logger from '../../config/logger.js';
 import { createTrial, getStoreSubscription } from '../billing/subscription.js';
 import { sendBillingEmail } from '../billing/email.js';
+import { sendPasswordResetEmail } from './email.js';
+import {
+  buildPasswordResetUrl,
+  createPasswordResetToken,
+  hashPasswordResetToken,
+} from './password-reset.js';
+
+const PASSWORD_RESET_RESPONSE =
+  'If an active account exists for that email, a password reset link has been sent.';
 
 export const register = async (req, res, next) => {
   let client;
@@ -175,6 +184,136 @@ export const logout = async (req, res, next) => {
     res.json({ message: 'Logged out successfully' });
   } catch (err) {
     next(err);
+  }
+};
+
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const result = await query(
+      `SELECT u.id, u.email, u.name, u.store_id, s.name AS store_name
+       FROM users u
+       JOIN stores s ON s.id = u.store_id
+       WHERE LOWER(u.email) = LOWER($1) AND u.is_active = true`,
+      [email]
+    );
+    const user = result.rows[0];
+
+    if (!user) {
+      return res.json({ message: PASSWORD_RESET_RESPONSE });
+    }
+
+    const token = createPasswordResetToken();
+    const tokenHash = hashPasswordResetToken(token);
+    const expiresAt = new Date(
+      Date.now() + config.auth.passwordResetExpiryMinutes * 60 * 1000
+    );
+    const resetUrl = buildPasswordResetUrl(config.auth.passwordResetUrl, token);
+    const client = await getClient();
+
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `UPDATE password_reset_tokens
+         SET used_at = NOW()
+         WHERE user_id = $1 AND used_at IS NULL`,
+        [user.id]
+      );
+      await client.query(
+        `INSERT INTO password_reset_tokens
+         (user_id, token_hash, expires_at, requested_ip, user_agent)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          user.id,
+          tokenHash,
+          expiresAt,
+          req.ip || null,
+          req.get('user-agent') || null,
+        ]
+      );
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    try {
+      const delivery = await sendPasswordResetEmail({
+        to: user.email,
+        name: user.name,
+        storeName: user.store_name,
+        resetUrl,
+        expiresInMinutes: config.auth.passwordResetExpiryMinutes,
+      });
+      if (delivery.skipped) {
+        logger.warn('Password reset email skipped because email delivery is not configured', {
+          userId: user.id,
+          storeId: user.store_id,
+        });
+      }
+    } catch (emailError) {
+      logger.error('Password reset email could not be sent', {
+        userId: user.id,
+        storeId: user.store_id,
+        error: emailError.message,
+      });
+    }
+
+    res.json({ message: PASSWORD_RESET_RESPONSE });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const resetPassword = async (req, res, next) => {
+  let client;
+  try {
+    const { token, password } = req.body;
+    const tokenHash = hashPasswordResetToken(token);
+    client = await getClient();
+    await client.query('BEGIN');
+
+    const result = await client.query(
+      `SELECT prt.id, prt.user_id
+       FROM password_reset_tokens prt
+       JOIN users u ON u.id = prt.user_id
+       WHERE prt.token_hash = $1
+         AND prt.used_at IS NULL
+         AND prt.expires_at > NOW()
+         AND u.is_active = true
+       FOR UPDATE`,
+      [tokenHash]
+    );
+    const reset = result.rows[0];
+
+    if (!reset) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Reset link is invalid or has expired' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    await client.query(
+      'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
+      [passwordHash, reset.user_id]
+    );
+    await client.query(
+      `UPDATE password_reset_tokens
+       SET used_at = NOW()
+       WHERE user_id = $1 AND used_at IS NULL`,
+      [reset.user_id]
+    );
+    await client.query('DELETE FROM refresh_tokens WHERE user_id = $1', [reset.user_id]);
+    await client.query('COMMIT');
+
+    logger.info('Password reset completed', { userId: reset.user_id });
+    res.json({ message: 'Password reset successfully. Sign in with your new password.' });
+  } catch (err) {
+    if (client) await client.query('ROLLBACK');
+    next(err);
+  } finally {
+    client?.release();
   }
 };
 
