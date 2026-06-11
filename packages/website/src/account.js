@@ -1,5 +1,6 @@
 import { track } from '@vercel/analytics';
 import { renderReleaseDownloads } from './downloads.js';
+import { resolveApiBase } from '../../shared/src/api.js';
 
 const SITE_KEYS = {
   accessToken: 'quickpos_site_access_token',
@@ -10,29 +11,9 @@ const SITE_KEYS = {
 const root = document.querySelector('[data-account-root]');
 let activationPoll = null;
 
-function normalizeApiBase(rawValue) {
-  const fallback = '/api/v1';
-  const value = rawValue?.trim();
-  if (!value) return fallback;
-  if (value.startsWith('/')) return value;
-
-  let normalized = value;
-  if (!/^https?:\/\//i.test(normalized)) {
-    normalized = `https://${normalized}`;
-  }
-
-  try {
-    const url = new URL(normalized);
-    if (url.pathname === '/' || url.pathname === '') {
-      url.pathname = '/api/v1';
-    }
-    return url.toString().replace(/\/$/, '');
-  } catch {
-    return fallback;
-  }
-}
-
-const API_BASE = normalizeApiBase(import.meta.env.VITE_API_URL);
+const API_BASE = resolveApiBase(import.meta.env.VITE_API_URL, {
+  development: import.meta.env.DEV,
+});
 
 class SiteApi {
   constructor() {
@@ -176,9 +157,9 @@ function renderAuthShell({ eyebrow, title, copy, form, footer }) {
           <h1>${title}</h1>
           <p>${copy}</p>
           <div class="trust-row">
-            <span>Website account only</span>
+            <span>One QuickPOS account</span>
+            <span>Same login in the POS app</span>
             <span>Admin billing portal</span>
-            <span>Downloads after activation</span>
           </div>
         </div>
         <article class="account-auth-card">
@@ -196,7 +177,7 @@ function renderSignIn() {
   renderAuthShell({
     eyebrow: 'Owner portal',
     title: 'Sign in to manage your store account.',
-    copy: 'The website portal is separate from the POS app. Use it for activation, billing, account setup, store details, and downloads.',
+    copy: 'Use the same email address and password on this website and in the QuickPOS app. Both connect to the same store account, subscription, and database.',
     form: `
       <form class="account-form" id="site-login-form">
         <label>Email address<input name="email" type="email" autocomplete="email" required placeholder="owner@yourstore.com"></label>

@@ -10,7 +10,6 @@ const navigation = [
   ['features', '/features', 'Features'],
   ['pricing', '/pricing', 'Pricing'],
   ['downloads', '/downloads', 'Downloads'],
-  ['account', '/account', 'Account'],
   ['faq', '/faq', 'FAQ'],
   ['support', '/support', 'Support'],
 ];

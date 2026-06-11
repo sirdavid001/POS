@@ -1,33 +1,14 @@
 import { track } from '@vercel/analytics';
+import { resolveApiBase } from '../../shared/src/api.js';
 
 const SUPPORT_EMAIL = 'support@quickpos.name.ng';
 const form = document.getElementById('support-form');
 const alertTarget = document.querySelector('[data-support-alert]');
 const chatMessages = document.querySelector('[data-chat-messages]');
 
-function normalizeApiBase(rawValue) {
-  const fallback = '/api/v1';
-  const value = rawValue?.trim();
-  if (!value) return fallback;
-  if (value.startsWith('/')) return value;
-
-  let normalized = value;
-  if (!/^https?:\/\//i.test(normalized)) {
-    normalized = `https://${normalized}`;
-  }
-
-  try {
-    const url = new URL(normalized);
-    if (url.pathname === '/' || url.pathname === '') {
-      url.pathname = '/api/v1';
-    }
-    return url.toString().replace(/\/$/, '');
-  } catch {
-    return fallback;
-  }
-}
-
-const API_BASE = normalizeApiBase(import.meta.env.VITE_API_URL);
+const API_BASE = resolveApiBase(import.meta.env.VITE_API_URL, {
+  development: import.meta.env.DEV,
+});
 
 function escapeHtml(value = '') {
   return String(value)
