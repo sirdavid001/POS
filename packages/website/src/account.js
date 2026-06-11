@@ -108,7 +108,7 @@ const siteApi = new SiteApi();
 const PAYMENT_CURRENCY_KEY = 'quickpos_site_payment_currency';
 const DEFAULT_PAYMENT_CURRENCY = 'NGN';
 const INTERNATIONAL_PAYMENT_CURRENCY = 'USD';
-const PORTAL_SECTIONS = ['overview', 'profile', 'store', 'billing', 'downloads'];
+const PORTAL_SECTIONS = ['overview', 'profile', 'store', 'staff', 'billing', 'downloads'];
 
 const COUNTRY_CURRENCY = {
   NG: 'NGN',
@@ -258,6 +258,49 @@ function formatDate(value) {
   return new Intl.DateTimeFormat('en-NG', {
     dateStyle: 'medium',
   }).format(new Date(value));
+}
+
+function renderStaffDirectory(staff, currentUserId) {
+  if (!staff.length) {
+    return `
+      <div class="staff-empty-state">
+        <strong>No staff accounts yet</strong>
+        <p>Create the first account using the form beside this directory.</p>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="staff-list">
+      ${staff.map((member) => {
+        const role = String(member.role || 'cashier').toLowerCase();
+        const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
+        const isCurrentUser = String(member.id) === String(currentUserId);
+        const isActive = member.is_active !== false;
+
+        return `
+          <article class="staff-member">
+            <div class="staff-avatar staff-avatar-${escapeHtml(role)}" aria-hidden="true">${escapeHtml(roleLabel.charAt(0))}</div>
+            <div class="staff-member-copy">
+              <div class="staff-member-heading">
+                <strong>${escapeHtml(member.name || member.email)}</strong>
+                ${isCurrentUser ? '<span class="staff-you-label">You</span>' : ''}
+              </div>
+              <span>${escapeHtml(member.email)}</span>
+              <div class="staff-member-meta">
+                <span class="staff-role-badge staff-role-${escapeHtml(role)}">${escapeHtml(roleLabel)}</span>
+                <span class="staff-status ${isActive ? 'is-active' : 'is-inactive'}">
+                  <span aria-hidden="true"></span>
+                  ${isActive ? 'Active' : 'Inactive'}
+                </span>
+                <span>Added ${escapeHtml(formatDate(member.created_at))}</span>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join('')}
+    </div>
+  `;
 }
 
 function routeInfo() {
@@ -747,7 +790,7 @@ function renderPlanCards(plans = [], providers = {}, subscription = {}) {
   `;
 }
 
-function renderPortal({ overview, plans, providers, transactions }, flash = '') {
+function renderPortal({ overview, plans, providers, transactions, staff = [] }, flash = '') {
   const { user, store } = overview;
   const subscription = overview.subscription;
   const unlocked = downloadsUnlocked(subscription);
@@ -758,7 +801,7 @@ function renderPortal({ overview, plans, providers, transactions }, flash = '') 
       <div class="site-shell account-portal-hero">
         <div class="page-intro">
           <span class="eyebrow">Account portal</span>
-          <h1>Manage setup, billing, and downloads.</h1>
+          <h1>Manage setup, staff, billing, and downloads.</h1>
           <p>This is the website side of QuickPOS. It does not open the POS app or show app screens.</p>
           <div class="trust-row">
             <span>Admin-only portal</span>
@@ -784,6 +827,7 @@ function renderPortal({ overview, plans, providers, transactions }, flash = '') 
             <button type="button" role="tab" data-account-section-link="overview">Overview</button>
             <button type="button" role="tab" data-account-section-link="profile">Account profile</button>
             <button type="button" role="tab" data-account-section-link="store">Store settings</button>
+            <button type="button" role="tab" data-account-section-link="staff">Staff</button>
             <button type="button" role="tab" data-account-section-link="billing">Billing</button>
             <button type="button" role="tab" data-account-section-link="downloads">Downloads</button>
           </nav>
@@ -813,6 +857,12 @@ function renderPortal({ overview, plans, providers, transactions }, flash = '') 
                 <h3>Store settings</h3>
                 <p>${escapeHtml(store?.name || 'QuickPOS Store')}<br>${escapeHtml(store?.currency || 'NGN')} store currency</p>
                 <strong>Open store settings</strong>
+              </button>
+              <button class="account-overview-card" type="button" data-account-open-section="staff">
+                <span class="section-kicker">Team access</span>
+                <h3>Staff accounts</h3>
+                <p>${escapeHtml(String(staff.length))} account${staff.length === 1 ? '' : 's'} across admin, manager, and cashier roles.</p>
+                <strong>Create or review staff</strong>
               </button>
               <button class="account-overview-card" type="button" data-account-open-section="billing">
                 <span class="section-kicker">Subscription</span>
@@ -865,6 +915,104 @@ function renderPortal({ overview, plans, providers, transactions }, flash = '') 
               <label class="span-2">Receipt footer<textarea name="receipt_footer" rows="3">${escapeHtml(store?.receipt_footer || '')}</textarea></label>
               <button class="button" type="submit">Save store settings</button>
             </form>
+          </section>
+
+          <section class="account-panel account-staff-panel" data-account-panel="staff" ${activeSection === 'staff' ? '' : 'hidden'}>
+            <div class="account-panel-heading">
+              <div>
+                <span class="section-kicker">Team access</span>
+                <h2 tabindex="-1">Staff accounts</h2>
+                <p>Create separate sign-ins so each team member has the access their role requires.</p>
+              </div>
+              <span class="account-badge">${escapeHtml(String(staff.length))} total</span>
+            </div>
+
+            <div class="staff-role-grid" aria-label="Staff role permissions">
+              <article class="staff-role-card staff-role-card-admin">
+                <span class="staff-role-icon" aria-hidden="true">A</span>
+                <div>
+                  <strong>Admin</strong>
+                  <p>Full access to settings, billing, reports, inventory, and staff management.</p>
+                </div>
+              </article>
+              <article class="staff-role-card staff-role-card-manager">
+                <span class="staff-role-icon" aria-hidden="true">M</span>
+                <div>
+                  <strong>Manager</strong>
+                  <p>Runs daily operations and can create cashier accounts for the store.</p>
+                </div>
+              </article>
+              <article class="staff-role-card staff-role-card-cashier">
+                <span class="staff-role-icon" aria-hidden="true">C</span>
+                <div>
+                  <strong>Cashier</strong>
+                  <p>Focused access for processing sales and completing checkout tasks.</p>
+                </div>
+              </article>
+            </div>
+
+            <div class="staff-workspace">
+              <article class="staff-create-card">
+                <div class="staff-card-heading">
+                  <div>
+                    <span class="section-kicker">New account</span>
+                    <h3>Create a staff member</h3>
+                  </div>
+                </div>
+                ${unlocked ? `
+                  <form id="account-staff-form" class="account-form staff-form">
+                    <div class="account-form-grid">
+                      <label>
+                        Full name
+                        <input name="name" type="text" autocomplete="name" required placeholder="e.g. Ada Okafor">
+                      </label>
+                      <label>
+                        Role
+                        <select name="role" required>
+                          <option value="cashier">Cashier</option>
+                          <option value="manager">Manager</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </label>
+                      <label>
+                        Email address
+                        <input name="email" type="email" autocomplete="email" required placeholder="staff@yourstore.com">
+                      </label>
+                      <label>
+                        Phone number
+                        <input name="phone" type="tel" autocomplete="tel" placeholder="Optional">
+                      </label>
+                    </div>
+                    <label>
+                      Temporary password
+                      <input name="password" type="password" autocomplete="new-password" minlength="8" required placeholder="At least 8 characters">
+                    </label>
+                    <div class="staff-form-note">
+                      <strong>Keep access private</strong>
+                      <span>Share the temporary password securely. Staff use these details to sign in to the QuickPOS app.</span>
+                    </div>
+                    <button class="button" type="submit">Create staff account</button>
+                  </form>
+                ` : `
+                  <div class="staff-locked-state">
+                    <strong>Activate staff creation</strong>
+                    <p>Complete or renew your QuickPOS subscription before adding manager, admin, or cashier accounts.</p>
+                    <button class="button" type="button" data-account-open-section="billing">Open billing</button>
+                  </div>
+                `}
+              </article>
+
+              <article class="staff-directory-card">
+                <div class="staff-card-heading">
+                  <div>
+                    <span class="section-kicker">Directory</span>
+                    <h3>Your team</h3>
+                  </div>
+                  <span>${escapeHtml(String(staff.filter((member) => member.is_active !== false).length))} active</span>
+                </div>
+                ${renderStaffDirectory(staff, user.id)}
+              </article>
+            </div>
           </section>
 
           <section class="account-panel account-billing-panel" data-account-panel="billing" ${activeSection === 'billing' ? '' : 'hidden'}>
@@ -1005,6 +1153,22 @@ function attachPortalHandlers() {
     }
   });
 
+  document.getElementById('account-staff-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = event.submitter;
+    const payload = payloadFromForm(event.target, ['phone']);
+    button.disabled = true;
+    button.textContent = 'Creating account...';
+    try {
+      await siteApi.post('/settings/users', payload);
+      await loadPortal(`${payload.name} was added as a ${payload.role}.`);
+    } catch (error) {
+      setFlash(error.message || 'Could not create staff account', 'error');
+      button.disabled = false;
+      button.textContent = 'Create staff account';
+    }
+  });
+
   const acknowledgement = document.getElementById('account-billing-ack');
   const currencySelect = document.getElementById('account-payment-currency');
   const checkoutButtons = [...document.querySelectorAll('[data-checkout-provider]')];
@@ -1133,10 +1297,11 @@ async function loadPortal(flash = '') {
       return;
     }
 
-    const [plansResult, statusResult, transactionsResult] = await Promise.all([
+    const [plansResult, statusResult, transactionsResult, staffResult] = await Promise.all([
       siteApi.get('/billing/plans'),
       siteApi.get('/billing/status'),
       siteApi.get('/billing/transactions'),
+      siteApi.get('/settings/users'),
     ]);
 
     renderPortal({
@@ -1147,6 +1312,7 @@ async function loadPortal(flash = '') {
       plans: plansResult.plans || [],
       providers: plansResult.providers || {},
       transactions: transactionsResult.transactions || [],
+      staff: staffResult.users || [],
     }, flash);
   } catch (error) {
     siteApi.clearSession();
