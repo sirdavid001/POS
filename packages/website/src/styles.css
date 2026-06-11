@@ -1404,6 +1404,12 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
   margin: 7px 0 0;
   font-size: clamp(28px, 3vw, 40px);
 }
+.account-panel-heading p {
+  max-width: 620px;
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
 .account-form-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -1459,6 +1465,47 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
   border-radius: 18px;
 }
 .account-subpanel h3 { margin-bottom: 14px; }
+.account-billing-panel {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 100% 0, oklch(0.55 0.2 260 / 0.08), transparent 30%),
+    var(--color-surface-2);
+}
+.billing-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.billing-summary-grid article {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-height: 150px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--color-surface-3);
+}
+.billing-summary-grid article > span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.billing-summary-grid article > strong {
+  color: var(--color-text);
+  font-size: 18px;
+  line-height: 1.25;
+  text-transform: capitalize;
+}
+.billing-summary-grid article p {
+  margin: auto 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
 .account-table-wrap { overflow-x: auto; }
 .account-table {
   width: 100%;
@@ -1468,12 +1515,14 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
 }
 .account-table th,
 .account-table td {
-  padding: 12px 10px;
+  padding: 14px 12px;
   border-bottom: 1px solid var(--line);
   text-align: left;
 }
 .account-table th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
 .account-table code { color: var(--color-primary-light); }
+.account-table tbody tr:last-child td { border-bottom: 0; }
+.account-table tbody tr:hover { background: oklch(0.55 0.2 260 / 0.035); }
 .account-notice {
   margin: 16px 0;
   padding: 16px;
@@ -1481,56 +1530,211 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
   color: var(--muted);
   line-height: 1.6;
 }
+.billing-alert {
+  border-color: oklch(0.75 0.16 85 / 0.28);
+  background: oklch(0.75 0.16 85 / 0.07);
+}
+.billing-checkout-panel {
+  margin-top: 20px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--color-surface-3);
+}
+.billing-checkout-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+.billing-checkout-heading h3,
+.billing-plans-heading h3,
+.billing-history-heading h3 {
+  margin: 6px 0 0;
+  font-size: 20px;
+  letter-spacing: -0.025em;
+}
+.billing-checkout-heading p {
+  max-width: 620px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.billing-secure-badge {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border: 1px solid oklch(0.7 0.18 160 / 0.28);
+  border-radius: 999px;
+  color: var(--color-accent);
+  background: oklch(0.7 0.18 160 / 0.08);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 .account-currency-row {
   display: grid;
-  grid-template-columns: minmax(180px, 0.35fr) minmax(0, 1fr);
-  gap: 16px;
-  align-items: end;
-  margin: 16px 0;
-  padding: 16px;
+  grid-template-columns: minmax(190px, 0.36fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+  margin: 20px 0 14px;
+  padding: 18px;
   border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--color-surface-3);
+  border-radius: 14px;
+  background: var(--color-surface-2);
 }
 .account-currency-row label {
   display: grid;
-  gap: 7px;
+  gap: 9px;
   color: var(--color-text);
   font-size: 13px;
   font-weight: 800;
 }
-.account-currency-row p {
+.account-currency-row select {
+  min-height: 48px;
+  border-color: oklch(0.55 0.2 260 / 0.3);
+  font-size: 15px;
+  font-weight: 800;
+}
+.billing-currency-copy {
+  display: grid;
+  gap: 4px;
+}
+.billing-currency-copy strong { font-size: 13px; }
+.billing-currency-copy p {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.55;
 }
-.billing-ack { margin: 18px 0; }
+.billing-ack {
+  margin: 0;
+  padding: 13px 14px;
+  border-radius: 12px;
+  background: oklch(0 0 0 / 0.08);
+}
+.billing-ack a { color: var(--color-primary-light); }
+.billing-plans-heading,
+.billing-history-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 18px;
+}
+.billing-plans-heading { margin: 30px 0 14px; }
+.billing-plans-heading > span,
+.billing-history-heading > span {
+  color: var(--muted);
+  font-size: 12px;
+}
 .account-plan-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
+.account-plan-grid.single-plan { grid-template-columns: minmax(0, 620px); }
 .account-plan-card {
   display: grid;
-  gap: 10px;
-  padding: 20px;
-  border-radius: 18px;
+  align-content: start;
+  gap: 17px;
+  min-width: 0;
+  padding: 22px;
+  border-radius: 20px;
+  background: var(--color-surface-3);
+  box-shadow: none;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+.account-plan-card:hover {
+  transform: translateY(-2px);
+  border-color: oklch(0.55 0.2 260 / 0.3);
+  box-shadow: 0 16px 34px oklch(0 0 0 / 0.1);
 }
 .account-plan-card.featured {
   border-color: oklch(0.55 0.2 260 / 0.42);
   background:
-    radial-gradient(circle at 100% 0, oklch(0.55 0.2 260 / 0.16), transparent 44%),
-    var(--color-surface-2);
+    radial-gradient(circle at 100% 0, oklch(0.55 0.2 260 / 0.14), transparent 44%),
+    var(--color-surface-3);
+}
+.account-plan-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
 }
 .account-plan-card h3 { margin: 0; }
-.account-plan-card .price { font-size: 34px; }
-.account-plan-card p { margin: 0; color: var(--muted); line-height: 1.55; font-size: 13px; }
+.account-plan-badge {
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: white;
+  background: var(--color-primary);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.account-plan-highlight {
+  margin: 5px 0 0;
+  color: var(--color-primary-light);
+  font-size: 11px;
+  font-weight: 750;
+}
+.account-plan-price {
+  display: grid;
+  gap: 3px;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.account-plan-price strong {
+  font-size: clamp(30px, 3vw, 38px);
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+.account-plan-price span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.account-plan-description {
+  min-height: 40px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.account-plan-includes {
+  display: grid;
+  gap: 8px;
+  color: var(--color-text);
+  font-size: 11px;
+}
+.account-plan-includes span {
+  position: relative;
+  padding-left: 17px;
+}
+.account-plan-includes span::before {
+  content: "";
+  position: absolute;
+  top: 0.38em;
+  left: 1px;
+  width: 7px;
+  height: 4px;
+  border-bottom: 2px solid var(--color-accent);
+  border-left: 2px solid var(--color-accent);
+  transform: rotate(-45deg);
+}
+.account-provider-label {
+  margin-top: auto;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
 .account-provider-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 8px;
+  gap: 10px;
 }
 .account-provider-option {
   display: grid;
@@ -1543,18 +1747,19 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
   justify-items: start;
   gap: 2px;
   width: 100%;
-  min-height: 66px;
+  min-height: 64px;
   padding: 12px 14px;
-  border: 1px solid transparent;
+  border: 1px solid var(--line);
   border-radius: 13px;
-  color: white;
+  color: var(--color-text);
+  background: var(--color-surface-2);
   text-align: left;
   cursor: pointer;
   transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
 }
 .payment-provider-button:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 12px 26px oklch(0 0 0 / 0.18);
+  box-shadow: 0 10px 24px oklch(0 0 0 / 0.14);
 }
 .payment-provider-button span {
   color: inherit;
@@ -1566,20 +1771,22 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
 }
 .payment-provider-button strong {
   color: inherit;
-  font-size: 17px;
+  font-size: 16px;
   letter-spacing: -0.02em;
 }
 .payment-provider-button.paystack {
-  background: linear-gradient(135deg, #087f8c, #0aa5b5);
+  border-color: oklch(0.62 0.12 205 / 0.38);
+  box-shadow: inset 3px 0 #0aa5b5;
 }
 .payment-provider-button.flutterwave {
-  color: #201305;
-  background: linear-gradient(135deg, #ff9d1d, #ffbf47);
+  border-color: oklch(0.75 0.16 75 / 0.38);
+  box-shadow: inset 3px 0 #ff9d1d;
 }
 .payment-provider-button:disabled {
   border-color: var(--line);
   color: var(--muted);
   background: var(--color-surface-3);
+  box-shadow: none;
   cursor: not-allowed;
   opacity: 1;
   transform: none;
@@ -1593,6 +1800,25 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
 .account-provider-option small[data-state="ready"] { color: var(--color-accent); }
 .account-provider-option small[data-state="waiting"] { color: var(--orange); }
 .account-provider-option small[data-state="unavailable"] { color: var(--color-danger-light); }
+.billing-history-panel {
+  margin-top: 30px;
+  padding: 22px;
+  background: var(--color-surface-3);
+  box-shadow: none;
+}
+.billing-history-panel .account-table-wrap {
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--color-surface-2);
+}
+.billing-history-panel .account-muted {
+  margin: 18px 0 0;
+  padding: 22px;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  text-align: center;
+}
 .account-form .button:disabled {
   opacity: 0.55;
   cursor: wait;
@@ -1722,10 +1948,22 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
   .account-auth-card,
   .account-status-card,
   .account-panel { padding: 22px; }
+  .billing-summary-grid { grid-template-columns: 1fr; }
+  .billing-summary-grid article { min-height: auto; }
+  .billing-checkout-heading,
+  .billing-plans-heading,
+  .billing-history-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .billing-checkout-panel,
+  .billing-history-panel { padding: 18px; }
+  .billing-secure-badge { align-self: flex-start; }
   .account-currency-row { grid-template-columns: 1fr; }
   .account-form-grid,
   .account-plan-grid,
   .account-overview-grid { grid-template-columns: 1fr; }
+  .account-provider-actions { grid-template-columns: 1fr; }
   .account-overview-card { min-height: 180px; }
   .account-form .span-2 { grid-column: auto; }
   .account-panel-heading { flex-direction: column; }

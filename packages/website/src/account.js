@@ -528,6 +528,21 @@ function planDescription(plan) {
   return 'All QuickPOS features included';
 }
 
+function planCadence(plan) {
+  if (plan.code === 'activation_5m') return 'one-time payment';
+  if (plan.code === 'monthly') return 'per month';
+  if (plan.code === 'quarterly') return 'every 3 months';
+  if (plan.code === 'yearly') return 'per year';
+  return plan.recurring ? 'recurring' : 'one-time payment';
+}
+
+function planHighlight(plan) {
+  if (plan.code === 'activation_5m') return 'Includes five months of access';
+  if (plan.code === 'yearly') return 'Lowest effective monthly cost';
+  if (plan.code === 'quarterly') return 'Fewer renewals, better value';
+  return 'Cancel renewal at any time';
+}
+
 function downloadsUnlocked(subscription) {
   return Boolean(subscription?.can_write && !subscription?.activation_required);
 }
@@ -639,51 +654,88 @@ function renderPlanCards(plans = [], providers = {}, subscription = {}) {
 
   return `
     ${configuredProviderCount === 0 ? `
-      <div class="account-notice">
+      <div class="account-notice billing-alert">
         Online checkout is temporarily unavailable. Contact support for activation assistance.
       </div>
     ` : ''}
     ${activationPeriodActive ? `
-      <div class="account-notice">
+      <div class="account-notice billing-alert">
         Your five-month activation period is active through ${formatDate(subscription.current_period_end)}.
         Renewal checkout becomes available after this period.
       </div>
     ` : ''}
-    <div class="account-currency-row">
-      <label>Payment currency
-        <select id="account-payment-currency" ${availableCurrencies.length <= 1 ? 'disabled' : ''}>
-          ${(availableCurrencies.length ? availableCurrencies : [DEFAULT_PAYMENT_CURRENCY]).map((currency) => `
-            <option value="${currency}" ${currency === selectedCurrency ? 'selected' : ''}>${currency}</option>
-          `).join('')}
-        </select>
+    <div class="billing-checkout-panel">
+      <div class="billing-checkout-heading">
+        <div>
+          <span class="section-kicker">Checkout preferences</span>
+          <h3>Choose how you want to pay</h3>
+          <p>Select your billing currency, review the terms, then continue with your preferred payment provider.</p>
+        </div>
+        <span class="billing-secure-badge">Secure hosted checkout</span>
+      </div>
+      <div class="account-currency-row">
+        <label for="account-payment-currency">
+          <span>Payment currency</span>
+          <select id="account-payment-currency" ${availableCurrencies.length <= 1 ? 'disabled' : ''}>
+            ${(availableCurrencies.length ? availableCurrencies : [DEFAULT_PAYMENT_CURRENCY]).map((currency) => `
+              <option value="${currency}" ${currency === selectedCurrency ? 'selected' : ''}>${currency}</option>
+            `).join('')}
+          </select>
+        </label>
+        <div class="billing-currency-copy">
+          <strong>${selectedCurrency} pricing selected</strong>
+          <p>QuickPOS suggests a currency from your location. Customers outside supported regional currencies use USD when available.</p>
+        </div>
+      </div>
+      <label class="account-check billing-ack">
+        <input type="checkbox" id="account-billing-ack">
+        <span>I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> and acknowledge the <a href="/refund" target="_blank" rel="noopener noreferrer">Refund Policy</a>.</span>
       </label>
-      <p>We use your browser location as a suggestion, then only allow currencies supported by the selected provider and configured for this plan. Outside supported regional currencies, checkout defaults to USD when available.</p>
     </div>
-    <label class="account-check billing-ack">
-      <input type="checkbox" id="account-billing-ack">
-      <span>I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer">Terms</a> and acknowledge the <a href="/refund" target="_blank" rel="noopener noreferrer">Refund Policy</a> before payment.</span>
-    </label>
-    <div class="account-plan-grid">
+    <div class="billing-plans-heading">
+      <div>
+        <span class="section-kicker">${subscription.activation_required ? 'Activation' : 'Subscription plans'}</span>
+        <h3>${subscription.activation_required ? 'Complete your store setup' : 'Select your next billing period'}</h3>
+      </div>
+      <span>${visiblePlans.length} ${visiblePlans.length === 1 ? 'option' : 'options'} available</span>
+    </div>
+    <div class="account-plan-grid ${visiblePlans.length === 1 ? 'single-plan' : ''}">
       ${visiblePlans.map((plan) => `
         <article class="account-plan-card ${plan.code === 'yearly' ? 'featured' : ''}">
-          <span class="plan-kicker">${plan.code === 'activation_5m' ? 'Required once' : plan.recurring ? 'Renewal' : 'Plan'}</span>
-          <h3>${escapeHtml(plan.name)}</h3>
+          <div class="account-plan-heading">
+            <span class="plan-kicker">${plan.code === 'activation_5m' ? 'Required once' : plan.recurring ? 'Recurring plan' : 'Plan'}</span>
+            ${plan.code === 'yearly' ? '<span class="account-plan-badge">Best value</span>' : ''}
+          </div>
+          <div>
+            <h3>${escapeHtml(plan.name)}</h3>
+            <p class="account-plan-highlight">${planHighlight(plan)}</p>
+          </div>
           ${(() => {
             const price = priceForPlan(plan, selectedCurrency);
-            return `<div class="price">${formatCurrency(price.amount, price.currency)}</div>`;
+            return `
+              <div class="account-plan-price">
+                <strong>${formatCurrency(price.amount, price.currency)}</strong>
+                <span>${planCadence(plan)}</span>
+              </div>
+            `;
           })()}
-          <p>${planDescription(plan)}</p>
+          <p class="account-plan-description">${planDescription(plan)}</p>
+          <div class="account-plan-includes">
+            <span>Unlimited staff and devices</span>
+            <span>POS, inventory, reports, and updates</span>
+          </div>
+          <div class="account-provider-label">Choose payment provider</div>
           <div class="account-provider-actions">
             <div class="account-provider-option">
               <button class="payment-provider-button paystack" type="button" data-checkout-provider="paystack" data-plan="${plan.code}" data-currencies="${(plan.provider_availability?.currencies?.paystack || []).join(',')}" data-enabled="${Boolean(plan.provider_availability?.paystack && !activationPeriodActive)}" disabled>
-                <span>Pay securely with</span>
+                <span>Continue with</span>
                 <strong>Paystack</strong>
               </button>
               <small data-provider-status="paystack">Checking availability...</small>
             </div>
             <div class="account-provider-option">
               <button class="payment-provider-button flutterwave" type="button" data-checkout-provider="flutterwave" data-plan="${plan.code}" data-currencies="${(plan.provider_availability?.currencies?.flutterwave || []).join(',')}" data-enabled="${Boolean(plan.provider_availability?.flutterwave && !activationPeriodActive)}" disabled>
-                <span>Pay securely with</span>
+                <span>Continue with</span>
                 <strong>Flutterwave</strong>
               </button>
               <small data-provider-status="flutterwave">Checking availability...</small>
@@ -815,18 +867,41 @@ function renderPortal({ overview, plans, providers, transactions }, flash = '') 
             </form>
           </section>
 
-          <section class="account-panel" data-account-panel="billing" ${activeSection === 'billing' ? '' : 'hidden'}>
+          <section class="account-panel account-billing-panel" data-account-panel="billing" ${activeSection === 'billing' ? '' : 'hidden'}>
             <div class="account-panel-heading">
               <div>
                 <span class="section-kicker">Billing</span>
                 <h2 tabindex="-1">${subscription?.activation_required ? 'Activate your store' : 'Manage subscription'}</h2>
+                <p>Manage payment preferences, subscription access, and transaction records.</p>
               </div>
               <span class="account-badge ${unlocked ? 'success' : 'warning'}">${unlocked ? 'Paid access' : 'Pending payment'}</span>
             </div>
-            <p class="account-muted">${statusCopy(subscription)}</p>
+            <div class="billing-summary-grid">
+              <article>
+                <span>Current status</span>
+                <strong>${escapeHtml(subscription?.status || 'Checking')}</strong>
+                <p>${statusCopy(subscription)}</p>
+              </article>
+              <article>
+                <span>Current plan</span>
+                <strong>${escapeHtml(subscription?.plan_name || subscription?.plan_code || (subscription?.activation_required ? 'Activation required' : 'Not selected'))}</strong>
+                <p>${subscription?.recurring ? 'Renews automatically until cancelled.' : 'No automatic renewal is active.'}</p>
+              </article>
+              <article>
+                <span>Access through</span>
+                <strong>${subscription?.current_period_end ? formatDate(subscription.current_period_end) : subscription?.trial_ends_at ? formatDate(subscription.trial_ends_at) : 'Not active'}</strong>
+                <p>${unlocked ? 'Your store currently has full write access.' : 'Complete payment to unlock full access.'}</p>
+              </article>
+            </div>
             ${renderPlanCards(plans, providers, subscription)}
-            <div class="account-subpanel">
-              <h3>Payment history</h3>
+            <div class="account-subpanel billing-history-panel">
+              <div class="billing-history-heading">
+                <div>
+                  <span class="section-kicker">Transactions</span>
+                  <h3>Payment history</h3>
+                </div>
+                <span>${transactions.length} ${transactions.length === 1 ? 'payment' : 'payments'}</span>
+              </div>
               ${renderTransactions(transactions)}
             </div>
           </section>
