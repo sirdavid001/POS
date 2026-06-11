@@ -1363,19 +1363,24 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
   gap: 8px;
   margin-top: 5px;
 }
-.account-sidebar a {
+.account-sidebar button {
+  width: 100%;
   padding: 11px 12px;
   border: 1px solid transparent;
   border-radius: 11px;
+  color: var(--muted);
   background: var(--color-surface-3);
+  font: inherit;
   font-size: 13px;
+  text-align: left;
+  cursor: pointer;
   transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
 }
-.account-sidebar a:hover {
+.account-sidebar button:hover {
   border-color: var(--line);
   color: var(--color-text);
 }
-.account-sidebar a.active {
+.account-sidebar button.active {
   border-color: oklch(0.55 0.2 260 / 0.35);
   color: white;
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
@@ -1414,6 +1419,7 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
 .account-overview-card {
   display: grid;
   align-content: start;
+  width: 100%;
   min-height: 210px;
   padding: 22px;
   border: 1px solid var(--line);
@@ -1422,6 +1428,9 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
   background:
     radial-gradient(circle at 100% 0, oklch(0.55 0.2 260 / 0.1), transparent 45%),
     var(--color-surface-3);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 .account-overview-card:hover {
@@ -1646,7 +1655,7 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
     overflow-x: auto;
     padding-bottom: 4px;
   }
-  .account-sidebar a { text-align: center; }
+  .account-sidebar button { min-width: 140px; text-align: center; }
   .account-plan-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 

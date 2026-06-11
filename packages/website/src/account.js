@@ -537,25 +537,36 @@ function portalSectionFromRoute() {
   return PORTAL_SECTIONS.includes(mode) ? mode : 'overview';
 }
 
-function activatePortalSection(section, { scroll = false } = {}) {
+function activatePortalSection(section, { focus = false } = {}) {
   const activeSection = PORTAL_SECTIONS.includes(section) ? section : 'overview';
 
   document.querySelectorAll('[data-account-panel]').forEach((panel) => {
-    panel.hidden = panel.dataset.accountPanel !== activeSection;
+    const active = panel.dataset.accountPanel === activeSection;
+    panel.hidden = !active;
+    panel.inert = !active;
+    panel.setAttribute('aria-hidden', String(!active));
   });
 
   document.querySelectorAll('[data-account-section-link]').forEach((link) => {
     const active = link.dataset.accountSectionLink === activeSection;
     link.classList.toggle('active', active);
-    link.setAttribute('aria-current', active ? 'page' : 'false');
+    link.setAttribute('aria-selected', String(active));
   });
 
   const activePanel = document.querySelector(`[data-account-panel="${activeSection}"]`);
-  if (scroll && activePanel) {
-    activePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (focus && activePanel) {
+    activePanel.querySelector('h2')?.focus({ preventScroll: true });
   }
 
   if (activeSection === 'downloads') loadDownloads();
+}
+
+function openPortalSection(section, { updateHistory = true, focus = true } = {}) {
+  const activeSection = PORTAL_SECTIONS.includes(section) ? section : 'overview';
+  if (updateHistory && routeInfo().mode !== activeSection) {
+    history.pushState(null, '', `#${activeSection}`);
+  }
+  activatePortalSection(activeSection, { focus });
 }
 
 function renderTransactions(transactions = []) {
@@ -717,60 +728,60 @@ function renderPortal({ overview, plans, providers, transactions }, flash = '') 
         <aside class="account-sidebar">
           <strong>${escapeHtml(store?.name || 'QuickPOS Store')}</strong>
           <span>${escapeHtml(user.email)}</span>
-          <nav class="account-sidebar-nav" aria-label="Account portal">
-            <a href="#overview" data-account-section-link="overview">Overview</a>
-            <a href="#profile" data-account-section-link="profile">Account profile</a>
-            <a href="#store" data-account-section-link="store">Store settings</a>
-            <a href="#billing" data-account-section-link="billing">Billing</a>
-            <a href="#downloads" data-account-section-link="downloads">Downloads</a>
+          <nav class="account-sidebar-nav" aria-label="Account portal" role="tablist">
+            <button type="button" role="tab" data-account-section-link="overview">Overview</button>
+            <button type="button" role="tab" data-account-section-link="profile">Account profile</button>
+            <button type="button" role="tab" data-account-section-link="store">Store settings</button>
+            <button type="button" role="tab" data-account-section-link="billing">Billing</button>
+            <button type="button" role="tab" data-account-section-link="downloads">Downloads</button>
           </nav>
         </aside>
 
         <div class="account-main">
           <div data-account-alert>${flash ? `<div class="account-alert success">${escapeHtml(flash)}</div>` : ''}</div>
 
-          <section class="account-panel" id="overview" data-account-panel="overview">
+          <section class="account-panel" data-account-panel="overview" ${activeSection === 'overview' ? '' : 'hidden'}>
             <div class="account-panel-heading">
               <div>
                 <span class="section-kicker">Store administration</span>
-                <h2>Account overview</h2>
+                <h2 tabindex="-1">Account overview</h2>
               </div>
               <span class="account-badge ${unlocked ? 'success' : 'warning'}">${unlocked ? 'Active' : 'Setup required'}</span>
             </div>
             <p class="account-muted">Choose a section below to manage it. Only one section opens at a time, keeping your account portal focused and easy to navigate.</p>
             <div class="account-overview-grid">
-              <a class="account-overview-card" href="#profile">
+              <button class="account-overview-card" type="button" data-account-open-section="profile">
                 <span class="section-kicker">Owner</span>
                 <h3>Account profile</h3>
                 <p>${escapeHtml(user.name || 'Store owner')}<br>${escapeHtml(user.email || '')}</p>
                 <strong>Open account settings</strong>
-              </a>
-              <a class="account-overview-card" href="#store">
+              </button>
+              <button class="account-overview-card" type="button" data-account-open-section="store">
                 <span class="section-kicker">Business</span>
                 <h3>Store settings</h3>
                 <p>${escapeHtml(store?.name || 'QuickPOS Store')}<br>${escapeHtml(store?.currency || 'NGN')} store currency</p>
                 <strong>Open store settings</strong>
-              </a>
-              <a class="account-overview-card" href="#billing">
+              </button>
+              <button class="account-overview-card" type="button" data-account-open-section="billing">
                 <span class="section-kicker">Subscription</span>
                 <h3>Billing</h3>
                 <p>${escapeHtml(statusCopy(subscription))}</p>
                 <strong>${subscription?.activation_required ? 'Complete activation' : 'Manage billing'}</strong>
-              </a>
-              <a class="account-overview-card" href="#downloads">
+              </button>
+              <button class="account-overview-card" type="button" data-account-open-section="downloads">
                 <span class="section-kicker">QuickPOS apps</span>
                 <h3>Downloads</h3>
                 <p>${unlocked ? 'Your verified device downloads are available.' : 'Downloads unlock after your activation payment is confirmed.'}</p>
                 <strong>${unlocked ? 'Choose a download' : 'View download status'}</strong>
-              </a>
+              </button>
             </div>
           </section>
 
-          <section class="account-panel" id="profile" data-account-panel="profile">
+          <section class="account-panel" data-account-panel="profile" ${activeSection === 'profile' ? '' : 'hidden'}>
             <div class="account-panel-heading">
               <div>
                 <span class="section-kicker">Owner profile</span>
-                <h2>Account settings</h2>
+                <h2 tabindex="-1">Account settings</h2>
               </div>
               <span class="account-badge">Admin only</span>
             </div>
@@ -783,11 +794,11 @@ function renderPortal({ overview, plans, providers, transactions }, flash = '') 
             </form>
           </section>
 
-          <section class="account-panel" id="store" data-account-panel="store">
+          <section class="account-panel" data-account-panel="store" ${activeSection === 'store' ? '' : 'hidden'}>
             <div class="account-panel-heading">
               <div>
                 <span class="section-kicker">Store setup</span>
-                <h2>Store settings</h2>
+                <h2 tabindex="-1">Store settings</h2>
               </div>
               <span class="account-badge ${unlocked ? 'success' : 'warning'}">${unlocked ? 'Active' : 'Editable before payment'}</span>
             </div>
@@ -804,11 +815,11 @@ function renderPortal({ overview, plans, providers, transactions }, flash = '') 
             </form>
           </section>
 
-          <section class="account-panel" id="billing" data-account-panel="billing">
+          <section class="account-panel" data-account-panel="billing" ${activeSection === 'billing' ? '' : 'hidden'}>
             <div class="account-panel-heading">
               <div>
                 <span class="section-kicker">Billing</span>
-                <h2>${subscription?.activation_required ? 'Activate your store' : 'Manage subscription'}</h2>
+                <h2 tabindex="-1">${subscription?.activation_required ? 'Activate your store' : 'Manage subscription'}</h2>
               </div>
               <span class="account-badge ${unlocked ? 'success' : 'warning'}">${unlocked ? 'Paid access' : 'Pending payment'}</span>
             </div>
@@ -820,11 +831,11 @@ function renderPortal({ overview, plans, providers, transactions }, flash = '') 
             </div>
           </section>
 
-          <section class="account-panel" id="downloads" data-account-panel="downloads">
+          <section class="account-panel" data-account-panel="downloads" ${activeSection === 'downloads' ? '' : 'hidden'}>
             <div class="account-panel-heading">
               <div>
                 <span class="section-kicker">Downloads</span>
-                <h2>${unlocked ? 'Choose your device' : 'Downloads unlock after activation'}</h2>
+                <h2 tabindex="-1">${unlocked ? 'Choose your device' : 'Downloads unlock after activation'}</h2>
               </div>
               <span class="account-badge ${unlocked ? 'success' : 'warning'}">${unlocked ? 'Unlocked' : 'Locked'}</span>
             </div>
@@ -836,7 +847,7 @@ function renderPortal({ overview, plans, providers, transactions }, flash = '') 
               <div class="account-locked-downloads">
                 <strong>Pay activation first.</strong>
                 <p>Once payment is confirmed, this section will show Windows, Android, macOS, Linux, and iPhone options. The installed app uses the same login, but the website never opens the POS interface.</p>
-                <a class="button" href="#billing">Go to billing</a>
+                <button class="button" type="button" data-account-open-section="billing">Go to billing</button>
               </div>
             `}
           </section>
@@ -861,6 +872,18 @@ function payloadFromForm(form, omitBlankKeys = []) {
 }
 
 function attachPortalHandlers() {
+  document.querySelectorAll('[data-account-section-link]').forEach((button) => {
+    button.addEventListener('click', () => {
+      openPortalSection(button.dataset.accountSectionLink);
+    });
+  });
+
+  document.querySelectorAll('[data-account-open-section]').forEach((button) => {
+    button.addEventListener('click', () => {
+      openPortalSection(button.dataset.accountOpenSection);
+    });
+  });
+
   document.getElementById('account-logout')?.addEventListener('click', async () => {
     const refreshToken = siteApi.refreshToken;
     try {
@@ -1080,12 +1103,15 @@ function bootstrap() {
   loadPortal();
 }
 
-window.addEventListener('hashchange', () => {
+function handleAccountNavigation() {
   const { mode } = routeInfo();
   if (siteApi.accessToken && PORTAL_SECTIONS.includes(mode) && document.querySelector('[data-account-portal]')) {
-    activatePortalSection(mode, { scroll: true });
+    activatePortalSection(mode, { focus: true });
     return;
   }
   bootstrap();
-});
+}
+
+window.addEventListener('hashchange', handleAccountNavigation);
+window.addEventListener('popstate', handleAccountNavigation);
 bootstrap();
