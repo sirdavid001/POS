@@ -5,7 +5,6 @@ import { router } from './router.js';
 import {
   renderForgotPasswordPage,
   renderLoginPage,
-  renderRegisterPage,
   renderResetPasswordPage,
 } from './pages/auth.js';
 import { renderDashboard } from './pages/dashboard.js';
@@ -34,7 +33,6 @@ if (window.location.protocol !== 'file:') {
 
 // Register routes
 router.addRoute('/login', renderLoginPage);
-router.addRoute('/register', renderRegisterPage);
 router.addRoute('/forgot-password', renderForgotPasswordPage);
 router.addRoute('/reset-password', renderResetPasswordPage);
 router.addRoute('/dashboard', renderDashboard);

@@ -35,8 +35,11 @@ export function renderLoginPage() {
           </button>
         </form>
 
-        <p style="text-align:center;margin-top:1.5rem;font-size:0.8rem;color:var(--color-text-muted);">
-          Don't have an account? <a href="#/register" style="color:var(--color-primary-light);">Register</a>
+        <p style="text-align:center;margin-top:1.5rem;font-size:0.8rem;color:var(--color-text-muted);line-height:1.5;">
+          Need a store account?
+          <a href="https://quickpos.name.ng/account#create" target="_blank" rel="noopener noreferrer" style="color:var(--color-primary-light);">
+            Create it on the QuickPOS website
+          </a>.
         </p>
       </div>
     </div>
@@ -65,92 +68,6 @@ export function renderLoginPage() {
       toast(err.message || 'Login failed', 'error');
       btn.disabled = false;
       btn.textContent = 'Sign In';
-    }
-  });
-}
-
-export function renderRegisterPage() {
-  const app = document.getElementById('app');
-
-  app.innerHTML = `
-    <div class="login-page">
-      <div class="login-card glass-card animate-fade-in">
-        ${authBrand}
-        <p>Create a new account</p>
-
-        <form id="register-form">
-          <div class="form-group">
-            <label class="label" for="reg-store">Store Name</label>
-            <input class="input" type="text" id="reg-store" placeholder="Your store name" required minlength="2">
-          </div>
-          <div class="form-group">
-            <label class="label" for="reg-name">Full Name</label>
-            <input class="input" type="text" id="reg-name" placeholder="Your name" required>
-          </div>
-          <div class="form-group">
-            <label class="label" for="reg-email">Email Address</label>
-            <input class="input" type="email" id="reg-email" placeholder="you@email.com" required>
-          </div>
-          <div class="form-group">
-            <label class="label" for="reg-password">Password</label>
-            <input class="input" type="password" id="reg-password" placeholder="Min 8 characters" required minlength="8" autocomplete="new-password">
-          </div>
-          <div class="form-group auth-consent-group">
-            <label class="auth-consent-label">
-              <input type="checkbox" id="reg-consent" required>
-              <span>I agree to the
-                <a href="https://quickpos.name.ng/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a>
-                and acknowledge that I have read the
-                <a href="https://quickpos.name.ng/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
-              </span>
-            </label>
-          </div>
-          <button type="submit" class="btn btn-primary btn-lg" id="reg-submit" style="width:100%;margin-top:0.5rem;" disabled>
-            Create Account
-          </button>
-        </form>
-
-        <p style="text-align:center;margin-top:1.5rem;font-size:0.8rem;color:var(--color-text-muted);">
-          Already have an account? <a href="#/login" style="color:var(--color-primary-light);">Sign in</a>
-        </p>
-      </div>
-    </div>
-  `;
-
-  // Enable submit only when consent checkbox is checked
-  const consentBox = document.getElementById('reg-consent');
-  const submitBtn = document.getElementById('reg-submit');
-  consentBox.addEventListener('change', () => {
-    submitBtn.disabled = !consentBox.checked;
-  });
-
-  document.getElementById('register-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn = document.getElementById('reg-submit');
-
-    if (!document.getElementById('reg-consent').checked) {
-      toast('You must agree to the Terms of Service and Privacy Policy to continue.', 'error');
-      return;
-    }
-
-    btn.disabled = true;
-    btn.innerHTML = '<div class="spinner" style="width:20px;height:20px;border-width:2px;"></div> Creating...';
-
-    try {
-      await api.post('/auth/register', {
-        store_name: document.getElementById('reg-store').value,
-        name: document.getElementById('reg-name').value,
-        email: document.getElementById('reg-email').value,
-        password: document.getElementById('reg-password').value,
-        terms_accepted: true,
-        privacy_acknowledged: true,
-      });
-      toast('Account created. Sign in to activate your store.', 'success');
-      window.location.hash = '#/login';
-    } catch (err) {
-      toast(err.message || 'Registration failed', 'error');
-      btn.disabled = false;
-      btn.textContent = 'Create Account';
     }
   });
 }

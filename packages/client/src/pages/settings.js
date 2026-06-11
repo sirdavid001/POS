@@ -91,6 +91,32 @@ export async function renderSettings() {
           </table>
         </div>
       </div>
+
+      <section class="glass-card settings-legal-card">
+        <div class="settings-legal-copy">
+          <span class="settings-legal-kicker">Legal &amp; Privacy</span>
+          <h3>Know the terms behind your store account</h3>
+          <p>Review the current legal documents, refund rules, and how to exercise data protection rights. The current document versions took effect on June 11, 2026.</p>
+        </div>
+        <div class="settings-legal-links">
+          <a href="https://quickpos.name.ng/terms" target="_blank" rel="noopener noreferrer">
+            <strong>Terms of Service</strong>
+            <span>Accounts, billing, use, and liability</span>
+          </a>
+          <a href="https://quickpos.name.ng/privacy" target="_blank" rel="noopener noreferrer">
+            <strong>Privacy Policy</strong>
+            <span>Processing, retention, and your rights</span>
+          </a>
+          <a href="https://quickpos.name.ng/refund" target="_blank" rel="noopener noreferrer">
+            <strong>Refund Policy</strong>
+            <span>Cancellation and payment reviews</span>
+          </a>
+        </div>
+        <div class="settings-legal-footer">
+          <span>Legal or data request?</span>
+          <a href="mailto:support@quickpos.name.ng">support@quickpos.name.ng</a>
+        </div>
+      </section>
     </div>
   `;
 

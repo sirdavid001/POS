@@ -20,7 +20,7 @@ class Router {
     const rawHash = window.location.hash.slice(1) || '/login';
     const hash = rawHash.split('?')[0];
     const user = localStorage.getItem('user');
-    const publicRoutes = new Set(['/login', '/register', '/forgot-password', '/reset-password']);
+    const publicRoutes = new Set(['/login', '/forgot-password', '/reset-password']);
 
     // Redirect to login if not authenticated
     if (!user && !publicRoutes.has(hash)) {
@@ -29,7 +29,7 @@ class Router {
     }
 
     // Redirect to dashboard if already logged in and trying to access login
-    if (user && ['/login', '/register', '/forgot-password'].includes(hash)) {
+    if (user && ['/login', '/forgot-password'].includes(hash)) {
       window.location.hash = '#/dashboard';
       return;
     }

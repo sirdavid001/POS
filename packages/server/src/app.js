@@ -21,6 +21,9 @@ import reportsRouter from './modules/reports/router.js';
 import settingsRouter from './modules/settings/router.js';
 import billingRouter from './modules/billing/router.js';
 import jobsRouter from './modules/jobs/router.js';
+import accountRouter from './modules/account/router.js';
+import downloadsRouter from './modules/downloads/router.js';
+import supportRouter from './modules/support/router.js';
 import { query } from './config/database.js';
 
 const app = express();
@@ -78,6 +81,9 @@ app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/settings', settingsRouter);
 app.use('/api/v1/billing', billingRouter);
 app.use('/api/v1/jobs', jobsRouter);
+app.use('/api/v1/account', accountRouter);
+app.use('/api/v1/downloads', downloadsRouter);
+app.use('/api/v1/support', supportRouter);
 
 const getHealthPayload = (overrides = {}) => ({
   status: 'ok',

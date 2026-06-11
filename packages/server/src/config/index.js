@@ -104,15 +104,28 @@ const config = {
   auth: {
     passwordResetUrl:
       process.env.PASSWORD_RESET_URL ||
-      'https://quickposs.vercel.app/#/reset-password',
+      'https://quickpos.name.ng/account#reset-password',
     passwordResetExpiryMinutes: Number(process.env.PASSWORD_RESET_EXPIRY_MINUTES) || 30,
   },
 
   billing: {
     checkoutReturnUrl:
       process.env.BILLING_RETURN_URL ||
-      'https://quickposs.vercel.app/#/billing?checkout=complete',
+      'https://quickpos.name.ng/account#billing',
     cronSecret: process.env.CRON_SECRET || '',
+  },
+
+  downloads: {
+    manifestUrl:
+      process.env.RELEASE_MANIFEST_URL ||
+      process.env.DOWNLOADS_MANIFEST_URL ||
+      'https://downloads.quickpos.name.ng/latest.json',
+    githubLatestReleaseUrl:
+      process.env.GITHUB_LATEST_RELEASE_URL ||
+      'https://api.github.com/repos/sirdavid001/POS/releases/latest',
+    iosWebUrl:
+      process.env.IOS_WEB_APP_URL ||
+      'https://quickposs.vercel.app',
   },
 };
 

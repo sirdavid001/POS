@@ -10,6 +10,7 @@ const navigation = [
   ['features', '/features', 'Features'],
   ['pricing', '/pricing', 'Pricing'],
   ['downloads', '/downloads', 'Downloads'],
+  ['account', '/account', 'Account'],
   ['faq', '/faq', 'FAQ'],
   ['support', '/support', 'Support'],
 ];
@@ -27,7 +28,7 @@ if (header) {
         ${navigation.map(([id, href, label]) => `
           <a href="${href}" class="${page === id ? 'active' : ''}">${label}</a>
         `).join('')}
-        <a href="/downloads" class="button button-small">Download free</a>
+        <a href="/account#create" class="button button-small">Create account</a>
       </nav>
     </div>
   `;
@@ -51,6 +52,7 @@ if (footer) {
         <a href="/features">Features</a>
         <a href="/pricing">Pricing</a>
         <a href="/downloads">Downloads</a>
+        <a href="/account">Account portal</a>
       </div>
       <div>
         <strong>Help</strong>
@@ -60,6 +62,7 @@ if (footer) {
       </div>
       <div>
         <strong>Legal</strong>
+        <a href="/legal">Legal centre</a>
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
         <a href="/refund">Refund policy</a>

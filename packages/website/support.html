@@ -1,17 +1,137 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="description" content="Contact QuickPOS support for installation, billing, account, and product help."><link rel="icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><meta name="theme-color" content="#15161b"><title>Support | QuickPOS</title></head>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Contact QuickPOS support using the support form or instant chatbot for installation, billing, account, and product help.">
+  <link rel="icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="theme-color" content="#15161b">
+  <title>Support | QuickPOS</title>
+</head>
 <body data-page="support">
   <header class="site-header" data-site-header></header>
   <main>
-    <section class="page-hero"><div class="site-shell page-intro"><span class="eyebrow">Support included</span><h1>Help when your store needs it.</h1><p>Send us the store name, app version, device platform, and a clear description of the problem. Never send your password or payment card details.</p></div></section>
-    <section class="section"><div class="site-shell support-card"><div><h2>Email QuickPOS support</h2><p>Installation, accounts, billing, downloads, reports, and product questions.</p></div><a class="button" style="background:var(--lime);color:var(--green);" href="mailto:support@quickpos.name.ng">support@quickpos.name.ng</a></div></section>
-    <section class="section section-tint"><div class="site-shell card-grid">
-      <article class="card"><h3>Billing help</h3><p>Include the provider, payment reference, store name, and payment date. Duplicate or erroneous charges are reviewed individually.</p></article>
-      <article class="card"><h3>Technical help</h3><p>Include the operating system, QuickPOS version, exact error message, and steps that reproduce the issue.</p></article>
-      <article class="card"><h3>Account security</h3><p>Contact support immediately if you suspect unauthorized access. QuickPOS support will never ask for your password.</p></article>
-    </div></section>
+    <section class="page-hero support-hero">
+      <div class="site-shell support-hero-grid">
+        <div class="page-intro">
+          <span class="eyebrow">Support included</span>
+          <h1>Help when your store needs it.</h1>
+          <p>Use the form for account-specific help, or start with the chatbot for instant guidance on billing, downloads, installation, login, and common app questions.</p>
+          <div class="trust-row">
+            <span>Human email support</span>
+            <span>Instant support chatbot</span>
+            <span>No password requests</span>
+          </div>
+        </div>
+        <aside class="support-response-card">
+          <strong>Typical response</strong>
+          <span>Within 2 business days</span>
+          <p>For payment or activation problems, include provider, amount, date, and transaction reference.</p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="site-shell support-workspace">
+        <article class="support-form-panel">
+          <div class="support-panel-heading">
+            <span class="section-kicker">Contact form</span>
+            <h2>Send a support request</h2>
+            <p>Do not send passwords, card numbers, CVV, OTP, banking PIN, or sensitive payment details.</p>
+          </div>
+
+          <div data-support-alert></div>
+
+          <form class="support-form" id="support-form">
+            <input class="support-honeypot" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+            <div class="support-form-grid">
+              <label>Your name<input name="name" required autocomplete="name" placeholder="Full name"></label>
+              <label>Email address<input name="email" type="email" required autocomplete="email" placeholder="owner@yourstore.com"></label>
+              <label>Phone<input name="phone" type="tel" autocomplete="tel" placeholder="+234..."></label>
+              <label>Store name<input name="store_name" placeholder="Your store name"></label>
+              <label>Category
+                <select name="category" required>
+                  <option value="billing">Billing or activation</option>
+                  <option value="account">Account or login</option>
+                  <option value="downloads">Downloads</option>
+                  <option value="installation">Installation</option>
+                  <option value="technical">Technical issue</option>
+                  <option value="security">Security concern</option>
+                  <option value="privacy">Privacy or legal request</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+              <label>Priority
+                <select name="priority">
+                  <option value="normal">Normal</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </label>
+              <label>Device or platform
+                <select name="platform">
+                  <option value="windows">Windows</option>
+                  <option value="android">Android</option>
+                  <option value="macos">macOS</option>
+                  <option value="linux">Linux</option>
+                  <option value="ios">iPhone or iPad</option>
+                  <option value="web">Website / account portal</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+              <label>App version<input name="app_version" placeholder="Example: 1.0.0"></label>
+              <label class="span-2">Subject<input name="subject" required maxlength="160" placeholder="What do you need help with?"></label>
+              <label class="span-2">Message<textarea name="message" required minlength="20" rows="7" placeholder="Tell us what happened, what you expected, and any exact error message."></textarea></label>
+            </div>
+
+            <label class="support-consent">
+              <input type="checkbox" name="contact_permission" required>
+              <span>QuickPOS may contact me by email about this support request.</span>
+            </label>
+
+            <div class="support-form-actions">
+              <button class="button" type="submit" id="support-submit">Send support request</button>
+              <a class="button button-secondary" href="mailto:support@quickpos.name.ng">Email directly</a>
+            </div>
+          </form>
+        </article>
+
+        <aside class="support-chat-panel" aria-label="QuickPOS support chatbot">
+          <div class="support-panel-heading">
+            <span class="section-kicker">Quick answers</span>
+            <h2>Support chatbot</h2>
+            <p>Ask a question or choose a topic. For account-specific issues, the chatbot can prepare the form for human support.</p>
+          </div>
+
+          <div class="chat-window">
+            <div class="chat-messages" data-chat-messages aria-live="polite"></div>
+            <div class="chat-quick-actions" data-chat-quick-actions>
+              <button type="button" data-chat-topic="billing">Billing</button>
+              <button type="button" data-chat-topic="downloads">Downloads</button>
+              <button type="button" data-chat-topic="account">Login</button>
+              <button type="button" data-chat-topic="installation">Install app</button>
+            </div>
+            <form class="chat-input-row" data-chat-form>
+              <input name="message" placeholder="Ask about billing, downloads, login..." autocomplete="off">
+              <button class="button button-small" type="submit">Ask</button>
+            </form>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section section-tint">
+      <div class="site-shell card-grid support-topic-grid">
+        <article class="card"><h3>Billing help</h3><p>Include provider, payment reference, store name, amount, and payment date. Duplicate or erroneous charges are reviewed individually.</p></article>
+        <article class="card"><h3>Technical help</h3><p>Include the operating system, QuickPOS version, exact error message, and steps that reproduce the issue.</p></article>
+        <article class="card"><h3>Account security</h3><p>Contact support immediately if you suspect unauthorized access. QuickPOS support will never ask for your password.</p></article>
+        <article class="card"><h3>Privacy and legal requests</h3><p>Use the registered owner email for access, correction, deletion, portability, account closure, or legal questions. Review the <a href="/legal">Legal Centre</a> first.</p></article>
+      </div>
+    </section>
   </main>
-  <footer class="site-footer" data-site-footer></footer><script type="module" src="/src/main.js"></script>
+  <footer class="site-footer" data-site-footer></footer>
+  <script type="module" src="/src/main.js"></script>
+  <script type="module" src="/src/support.js"></script>
 </body>
 </html>
