@@ -12,6 +12,60 @@ if (!window._wsDashboardMounted) {
   window._wsDashboardMounted = true;
 }
 
+function renderLowStockAlert(products, { canManageInventory = false } = {}) {
+  const alertContainer = document.getElementById('low-stock');
+  const summary = document.getElementById('low-stock-summary');
+  if (!alertContainer || !summary) return;
+
+  if (products.length === 0) {
+    summary.className = 'stock-alert-count is-clear';
+    summary.textContent = 'All clear';
+    alertContainer.innerHTML = `
+      <div class="stock-alert-empty">
+        <span class="stock-alert-check" aria-hidden="true">&#10003;</span>
+        <div>
+          <strong>Stock levels look good</strong>
+          <p>No products are below their reorder threshold.</p>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  const visibleProducts = products.slice(0, 4);
+  const remainingCount = products.length - visibleProducts.length;
+  summary.className = 'stock-alert-count has-alerts';
+  summary.textContent = `${products.length} item${products.length === 1 ? '' : 's'}`;
+  alertContainer.innerHTML = `
+    <div class="stock-alert-list">
+      ${visibleProducts.map(product => {
+        const isOutOfStock = Number(product.stock_quantity) === 0;
+        return `
+          <div class="stock-alert-item">
+            <div class="stock-alert-product">
+              <strong>${product.name}</strong>
+              <span>Reorder level: ${product.low_stock_threshold}</span>
+            </div>
+            <div class="stock-alert-level ${isOutOfStock ? 'is-empty' : ''}">
+              <strong>${product.stock_quantity}</strong>
+              <span>in stock</span>
+            </div>
+            <span class="badge ${isOutOfStock ? 'badge-danger' : 'badge-warning'}">
+              ${isOutOfStock ? 'Out of stock' : 'Low'}
+            </span>
+          </div>
+        `;
+      }).join('')}
+    </div>
+    ${(remainingCount > 0 || canManageInventory) ? `
+      <div class="stock-alert-footer">
+        <span>${remainingCount > 0 ? `+${remainingCount} more item${remainingCount === 1 ? '' : 's'} need attention` : 'Review stock levels and reorder quantities.'}</span>
+        ${canManageInventory ? '<a href="#/inventory">Open inventory</a>' : ''}
+      </div>
+    ` : ''}
+  `;
+}
+
 export async function renderDashboard() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   if (user.role === 'cashier') {
@@ -56,13 +110,19 @@ async function renderManagerDashboard() {
         </div>
       </div>
 
-      <div class="glass-card" style="padding:1.25rem;">
-        <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">
-          ${icons.alert}
-          <span style="margin-left:0.5rem;">Low Stock Alerts</span>
-        </h3>
+      <section class="glass-card stock-alert-card">
+        <div class="stock-alert-header">
+          <div class="stock-alert-heading">
+            <span class="stock-alert-icon" aria-hidden="true">${icons.alert}</span>
+            <div>
+              <h3>Low stock</h3>
+              <p>Products that may need restocking soon</p>
+            </div>
+          </div>
+          <span class="stock-alert-count" id="low-stock-summary">Checking...</span>
+        </div>
         <div id="low-stock"><div class="spinner"></div></div>
-      </div>
+      </section>
     </div>
   `;
 
@@ -196,26 +256,7 @@ async function renderManagerDashboard() {
       `;
     }
 
-    // Low stock
-    if (lowStock.products.length === 0) {
-      document.getElementById('low-stock').innerHTML = '<p style="color:var(--color-success);font-size:0.85rem;">✓ All products are well stocked</p>';
-    } else {
-      document.getElementById('low-stock').innerHTML = `
-        <table class="data-table">
-          <thead><tr><th>Product</th><th>Current Stock</th><th>Threshold</th><th>Status</th></tr></thead>
-          <tbody>
-            ${lowStock.products.map(p => `
-              <tr>
-                <td>${p.name}</td>
-                <td style="font-weight:700;color:var(--color-danger);">${p.stock_quantity}</td>
-                <td>${p.low_stock_threshold}</td>
-                <td><span class="badge ${p.stock_quantity === 0 ? 'badge-danger' : 'badge-warning'}">${p.stock_quantity === 0 ? 'Out of Stock' : 'Low'}</span></td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-    }
+    renderLowStockAlert(lowStock.products, { canManageInventory: true });
   } catch (err) {
     content.innerHTML = `<div class="empty-state"><p>Failed to load dashboard: ${err.message}</p></div>`;
   }
@@ -249,13 +290,19 @@ async function renderCashierDashboard() {
         </div>
       </div>
 
-      <div class="glass-card" style="padding:1.25rem;">
-        <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">
-          ${icons.alert}
-          <span style="margin-left:0.5rem;">Low Stock Alerts</span>
-        </h3>
+      <section class="glass-card stock-alert-card">
+        <div class="stock-alert-header">
+          <div class="stock-alert-heading">
+            <span class="stock-alert-icon" aria-hidden="true">${icons.alert}</span>
+            <div>
+              <h3>Low stock</h3>
+              <p>Products that may need restocking soon</p>
+            </div>
+          </div>
+          <span class="stock-alert-count" id="low-stock-summary">Checking...</span>
+        </div>
         <div id="low-stock"><div class="spinner"></div></div>
-      </div>
+      </section>
     </div>
   `;
 
@@ -318,25 +365,7 @@ async function renderCashierDashboard() {
       </div>
     `;
 
-    if (lowStock.products.length === 0) {
-      document.getElementById('low-stock').innerHTML = '<p style="color:var(--color-success);font-size:0.85rem;">✓ All products are well stocked</p>';
-    } else {
-      document.getElementById('low-stock').innerHTML = `
-        <table class="data-table">
-          <thead><tr><th>Product</th><th>Current Stock</th><th>Threshold</th><th>Status</th></tr></thead>
-          <tbody>
-            ${lowStock.products.map(p => `
-              <tr>
-                <td>${p.name}</td>
-                <td style="font-weight:700;color:var(--color-danger);">${p.stock_quantity}</td>
-                <td>${p.low_stock_threshold}</td>
-                <td><span class="badge ${p.stock_quantity === 0 ? 'badge-danger' : 'badge-warning'}">${p.stock_quantity === 0 ? 'Out of Stock' : 'Low'}</span></td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-    }
+    renderLowStockAlert(lowStock.products);
   } catch (err) {
     content.innerHTML = `<div class="empty-state"><p>Failed to load dashboard: ${err.message}</p></div>`;
   }
