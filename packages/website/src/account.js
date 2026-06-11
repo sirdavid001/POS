@@ -106,6 +106,9 @@ class SiteApi {
 
 const siteApi = new SiteApi();
 const PAYMENT_CURRENCY_KEY = 'quickpos_site_payment_currency';
+const DEFAULT_PAYMENT_CURRENCY = 'NGN';
+const INTERNATIONAL_PAYMENT_CURRENCY = 'USD';
+const PORTAL_SECTIONS = ['overview', 'profile', 'store', 'billing', 'downloads'];
 
 const COUNTRY_CURRENCY = {
   NG: 'NGN',
@@ -121,8 +124,8 @@ const COUNTRY_CURRENCY = {
   SN: 'XOF',
   TG: 'XOF',
   US: 'USD',
-  GB: 'GBP',
-  CA: 'CAD',
+  GB: 'USD',
+  CA: 'USD',
   RW: 'RWF',
   SL: 'SLL',
   TZ: 'TZS',
@@ -137,6 +140,33 @@ const COUNTRY_CURRENCY = {
   EG: 'EGP',
 };
 
+const TIMEZONE_CURRENCY = {
+  'Africa/Lagos': 'NGN',
+  'Africa/Accra': 'GHS',
+  'Africa/Johannesburg': 'ZAR',
+  'Africa/Nairobi': 'KES',
+  'Africa/Abidjan': 'XOF',
+  'Africa/Porto-Novo': 'XOF',
+  'Africa/Ouagadougou': 'XOF',
+  'Africa/Bissau': 'XOF',
+  'Africa/Bamako': 'XOF',
+  'Africa/Niamey': 'XOF',
+  'Africa/Dakar': 'XOF',
+  'Africa/Lome': 'XOF',
+  'Africa/Kigali': 'RWF',
+  'Africa/Freetown': 'SLL',
+  'Africa/Dar_es_Salaam': 'TZS',
+  'Africa/Kampala': 'UGX',
+  'Africa/Lusaka': 'ZMW',
+  'Africa/Douala': 'XAF',
+  'Africa/Bangui': 'XAF',
+  'Africa/Ndjamena': 'XAF',
+  'Africa/Brazzaville': 'XAF',
+  'Africa/Malabo': 'XAF',
+  'Africa/Libreville': 'XAF',
+  'Africa/Cairo': 'EGP',
+};
+
 function escapeHtml(value = '') {
   return String(value)
     .replace(/&/g, '&amp;')
@@ -146,23 +176,73 @@ function escapeHtml(value = '') {
     .replace(/'/g, '&#39;');
 }
 
-function currencyFromLocale(locale = navigator.language || '') {
-  const country = String(locale)
-    .replace('_', '-')
-    .split('-')
-    .filter((part) => /^[A-Z]{2}$/i.test(part))
-    .at(-1)
-    ?.toUpperCase();
-  return country ? COUNTRY_CURRENCY[country] : null;
+function countryFromLocale(locale = '') {
+  const candidates = String(locale || '')
+    .split(',')
+    .map((item) => item.split(';')[0].trim())
+    .filter(Boolean);
+
+  for (const candidate of candidates) {
+    const normalized = candidate.replace('_', '-');
+    try {
+      const region = new Intl.Locale(normalized).region;
+      if (region) return region.toUpperCase();
+    } catch {
+      // Fall through to a small parser for non-standard locale hints.
+    }
+
+    const region = normalized
+      .split('-')
+      .slice(1)
+      .find((part) => /^[A-Z]{2}$/i.test(part));
+    if (region) return region.toUpperCase();
+  }
+
+  return null;
 }
 
-function detectPreferredCurrency(availableCurrencies = ['NGN']) {
+function currencyFromCountry(country = '') {
+  const code = String(country || '').trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(code)) return INTERNATIONAL_PAYMENT_CURRENCY;
+  return COUNTRY_CURRENCY[code] || INTERNATIONAL_PAYMENT_CURRENCY;
+}
+
+function currencyFromLocale(locale = '') {
+  const country = countryFromLocale(locale);
+  return country ? currencyFromCountry(country) : INTERNATIONAL_PAYMENT_CURRENCY;
+}
+
+function currencyFromTimeZone(timeZone = '') {
+  const normalized = String(timeZone || '').trim();
+  if (!normalized) return null;
+  return TIMEZONE_CURRENCY[normalized] || INTERNATIONAL_PAYMENT_CURRENCY;
+}
+
+function detectLocalCurrency() {
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const localeHints = [
+    ...(navigator.languages || []),
+    navigator.language,
+    Intl.DateTimeFormat().resolvedOptions().locale,
+  ];
+
+  return [
+    currencyFromTimeZone(timeZone),
+    ...localeHints.map((locale) => currencyFromLocale(locale)),
+    INTERNATIONAL_PAYMENT_CURRENCY,
+    DEFAULT_PAYMENT_CURRENCY,
+  ].find(Boolean);
+}
+
+function detectPreferredCurrency(availableCurrencies = [DEFAULT_PAYMENT_CURRENCY]) {
   const saved = localStorage.getItem(PAYMENT_CURRENCY_KEY);
-  const localCurrency = currencyFromLocale();
-  return [saved, localCurrency, 'NGN']
+  const localCurrency = detectLocalCurrency();
+  return [saved, localCurrency, INTERNATIONAL_PAYMENT_CURRENCY, DEFAULT_PAYMENT_CURRENCY]
     .filter(Boolean)
     .map((currency) => currency.toUpperCase())
-    .find((currency) => availableCurrencies.includes(currency)) || availableCurrencies[0] || 'NGN';
+    .find((currency) => availableCurrencies.includes(currency)) ||
+    availableCurrencies[0] ||
+    DEFAULT_PAYMENT_CURRENCY;
 }
 
 function formatCurrency(value, currency = 'NGN') {
@@ -452,6 +532,32 @@ function downloadsUnlocked(subscription) {
   return Boolean(subscription?.can_write && !subscription?.activation_required);
 }
 
+function portalSectionFromRoute() {
+  const { mode } = routeInfo();
+  return PORTAL_SECTIONS.includes(mode) ? mode : 'overview';
+}
+
+function activatePortalSection(section, { scroll = false } = {}) {
+  const activeSection = PORTAL_SECTIONS.includes(section) ? section : 'overview';
+
+  document.querySelectorAll('[data-account-panel]').forEach((panel) => {
+    panel.hidden = panel.dataset.accountPanel !== activeSection;
+  });
+
+  document.querySelectorAll('[data-account-section-link]').forEach((link) => {
+    const active = link.dataset.accountSectionLink === activeSection;
+    link.classList.toggle('active', active);
+    link.setAttribute('aria-current', active ? 'page' : 'false');
+  });
+
+  const activePanel = document.querySelector(`[data-account-panel="${activeSection}"]`);
+  if (scroll && activePanel) {
+    activePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  if (activeSection === 'downloads') loadDownloads();
+}
+
 function renderTransactions(transactions = []) {
   if (!transactions.length) {
     return '<p class="account-muted">No subscription payments yet.</p>';
@@ -485,6 +591,17 @@ function currenciesForPlan(plan) {
   ])];
 }
 
+function priceForPlan(plan, selectedCurrency) {
+  const planCurrencies = currenciesForPlan(plan);
+  const currency = planCurrencies.includes(selectedCurrency)
+    ? selectedCurrency
+    : DEFAULT_PAYMENT_CURRENCY;
+  return {
+    currency,
+    amount: plan.prices?.[currency] || plan.price_ngn,
+  };
+}
+
 function visiblePlansForSubscription(plans = [], subscription = {}) {
   const needsActivation = Boolean(subscription.activation_required);
   const activationPeriodActive =
@@ -505,7 +622,9 @@ function renderPlanCards(plans = [], providers = {}, subscription = {}) {
   const availableCurrencies = [...new Set(
     visiblePlans.flatMap((plan) => currenciesForPlan(plan))
   )];
-  const selectedCurrency = detectPreferredCurrency(availableCurrencies.length ? availableCurrencies : ['NGN']);
+  const selectedCurrency = detectPreferredCurrency(
+    availableCurrencies.length ? availableCurrencies : [DEFAULT_PAYMENT_CURRENCY]
+  );
 
   return `
     ${configuredProviderCount === 0 ? `
@@ -522,12 +641,12 @@ function renderPlanCards(plans = [], providers = {}, subscription = {}) {
     <div class="account-currency-row">
       <label>Payment currency
         <select id="account-payment-currency" ${availableCurrencies.length <= 1 ? 'disabled' : ''}>
-          ${(availableCurrencies.length ? availableCurrencies : ['NGN']).map((currency) => `
+          ${(availableCurrencies.length ? availableCurrencies : [DEFAULT_PAYMENT_CURRENCY]).map((currency) => `
             <option value="${currency}" ${currency === selectedCurrency ? 'selected' : ''}>${currency}</option>
           `).join('')}
         </select>
       </label>
-      <p>We use your browser location as a suggestion, then only allow currencies supported by the selected provider and configured for this plan. NGN remains the fallback.</p>
+      <p>We use your browser location as a suggestion, then only allow currencies supported by the selected provider and configured for this plan. Outside supported regional currencies, checkout defaults to USD when available.</p>
     </div>
     <label class="account-check billing-ack">
       <input type="checkbox" id="account-billing-ack">
@@ -538,15 +657,26 @@ function renderPlanCards(plans = [], providers = {}, subscription = {}) {
         <article class="account-plan-card ${plan.code === 'yearly' ? 'featured' : ''}">
           <span class="plan-kicker">${plan.code === 'activation_5m' ? 'Required once' : plan.recurring ? 'Renewal' : 'Plan'}</span>
           <h3>${escapeHtml(plan.name)}</h3>
-          <div class="price">${formatCurrency(plan.prices?.[selectedCurrency] || plan.price_ngn, selectedCurrency)}</div>
+          ${(() => {
+            const price = priceForPlan(plan, selectedCurrency);
+            return `<div class="price">${formatCurrency(price.amount, price.currency)}</div>`;
+          })()}
           <p>${planDescription(plan)}</p>
           <div class="account-provider-actions">
-            <button class="button button-small" type="button" data-checkout-provider="paystack" data-plan="${plan.code}" data-currencies="${(plan.provider_availability?.currencies?.paystack || []).join(',')}" data-enabled="${Boolean(plan.provider_availability?.paystack && !activationPeriodActive)}" disabled>
-              Paystack
-            </button>
-            <button class="button button-small button-secondary" type="button" data-checkout-provider="flutterwave" data-plan="${plan.code}" data-currencies="${(plan.provider_availability?.currencies?.flutterwave || []).join(',')}" data-enabled="${Boolean(plan.provider_availability?.flutterwave && !activationPeriodActive)}" disabled>
-              Flutterwave
-            </button>
+            <div class="account-provider-option">
+              <button class="payment-provider-button paystack" type="button" data-checkout-provider="paystack" data-plan="${plan.code}" data-currencies="${(plan.provider_availability?.currencies?.paystack || []).join(',')}" data-enabled="${Boolean(plan.provider_availability?.paystack && !activationPeriodActive)}" disabled>
+                <span>Pay securely with</span>
+                <strong>Paystack</strong>
+              </button>
+              <small data-provider-status="paystack">Checking availability...</small>
+            </div>
+            <div class="account-provider-option">
+              <button class="payment-provider-button flutterwave" type="button" data-checkout-provider="flutterwave" data-plan="${plan.code}" data-currencies="${(plan.provider_availability?.currencies?.flutterwave || []).join(',')}" data-enabled="${Boolean(plan.provider_availability?.flutterwave && !activationPeriodActive)}" disabled>
+                <span>Pay securely with</span>
+                <strong>Flutterwave</strong>
+              </button>
+              <small data-provider-status="flutterwave">Checking availability...</small>
+            </div>
           </div>
         </article>
       `).join('')}
@@ -558,6 +688,7 @@ function renderPortal({ overview, plans, providers, transactions }, flash = '') 
   const { user, store } = overview;
   const subscription = overview.subscription;
   const unlocked = downloadsUnlocked(subscription);
+  const activeSection = portalSectionFromRoute();
 
   root.innerHTML = `
     <section class="page-hero account-hero">
@@ -582,20 +713,60 @@ function renderPortal({ overview, plans, providers, transactions }, flash = '') 
     </section>
 
     <section class="section account-section">
-      <div class="site-shell account-portal-grid">
+      <div class="site-shell account-portal-grid" data-account-portal>
         <aside class="account-sidebar">
           <strong>${escapeHtml(store?.name || 'QuickPOS Store')}</strong>
           <span>${escapeHtml(user.email)}</span>
-          <a href="#profile">Account profile</a>
-          <a href="#store">Store settings</a>
-          <a href="#billing">Billing</a>
-          <a href="#downloads">Downloads</a>
+          <nav class="account-sidebar-nav" aria-label="Account portal">
+            <a href="#overview" data-account-section-link="overview">Overview</a>
+            <a href="#profile" data-account-section-link="profile">Account profile</a>
+            <a href="#store" data-account-section-link="store">Store settings</a>
+            <a href="#billing" data-account-section-link="billing">Billing</a>
+            <a href="#downloads" data-account-section-link="downloads">Downloads</a>
+          </nav>
         </aside>
 
         <div class="account-main">
           <div data-account-alert>${flash ? `<div class="account-alert success">${escapeHtml(flash)}</div>` : ''}</div>
 
-          <section class="account-panel" id="profile">
+          <section class="account-panel" id="overview" data-account-panel="overview">
+            <div class="account-panel-heading">
+              <div>
+                <span class="section-kicker">Store administration</span>
+                <h2>Account overview</h2>
+              </div>
+              <span class="account-badge ${unlocked ? 'success' : 'warning'}">${unlocked ? 'Active' : 'Setup required'}</span>
+            </div>
+            <p class="account-muted">Choose a section below to manage it. Only one section opens at a time, keeping your account portal focused and easy to navigate.</p>
+            <div class="account-overview-grid">
+              <a class="account-overview-card" href="#profile">
+                <span class="section-kicker">Owner</span>
+                <h3>Account profile</h3>
+                <p>${escapeHtml(user.name || 'Store owner')}<br>${escapeHtml(user.email || '')}</p>
+                <strong>Open account settings</strong>
+              </a>
+              <a class="account-overview-card" href="#store">
+                <span class="section-kicker">Business</span>
+                <h3>Store settings</h3>
+                <p>${escapeHtml(store?.name || 'QuickPOS Store')}<br>${escapeHtml(store?.currency || 'NGN')} store currency</p>
+                <strong>Open store settings</strong>
+              </a>
+              <a class="account-overview-card" href="#billing">
+                <span class="section-kicker">Subscription</span>
+                <h3>Billing</h3>
+                <p>${escapeHtml(statusCopy(subscription))}</p>
+                <strong>${subscription?.activation_required ? 'Complete activation' : 'Manage billing'}</strong>
+              </a>
+              <a class="account-overview-card" href="#downloads">
+                <span class="section-kicker">QuickPOS apps</span>
+                <h3>Downloads</h3>
+                <p>${unlocked ? 'Your verified device downloads are available.' : 'Downloads unlock after your activation payment is confirmed.'}</p>
+                <strong>${unlocked ? 'Choose a download' : 'View download status'}</strong>
+              </a>
+            </div>
+          </section>
+
+          <section class="account-panel" id="profile" data-account-panel="profile">
             <div class="account-panel-heading">
               <div>
                 <span class="section-kicker">Owner profile</span>
@@ -612,7 +783,7 @@ function renderPortal({ overview, plans, providers, transactions }, flash = '') 
             </form>
           </section>
 
-          <section class="account-panel" id="store">
+          <section class="account-panel" id="store" data-account-panel="store">
             <div class="account-panel-heading">
               <div>
                 <span class="section-kicker">Store setup</span>
@@ -633,7 +804,7 @@ function renderPortal({ overview, plans, providers, transactions }, flash = '') 
             </form>
           </section>
 
-          <section class="account-panel" id="billing">
+          <section class="account-panel" id="billing" data-account-panel="billing">
             <div class="account-panel-heading">
               <div>
                 <span class="section-kicker">Billing</span>
@@ -649,7 +820,7 @@ function renderPortal({ overview, plans, providers, transactions }, flash = '') 
             </div>
           </section>
 
-          <section class="account-panel" id="downloads">
+          <section class="account-panel" id="downloads" data-account-panel="downloads">
             <div class="account-panel-heading">
               <div>
                 <span class="section-kicker">Downloads</span>
@@ -675,11 +846,7 @@ function renderPortal({ overview, plans, providers, transactions }, flash = '') 
   `;
 
   attachPortalHandlers();
-  if (unlocked) loadDownloads();
-  const { mode } = routeInfo();
-  if (['profile', 'store', 'billing', 'downloads'].includes(mode)) {
-    setTimeout(() => document.getElementById(mode)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
-  }
+  activatePortalSection(activeSection);
 }
 
 function payloadFromForm(form, omitBlankKeys = []) {
@@ -746,13 +913,30 @@ function attachPortalHandlers() {
   const syncCheckoutButtons = () => {
     const selectedCurrency = currencySelect?.value || 'NGN';
     checkoutButtons.forEach((button) => {
+      const option = button.closest('.account-provider-option');
+      const status = option?.querySelector(`[data-provider-status="${button.dataset.checkoutProvider}"]`);
       const providerCurrencies = (button.dataset.currencies || '').split(',').filter(Boolean);
       const currencyAvailable = providerCurrencies.includes(selectedCurrency);
-      const enabled = button.dataset.enabled === 'true' && currencyAvailable;
-      button.disabled = !enabled || !acknowledgement?.checked;
-      button.title = enabled
-        ? acknowledgement?.checked ? '' : 'Acknowledge the payment terms before checkout'
-        : `${button.dataset.checkoutProvider === 'paystack' ? 'Paystack' : 'Flutterwave'} is not available for ${selectedCurrency} on this plan`;
+      const planAvailable = button.dataset.enabled === 'true';
+      const termsAccepted = Boolean(acknowledgement?.checked);
+      const enabled = planAvailable && currencyAvailable && termsAccepted;
+      button.disabled = !enabled;
+      button.dataset.state = enabled ? 'ready' : 'disabled';
+
+      if (!status) return;
+      if (!planAvailable) {
+        status.textContent = 'Unavailable for this plan';
+        status.dataset.state = 'unavailable';
+      } else if (!currencyAvailable) {
+        status.textContent = `${selectedCurrency} is not supported for this plan`;
+        status.dataset.state = 'unavailable';
+      } else if (!termsAccepted) {
+        status.textContent = 'Accept the payment terms above to continue';
+        status.dataset.state = 'waiting';
+      } else {
+        status.textContent = `Available in ${selectedCurrency}`;
+        status.dataset.state = 'ready';
+      }
     });
   };
   currencySelect?.addEventListener('change', () => {
@@ -765,15 +949,16 @@ function attachPortalHandlers() {
   checkoutButtons.forEach((button) => {
     button.addEventListener('click', async () => {
       if (button.disabled) return;
-      const originalText = button.textContent;
+      const originalMarkup = button.innerHTML;
       button.disabled = true;
-      button.textContent = 'Opening...';
+      button.innerHTML = '<span>Opening secure</span><strong>Checkout...</strong>';
       try {
         const checkout = await siteApi.post('/billing/checkout', {
           provider: button.dataset.checkoutProvider,
           plan_code: button.dataset.plan,
-          currency: currencySelect?.value || 'NGN',
+          currency: currencySelect?.value || DEFAULT_PAYMENT_CURRENCY,
           locale: navigator.language || '',
+          time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
           legal_acknowledged: true,
         });
         window.open(checkout.authorization_url, '_blank', 'noopener,noreferrer');
@@ -786,7 +971,7 @@ function attachPortalHandlers() {
       } catch (error) {
         setFlash(error.message || 'Could not start checkout', 'error');
       } finally {
-        button.textContent = originalText;
+        button.innerHTML = originalMarkup;
         syncCheckoutButtons();
       }
     });
@@ -895,5 +1080,12 @@ function bootstrap() {
   loadPortal();
 }
 
-window.addEventListener('hashchange', bootstrap);
+window.addEventListener('hashchange', () => {
+  const { mode } = routeInfo();
+  if (siteApi.accessToken && PORTAL_SECTIONS.includes(mode) && document.querySelector('[data-account-portal]')) {
+    activatePortalSection(mode, { scroll: true });
+    return;
+  }
+  bootstrap();
+});
 bootstrap();

@@ -45,6 +45,7 @@ if (footer) {
       <div>
         <a class="brand" href="/"><img class="brand-mark" src="/brand/quickpos-mark.svg" alt=""><span>QuickPOS</span></a>
         <p>Simple point of sale software built for growing stores.</p>
+        <p>Operated by <strong>SIRDAVID MULTI-TRADE LTD</strong><br>RC 9387137 · Asaba, Delta State, Nigeria</p>
       </div>
       <div>
         <strong>Product</strong>
@@ -57,18 +58,19 @@ if (footer) {
         <strong>Help</strong>
         <a href="/faq">FAQ</a>
         <a href="/support">Support</a>
-        <a href="mailto:support@quickpos.name.ng">support@quickpos.name.ng</a>
+        <a href="mailto:support@quickpos.name.ng">Customer support</a>
+        <a href="mailto:support@quickpos.name.ng?subject=Privacy%20or%20legal%20request">Privacy or legal request</a>
       </div>
       <div>
         <strong>Legal</strong>
-        <a href="/legal">Legal centre</a>
-        <a href="/privacy">Privacy</a>
-        <a href="/terms">Terms</a>
-        <a href="/refund">Refund policy</a>
+        <a href="/terms">Terms of Service</a>
+        <a href="/privacy">Privacy Policy</a>
+        <a href="/refund">Refund Policy</a>
+        <p>Current versions effective June 11, 2026.</p>
       </div>
     </div>
     <div class="site-shell footer-bottom">
-      <span>© ${new Date().getFullYear()} SIRDAVID MULTI-TRADE LTD (RC 9387137). QuickPOS is operated by the company.</span>
+      <span>© ${new Date().getFullYear()} SIRDAVID MULTI-TRADE LTD. All rights reserved.</span>
     </div>
   `;
 }

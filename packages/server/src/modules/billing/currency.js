@@ -1,4 +1,5 @@
 const DEFAULT_CURRENCY = 'NGN';
+const INTERNATIONAL_FALLBACK_CURRENCY = 'USD';
 
 const PAYSTACK_SUPPORTED_CURRENCIES = ['NGN', 'USD', 'GHS', 'ZAR', 'KES', 'XOF'];
 const FLUTTERWAVE_SUPPORTED_CURRENCIES = [
@@ -35,8 +36,8 @@ const COUNTRY_CURRENCY = {
   SN: 'XOF',
   TG: 'XOF',
   US: 'USD',
-  GB: 'GBP',
-  CA: 'CAD',
+  GB: 'USD',
+  CA: 'USD',
   RW: 'RWF',
   SL: 'SLL',
   TZ: 'TZS',
@@ -51,12 +52,45 @@ const COUNTRY_CURRENCY = {
   EG: 'EGP',
 };
 
+const TIMEZONE_CURRENCY = {
+  'Africa/Lagos': 'NGN',
+  'Africa/Accra': 'GHS',
+  'Africa/Johannesburg': 'ZAR',
+  'Africa/Nairobi': 'KES',
+  'Africa/Abidjan': 'XOF',
+  'Africa/Porto-Novo': 'XOF',
+  'Africa/Ouagadougou': 'XOF',
+  'Africa/Bissau': 'XOF',
+  'Africa/Bamako': 'XOF',
+  'Africa/Niamey': 'XOF',
+  'Africa/Dakar': 'XOF',
+  'Africa/Lome': 'XOF',
+  'Africa/Kigali': 'RWF',
+  'Africa/Freetown': 'SLL',
+  'Africa/Dar_es_Salaam': 'TZS',
+  'Africa/Kampala': 'UGX',
+  'Africa/Lusaka': 'ZMW',
+  'Africa/Douala': 'XAF',
+  'Africa/Bangui': 'XAF',
+  'Africa/Ndjamena': 'XAF',
+  'Africa/Brazzaville': 'XAF',
+  'Africa/Malabo': 'XAF',
+  'Africa/Libreville': 'XAF',
+  'Africa/Cairo': 'EGP',
+};
+
 const DEFAULT_PLAN_PRICES = {
   NGN: {
     activation_5m: 20000,
     monthly: 5000,
     quarterly: 13500,
     yearly: 50000,
+  },
+  USD: {
+    activation_5m: 15,
+    monthly: 4,
+    quarterly: 10,
+    yearly: 38,
   },
 };
 
@@ -115,10 +149,46 @@ export function getDefaultProviderCurrencies(env = process.env) {
   };
 }
 
+function countryFromLocale(locale = '') {
+  const candidates = String(locale || '')
+    .split(',')
+    .map((item) => item.split(';')[0].trim())
+    .filter(Boolean);
+
+  for (const candidate of candidates) {
+    const normalized = candidate.replace('_', '-');
+    try {
+      const region = new Intl.Locale(normalized).region;
+      if (region) return region.toUpperCase();
+    } catch {
+      // Fall through to a small parser for non-standard locale hints.
+    }
+
+    const region = normalized
+      .split('-')
+      .slice(1)
+      .find((part) => /^[A-Z]{2}$/i.test(part));
+    if (region) return region.toUpperCase();
+  }
+
+  return null;
+}
+
+export function currencyFromCountry(country = '') {
+  const code = String(country || '').trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(code)) return INTERNATIONAL_FALLBACK_CURRENCY;
+  return COUNTRY_CURRENCY[code] || INTERNATIONAL_FALLBACK_CURRENCY;
+}
+
 export function currencyFromLocale(locale = '') {
-  const parts = String(locale).replace('_', '-').split('-');
-  const country = parts.filter((part) => /^[A-Z]{2}$/i.test(part)).at(-1)?.toUpperCase();
-  return country ? COUNTRY_CURRENCY[country] : null;
+  const country = countryFromLocale(locale);
+  return country ? currencyFromCountry(country) : INTERNATIONAL_FALLBACK_CURRENCY;
+}
+
+export function currencyFromTimeZone(timeZone = '') {
+  const normalized = String(timeZone || '').trim();
+  if (!normalized) return null;
+  return TIMEZONE_CURRENCY[normalized] || INTERNATIONAL_FALLBACK_CURRENCY;
 }
 
 export function checkoutAmountForPlan(plan, currency, configuredPrices = DEFAULT_PLAN_PRICES) {
@@ -149,14 +219,17 @@ export function availableCurrenciesForPlan(config, provider, plan) {
     .filter((currency) => planCurrencyAvailable(config, provider, plan, currency));
 }
 
-export function preferredCurrencyForRequest(config, provider, plan, requestedCurrency, locale) {
+export function preferredCurrencyForRequest(config, provider, plan, requestedCurrency, locale, options = {}) {
   const candidates = [
     requestedCurrency?.toUpperCase(),
+    options.country ? currencyFromCountry(options.country) : null,
+    options.timeZone ? currencyFromTimeZone(options.timeZone) : null,
     currencyFromLocale(locale),
+    INTERNATIONAL_FALLBACK_CURRENCY,
     DEFAULT_CURRENCY,
   ].filter(Boolean);
 
-  return candidates.find((currency) => planCurrencyAvailable(config, provider, plan, currency)) ||
+  return [...new Set(candidates)].find((currency) => planCurrencyAvailable(config, provider, plan, currency)) ||
     availableCurrenciesForPlan(config, provider, plan)[0] ||
     null;
 }
@@ -166,4 +239,4 @@ export function currencyDisclosure(currency, requestedCurrency) {
   return `Requested currency ${requestedCurrency.toUpperCase()} is not available for this provider and plan. Checkout will use ${currency}.`;
 }
 
-export { DEFAULT_CURRENCY };
+export { DEFAULT_CURRENCY, INTERNATIONAL_FALLBACK_CURRENCY };

@@ -535,6 +535,8 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
       plan_code: planCode,
       currency: requestedCurrency,
       locale,
+      time_zone: timeZone,
+      country,
     } = parsed.data;
     const plan = await getPlan(planCode);
     const subscription = await getStoreSubscription(req.user.store_id);
@@ -579,7 +581,16 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
       provider,
       plan,
       requestedCurrency,
-      locale || req.get('accept-language') || ''
+      locale || req.get('accept-language') || '',
+      {
+        country:
+          country ||
+          req.get('x-vercel-ip-country') ||
+          req.get('cf-ipcountry') ||
+          req.get('x-country-code') ||
+          '',
+        timeZone,
+      }
     );
     if (!checkoutCurrency) {
       return res.status(503).json({

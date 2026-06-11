@@ -9,6 +9,8 @@ export const checkoutSchema = z.object({
     .transform((value) => value.toUpperCase())
     .optional(),
   locale: z.string().trim().max(80).optional(),
+  time_zone: z.string().trim().max(120).optional(),
+  country: z.string().trim().length(2).transform((value) => value.toUpperCase()).optional(),
   legal_acknowledged: z.literal(true, {
     errorMap: () => ({ message: 'Accept the Terms of Service and Refund Policy before payment' }),
   }),
