@@ -105,6 +105,37 @@ class SiteApi {
 }
 
 const siteApi = new SiteApi();
+const PAYMENT_CURRENCY_KEY = 'quickpos_site_payment_currency';
+
+const COUNTRY_CURRENCY = {
+  NG: 'NGN',
+  GH: 'GHS',
+  ZA: 'ZAR',
+  KE: 'KES',
+  CI: 'XOF',
+  BJ: 'XOF',
+  BF: 'XOF',
+  GW: 'XOF',
+  ML: 'XOF',
+  NE: 'XOF',
+  SN: 'XOF',
+  TG: 'XOF',
+  US: 'USD',
+  GB: 'GBP',
+  CA: 'CAD',
+  RW: 'RWF',
+  SL: 'SLL',
+  TZ: 'TZS',
+  UG: 'UGX',
+  ZM: 'ZMW',
+  CM: 'XAF',
+  CF: 'XAF',
+  TD: 'XAF',
+  CG: 'XAF',
+  GQ: 'XAF',
+  GA: 'XAF',
+  EG: 'EGP',
+};
 
 function escapeHtml(value = '') {
   return String(value)
@@ -115,11 +146,30 @@ function escapeHtml(value = '') {
     .replace(/'/g, '&#39;');
 }
 
-function formatCurrency(value) {
-  return new Intl.NumberFormat('en-NG', {
+function currencyFromLocale(locale = navigator.language || '') {
+  const country = String(locale)
+    .replace('_', '-')
+    .split('-')
+    .filter((part) => /^[A-Z]{2}$/i.test(part))
+    .at(-1)
+    ?.toUpperCase();
+  return country ? COUNTRY_CURRENCY[country] : null;
+}
+
+function detectPreferredCurrency(availableCurrencies = ['NGN']) {
+  const saved = localStorage.getItem(PAYMENT_CURRENCY_KEY);
+  const localCurrency = currencyFromLocale();
+  return [saved, localCurrency, 'NGN']
+    .filter(Boolean)
+    .map((currency) => currency.toUpperCase())
+    .find((currency) => availableCurrencies.includes(currency)) || availableCurrencies[0] || 'NGN';
+}
+
+function formatCurrency(value, currency = 'NGN') {
+  return new Intl.NumberFormat(undefined, {
     style: 'currency',
-    currency: 'NGN',
-    maximumFractionDigits: 0,
+    currency,
+    maximumFractionDigits: currency === 'NGN' ? 0 : 2,
   }).format(Number(value || 0));
 }
 
@@ -417,7 +467,7 @@ function renderTransactions(transactions = []) {
               <td>${escapeHtml(transaction.plan_code || '')}</td>
               <td>${escapeHtml(transaction.provider || '')}</td>
               <td><code>${escapeHtml(transaction.provider_reference || '')}</code></td>
-              <td>${formatCurrency(transaction.amount_ngn)}</td>
+              <td>${formatCurrency(transaction.amount_ngn, transaction.currency || 'NGN')}</td>
               <td><span class="account-badge ${transaction.status === 'success' ? 'success' : 'warning'}">${escapeHtml(transaction.status || '')}</span></td>
             </tr>
           `).join('')}
@@ -427,16 +477,35 @@ function renderTransactions(transactions = []) {
   `;
 }
 
-function renderPlanCards(plans = [], providers = {}, subscription = {}) {
+function currenciesForPlan(plan) {
+  const currencies = plan.provider_availability?.currencies || {};
+  return [...new Set([
+    ...(currencies.paystack || []),
+    ...(currencies.flutterwave || []),
+  ])];
+}
+
+function visiblePlansForSubscription(plans = [], subscription = {}) {
   const needsActivation = Boolean(subscription.activation_required);
   const activationPeriodActive =
     subscription.plan_code === 'activation_5m' &&
     subscription.can_write;
-  const visiblePlans = plans.filter((plan) =>
+  return plans.filter((plan) =>
     needsActivation ? plan.code === 'activation_5m' : plan.code !== 'activation_5m'
   );
+}
+
+function renderPlanCards(plans = [], providers = {}, subscription = {}) {
+  const activationPeriodActive =
+    subscription.plan_code === 'activation_5m' &&
+    subscription.can_write;
+  const visiblePlans = visiblePlansForSubscription(plans, subscription);
   const configuredProviderCount = Object.values(providers || {})
     .filter((provider) => provider.available).length;
+  const availableCurrencies = [...new Set(
+    visiblePlans.flatMap((plan) => currenciesForPlan(plan))
+  )];
+  const selectedCurrency = detectPreferredCurrency(availableCurrencies.length ? availableCurrencies : ['NGN']);
 
   return `
     ${configuredProviderCount === 0 ? `
@@ -450,6 +519,16 @@ function renderPlanCards(plans = [], providers = {}, subscription = {}) {
         Renewal checkout becomes available after this period.
       </div>
     ` : ''}
+    <div class="account-currency-row">
+      <label>Payment currency
+        <select id="account-payment-currency" ${availableCurrencies.length <= 1 ? 'disabled' : ''}>
+          ${(availableCurrencies.length ? availableCurrencies : ['NGN']).map((currency) => `
+            <option value="${currency}" ${currency === selectedCurrency ? 'selected' : ''}>${currency}</option>
+          `).join('')}
+        </select>
+      </label>
+      <p>We use your browser location as a suggestion, then only allow currencies supported by the selected provider and configured for this plan. NGN remains the fallback.</p>
+    </div>
     <label class="account-check billing-ack">
       <input type="checkbox" id="account-billing-ack">
       <span>I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer">Terms</a> and acknowledge the <a href="/refund" target="_blank" rel="noopener noreferrer">Refund Policy</a> before payment.</span>
@@ -459,13 +538,13 @@ function renderPlanCards(plans = [], providers = {}, subscription = {}) {
         <article class="account-plan-card ${plan.code === 'yearly' ? 'featured' : ''}">
           <span class="plan-kicker">${plan.code === 'activation_5m' ? 'Required once' : plan.recurring ? 'Renewal' : 'Plan'}</span>
           <h3>${escapeHtml(plan.name)}</h3>
-          <div class="price">${formatCurrency(plan.price_ngn)}</div>
+          <div class="price">${formatCurrency(plan.prices?.[selectedCurrency] || plan.price_ngn, selectedCurrency)}</div>
           <p>${planDescription(plan)}</p>
           <div class="account-provider-actions">
-            <button class="button button-small" type="button" data-checkout-provider="paystack" data-plan="${plan.code}" data-enabled="${Boolean(plan.provider_availability?.paystack && !activationPeriodActive)}" disabled>
+            <button class="button button-small" type="button" data-checkout-provider="paystack" data-plan="${plan.code}" data-currencies="${(plan.provider_availability?.currencies?.paystack || []).join(',')}" data-enabled="${Boolean(plan.provider_availability?.paystack && !activationPeriodActive)}" disabled>
               Paystack
             </button>
-            <button class="button button-small button-secondary" type="button" data-checkout-provider="flutterwave" data-plan="${plan.code}" data-enabled="${Boolean(plan.provider_availability?.flutterwave && !activationPeriodActive)}" disabled>
+            <button class="button button-small button-secondary" type="button" data-checkout-provider="flutterwave" data-plan="${plan.code}" data-currencies="${(plan.provider_availability?.currencies?.flutterwave || []).join(',')}" data-enabled="${Boolean(plan.provider_availability?.flutterwave && !activationPeriodActive)}" disabled>
               Flutterwave
             </button>
           </div>
@@ -662,16 +741,24 @@ function attachPortalHandlers() {
   });
 
   const acknowledgement = document.getElementById('account-billing-ack');
+  const currencySelect = document.getElementById('account-payment-currency');
   const checkoutButtons = [...document.querySelectorAll('[data-checkout-provider]')];
   const syncCheckoutButtons = () => {
+    const selectedCurrency = currencySelect?.value || 'NGN';
     checkoutButtons.forEach((button) => {
-      const enabled = button.dataset.enabled === 'true';
+      const providerCurrencies = (button.dataset.currencies || '').split(',').filter(Boolean);
+      const currencyAvailable = providerCurrencies.includes(selectedCurrency);
+      const enabled = button.dataset.enabled === 'true' && currencyAvailable;
       button.disabled = !enabled || !acknowledgement?.checked;
       button.title = enabled
         ? acknowledgement?.checked ? '' : 'Acknowledge the payment terms before checkout'
-        : 'This provider is not available for this plan yet';
+        : `${button.dataset.checkoutProvider === 'paystack' ? 'Paystack' : 'Flutterwave'} is not available for ${selectedCurrency} on this plan`;
     });
   };
+  currencySelect?.addEventListener('change', () => {
+    localStorage.setItem(PAYMENT_CURRENCY_KEY, currencySelect.value);
+    loadPortal();
+  });
   acknowledgement?.addEventListener('change', syncCheckoutButtons);
   syncCheckoutButtons();
 
@@ -685,10 +772,16 @@ function attachPortalHandlers() {
         const checkout = await siteApi.post('/billing/checkout', {
           provider: button.dataset.checkoutProvider,
           plan_code: button.dataset.plan,
+          currency: currencySelect?.value || 'NGN',
+          locale: navigator.language || '',
           legal_acknowledged: true,
         });
         window.open(checkout.authorization_url, '_blank', 'noopener,noreferrer');
-        setFlash('Complete payment in the secure provider page. This portal will unlock downloads after confirmation.', 'info');
+        setFlash(
+          checkout.currency_notice ||
+            `Complete ${formatCurrency(checkout.amount, checkout.currency)} payment in the secure provider page. This portal will unlock downloads after confirmation.`,
+          'info'
+        );
         pollForActivation(button.dataset.plan);
       } catch (error) {
         setFlash(error.message || 'Could not start checkout', 'error');

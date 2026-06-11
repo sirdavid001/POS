@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { availableCurrenciesForPlan } from './currency.js';
 
 const RECURRING_PLAN_CODES = ['monthly', 'quarterly', 'yearly'];
 
@@ -56,6 +57,22 @@ export function getProviderAvailability(config) {
       webhook_configured: Boolean(config.flutterwave.webhookSecret),
       plans: flutterwavePlans,
       available: Object.values(flutterwavePlans).some(Boolean),
+    },
+  };
+}
+
+export function getPlanProviderAvailability(config, plan) {
+  const providers = getProviderAvailability(config);
+  return {
+    paystack: Boolean(providers.paystack.plans[plan.code]),
+    flutterwave: Boolean(providers.flutterwave.plans[plan.code]),
+    currencies: {
+      paystack: providers.paystack.plans[plan.code]
+        ? availableCurrenciesForPlan(config, 'paystack', plan)
+        : [],
+      flutterwave: providers.flutterwave.plans[plan.code]
+        ? availableCurrenciesForPlan(config, 'flutterwave', plan)
+        : [],
     },
   };
 }

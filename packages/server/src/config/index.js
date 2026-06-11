@@ -1,4 +1,9 @@
 import dotenv from 'dotenv';
+import {
+  getDefaultProviderCurrencies,
+  parseCurrencyPlanIds,
+  parseCurrencyPrices,
+} from '../modules/billing/currency.js';
 // Load .env for local development; Vercel injects env vars directly
 if (process.env.VERCEL !== '1') {
   dotenv.config({ path: '../../.env' });
@@ -82,6 +87,7 @@ const config = {
       quarterly: process.env.PAYSTACK_PLAN_QUARTERLY || '',
       yearly: process.env.PAYSTACK_PLAN_YEARLY || '',
     },
+    plansByCurrency: parseCurrencyPlanIds('PAYSTACK'),
   },
 
   flutterwave: {
@@ -93,6 +99,7 @@ const config = {
       quarterly: process.env.FLUTTERWAVE_PLAN_QUARTERLY || '',
       yearly: process.env.FLUTTERWAVE_PLAN_YEARLY || '',
     },
+    plansByCurrency: parseCurrencyPlanIds('FLUTTERWAVE'),
   },
 
   email: {
@@ -113,6 +120,11 @@ const config = {
       process.env.BILLING_RETURN_URL ||
       'https://quickpos.name.ng/account#billing',
     cronSecret: process.env.CRON_SECRET || '',
+  },
+
+  billingCurrencies: {
+    prices: parseCurrencyPrices(process.env.BILLING_CURRENCY_PRICES),
+    providerSupported: getDefaultProviderCurrencies(),
   },
 
   downloads: {

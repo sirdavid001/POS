@@ -69,7 +69,6 @@ if (footer) {
     </div>
     <div class="site-shell footer-bottom">
       <span>© ${new Date().getFullYear()} SIRDAVID MULTI-TRADE LTD (RC 9387137). QuickPOS is operated by the company.</span>
-      <span>Prices shown in Nigerian naira. No VAT breakdown yet.</span>
     </div>
   `;
 }

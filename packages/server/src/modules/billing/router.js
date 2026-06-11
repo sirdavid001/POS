@@ -9,10 +9,17 @@ import { addMonths, getPlan, getStoreSubscription } from './subscription.js';
 import { sendBillingEmail } from './email.js';
 import {
   getProviderAvailability,
+  getPlanProviderAvailability,
   providerError,
   verifyFlutterwaveWebhook,
   verifyPaystackWebhook,
 } from './providers.js';
+import {
+  checkoutAmountForPlan,
+  currencyDisclosure,
+  preferredCurrencyForRequest,
+  providerPlanIdForCurrency,
+} from './currency.js';
 import { checkoutSchema } from './schema.js';
 import { LEGAL_DOCUMENT_VERSIONS, recordLegalAcceptances } from '../legal.js';
 
@@ -47,8 +54,16 @@ function eventKey(provider, req) {
   return crypto.createHash('sha256').update(req.rawBody || JSON.stringify(req.body)).digest('hex');
 }
 
-function providerPlanId(provider, planCode) {
-  return config[provider]?.plans?.[planCode] || '';
+function providerPlanId(provider, planCode, currency = 'NGN') {
+  return providerPlanIdForCurrency(config, provider, planCode, currency);
+}
+
+function formatMoney(amount, currency = 'NGN') {
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: currency === 'NGN' ? 0 : 2,
+  }).format(Number(amount || 0));
 }
 
 async function getBillingIdentity(storeId) {
@@ -195,7 +210,9 @@ async function activateVerifiedPayment(provider, verified) {
 
     const plan = await getPlan(transaction.plan_code, client.query.bind(client));
     if (!plan) throw new Error('Subscription plan is no longer available');
-    if (verified.currency !== 'NGN' || Math.round(verified.amountNgn) < Number(plan.price_ngn)) {
+    const expectedCurrency = transaction.currency || 'NGN';
+    const expectedAmount = Number(transaction.metadata?.amount || transaction.amount_ngn || plan.price_ngn);
+    if (verified.currency !== expectedCurrency || Number(verified.amountNgn) < expectedAmount) {
       throw new Error('Verified payment amount or currency does not match the selected plan');
     }
 
@@ -268,7 +285,8 @@ async function activateVerifiedPayment(provider, verified) {
           provider,
           reference: verified.reference,
           plan_code: plan.code,
-          amount_ngn: Math.round(verified.amountNgn),
+          amount: Number(verified.amountNgn),
+          currency: verified.currency,
           period_end: periodEnd,
         }),
       ]
@@ -284,7 +302,7 @@ async function activateVerifiedPayment(provider, verified) {
         key: `${provider}:${verified.reference}`,
         subject: 'QuickPOS payment received',
         heading: 'Your QuickPOS access is active',
-        body: `We received your ₦${Math.round(verified.amountNgn).toLocaleString('en-NG')} payment for the ${plan.name} plan. Your access is paid through ${periodEnd.toLocaleDateString('en-NG')}.`,
+        body: `We received your ${formatMoney(verified.amountNgn, verified.currency)} payment for the ${plan.name} plan. Your access is paid through ${periodEnd.toLocaleDateString('en-NG')}.`,
       });
     } catch (error) {
       logger.warn('Payment receipt email failed', { error: error.message });
@@ -348,13 +366,20 @@ router.get('/plans', async (req, res, next) => {
       plans: result.rows.map((plan) => ({
         ...plan,
         price_ngn: Number(plan.price_ngn),
+        prices: Object.fromEntries(
+          Object.entries(config.billingCurrencies.prices || {})
+            .map(([currency, prices]) => [currency, prices[plan.code]])
+            .filter(([, amount]) => Number.isFinite(Number(amount)) && Number(amount) > 0)
+        ),
         available: true,
-        provider_availability: {
-          paystack: Boolean(providers.paystack.plans[plan.code]),
-          flutterwave: Boolean(providers.flutterwave.plans[plan.code]),
-        },
+        provider_availability: getPlanProviderAvailability(config, plan),
       })),
       providers,
+      currency: {
+        default: 'NGN',
+        prices_configured: Object.keys(config.billingCurrencies.prices || {}),
+        provider_supported: config.billingCurrencies.providerSupported,
+      },
     });
   } catch (error) {
     next(error);
@@ -505,7 +530,12 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
       });
     }
 
-    const { provider, plan_code: planCode } = parsed.data;
+    const {
+      provider,
+      plan_code: planCode,
+      currency: requestedCurrency,
+      locale,
+    } = parsed.data;
     const plan = await getPlan(planCode);
     const subscription = await getStoreSubscription(req.user.store_id);
     const providers = getProviderAvailability(config);
@@ -544,7 +574,36 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
         available_after: currentEnd.toISOString(),
       });
     }
-    if (plan.recurring && !providerPlanId(provider, planCode)) {
+    const checkoutCurrency = preferredCurrencyForRequest(
+      config,
+      provider,
+      plan,
+      requestedCurrency,
+      locale || req.get('accept-language') || ''
+    );
+    if (!checkoutCurrency) {
+      return res.status(503).json({
+        error: 'No supported payment currency is configured for this provider and plan',
+        code: 'PAYMENT_CURRENCY_UNAVAILABLE',
+      });
+    }
+    const checkoutAmount = checkoutAmountForPlan(plan, checkoutCurrency, config.billingCurrencies.prices);
+    if (checkoutAmount == null) {
+      return res.status(503).json({
+        error: `${checkoutCurrency} pricing is not configured for this plan`,
+        code: 'PAYMENT_CURRENCY_UNAVAILABLE',
+      });
+    }
+    if (requestedCurrency && requestedCurrency !== checkoutCurrency) {
+      logger.info('Checkout currency fell back to supported provider currency', {
+        requestedCurrency,
+        checkoutCurrency,
+        provider,
+        planCode,
+      });
+    }
+
+    if (plan.recurring && !providerPlanId(provider, planCode, checkoutCurrency)) {
       return res.status(503).json({ error: `${provider} is not configured for this plan yet` });
     }
 
@@ -555,6 +614,9 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
       store_id: req.user.store_id,
       plan_code: planCode,
       reference,
+      currency: checkoutCurrency,
+      amount: checkoutAmount,
+      base_price_ngn: Number(plan.price_ngn),
       legal_acknowledgement: {
         terms_version: LEGAL_DOCUMENT_VERSIONS.terms,
         refund_version: LEGAL_DOCUMENT_VERSIONS.refund,
@@ -571,22 +633,22 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
     });
     await query(
       `INSERT INTO billing_transactions
-       (store_id, provider, provider_reference, plan_code, amount_ngn, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [req.user.store_id, provider, reference, planCode, plan.price_ngn, metadata]
+       (store_id, provider, provider_reference, plan_code, amount_ngn, currency, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [req.user.store_id, provider, reference, planCode, Math.round(checkoutAmount), checkoutCurrency, metadata]
     );
 
     let authorizationUrl;
     if (provider === 'paystack') {
       const payload = {
         email: identity.email,
-        amount: Number(plan.price_ngn) * 100,
-        currency: 'NGN',
+        amount: Math.round(Number(checkoutAmount) * 100),
+        currency: checkoutCurrency,
         reference,
         callback_url: config.billing.checkoutReturnUrl,
         metadata,
       };
-      if (plan.recurring) payload.plan = providerPlanId(provider, planCode);
+      if (plan.recurring) payload.plan = providerPlanId(provider, planCode, checkoutCurrency);
       let response;
       try {
         response = await axios.post('https://api.paystack.co/transaction/initialize', payload, {
@@ -599,14 +661,14 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
     } else {
       const payload = {
         tx_ref: reference,
-        amount: Number(plan.price_ngn),
-        currency: 'NGN',
+        amount: Number(checkoutAmount),
+        currency: checkoutCurrency,
         redirect_url: config.billing.checkoutReturnUrl,
         customer: { email: identity.email, name: identity.name },
         customizations: { title: 'QuickPOS subscription', description: `${plan.name} plan` },
         meta: metadata,
       };
-      if (plan.recurring) payload.payment_plan = Number(providerPlanId(provider, planCode));
+      if (plan.recurring) payload.payment_plan = Number(providerPlanId(provider, planCode, checkoutCurrency));
       let response;
       try {
         response = await axios.post('https://api.flutterwave.com/v3/payments', payload, {
@@ -619,7 +681,15 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
     }
 
     if (!authorizationUrl) throw new Error(`${provider} did not return a checkout URL`);
-    res.status(201).json({ authorization_url: authorizationUrl, reference, provider, plan_code: planCode });
+    res.status(201).json({
+      authorization_url: authorizationUrl,
+      reference,
+      provider,
+      plan_code: planCode,
+      currency: checkoutCurrency,
+      amount: checkoutAmount,
+      currency_notice: currencyDisclosure(checkoutCurrency, requestedCurrency),
+    });
   } catch (error) {
     next(error);
   }
