@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import axios from 'axios';
 import crypto from 'crypto';
-import { z } from 'zod';
 import { authenticate, authorize } from '../../middleware/auth.js';
 import { getClient, query } from '../../config/database.js';
 import config from '../../config/index.js';
@@ -14,12 +13,10 @@ import {
   verifyFlutterwaveWebhook,
   verifyPaystackWebhook,
 } from './providers.js';
+import { checkoutSchema } from './schema.js';
+import { LEGAL_DOCUMENT_VERSIONS, recordLegalAcceptances } from '../legal.js';
 
 const router = Router();
-const checkoutSchema = z.object({
-  provider: z.enum(['paystack', 'flutterwave']),
-  plan_code: z.enum(['activation_5m', 'monthly', 'quarterly', 'yearly']),
-});
 
 function verifyPaystackSignature(req) {
   return verifyPaystackWebhook(
@@ -503,7 +500,9 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
   try {
     const parsed = checkoutSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: 'Choose a valid provider and plan' });
+      return res.status(400).json({
+        error: parsed.error.issues[0]?.message || 'Choose a valid provider and plan',
+      });
     }
 
     const { provider, plan_code: planCode } = parsed.data;
@@ -552,7 +551,24 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
     const identity = await getBillingIdentity(req.user.store_id);
     if (!identity?.email) return res.status(400).json({ error: 'Add a store owner email before checkout' });
     const reference = `QP-${req.user.store_id}-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
-    const metadata = { store_id: req.user.store_id, plan_code: planCode, reference };
+    const metadata = {
+      store_id: req.user.store_id,
+      plan_code: planCode,
+      reference,
+      legal_acknowledgement: {
+        terms_version: LEGAL_DOCUMENT_VERSIONS.terms,
+        refund_version: LEGAL_DOCUMENT_VERSIONS.refund,
+        acknowledged_at: new Date().toISOString(),
+      },
+    };
+    await recordLegalAcceptances({ query }, {
+      userId: req.user.id,
+      storeId: req.user.store_id,
+      documents: ['terms', 'refund'],
+      context: 'checkout',
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+    });
     await query(
       `INSERT INTO billing_transactions
        (store_id, provider, provider_reference, plan_code, amount_ngn, metadata)

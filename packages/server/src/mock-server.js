@@ -119,7 +119,17 @@ app.post('/api/v1/auth/login', (req, res) => {
 });
 
 app.post('/api/v1/auth/register', (req, res) => {
-  const { name, email, password, store_name: storeName } = req.body;
+  const {
+    name,
+    email,
+    password,
+    store_name: storeName,
+    terms_accepted: termsAccepted,
+    privacy_acknowledged: privacyAcknowledged,
+  } = req.body;
+  if (termsAccepted !== true || privacyAcknowledged !== true) {
+    return res.status(400).json({ error: 'Accept the Terms of Service and acknowledge the Privacy Policy' });
+  }
   if (users.find(u => u.email === email)) return res.status(409).json({ error: 'Email already registered' });
   const newUser = { id: users.length + 1, store_id: 1, role_id: 1, email, password, name, role: 'admin', is_active: true, created_at: new Date().toISOString() };
   users.push(newUser);

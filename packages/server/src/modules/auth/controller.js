@@ -12,6 +12,7 @@ import {
   createPasswordResetToken,
   hashPasswordResetToken,
 } from './password-reset.js';
+import { recordLegalAcceptances } from '../legal.js';
 
 const PASSWORD_RESET_RESPONSE =
   'If an active account exists for that email, a password reset link has been sent.';
@@ -49,6 +50,14 @@ export const register = async (req, res, next) => {
        RETURNING id, email, name, store_id`,
       [store.id, roleResult.rows[0].id, email, passwordHash, name, phone || null]
     );
+    await recordLegalAcceptances(client, {
+      userId: result.rows[0].id,
+      storeId: store.id,
+      documents: ['terms', 'privacy'],
+      context: 'registration',
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+    });
     const subscription = await createPendingActivation(client, store.id);
     await client.query('COMMIT');
 

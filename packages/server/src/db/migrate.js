@@ -2,6 +2,7 @@ import { up as migration001 } from './migrations/001_initial_schema.js';
 import { up as migration002 } from './migrations/002_subscriptions.js';
 import { up as migration003 } from './migrations/003_password_resets.js';
 import { up as migration004 } from './migrations/004_initial_activation.js';
+import { up as migration005 } from './migrations/005_legal_acceptances.js';
 import logger from '../config/logger.js';
 
 async function runMigrations() {
@@ -11,6 +12,7 @@ async function runMigrations() {
     await migration002();
     await migration003();
     await migration004();
+    await migration005();
     logger.info('All migrations completed successfully');
     process.exit(0);
   } catch (err) {

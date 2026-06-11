@@ -54,6 +54,18 @@ export async function renderBilling() {
       </div>
       <div id="billing-status" class="glass-card billing-status-card"></div>
       <h3 id="billing-plan-heading" style="margin:1.5rem 0 0.8rem;">Choose a plan</h3>
+      <p class="billing-legal-note">
+        Before payment, review the
+        <a href="https://quickpos.name.ng/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a>
+        and
+        <a href="https://quickpos.name.ng/refund" target="_blank" rel="noopener noreferrer">Refund Policy</a>.
+        Recurring subscriptions renew automatically at the end of each billing period until cancelled from this page.
+        Payments are processed securely by Paystack or Flutterwave; QuickPOS does not store card details.
+      </p>
+      <label class="billing-legal-acknowledgement">
+        <input type="checkbox" id="billing-legal-acknowledgement">
+        <span>I agree to the Terms of Service and acknowledge the Refund Policy, including the no-prorated-refunds rule.</span>
+      </label>
       <div id="billing-plans" class="billing-plan-grid">
         <div class="spinner" style="margin:2rem auto;"></div>
       </div>
@@ -193,11 +205,13 @@ export async function renderBilling() {
         <p>${planDescription(plan)}</p>
         <div class="billing-provider-actions">
           <button class="btn btn-primary" data-checkout-provider="paystack" data-plan="${plan.code}"
-            ${plan.provider_availability?.paystack && !activationPeriodActive ? '' : `disabled title="${activationPeriodActive ? 'Available after the current activation period' : 'Paystack is not available for this plan'}"`}>
+            data-checkout-enabled="${Boolean(plan.provider_availability?.paystack && !activationPeriodActive)}"
+            disabled title="Acknowledge the payment terms before checkout">
             ${plan.provider_availability?.paystack ? 'Paystack' : 'Paystack unavailable'}
           </button>
           <button class="btn btn-ghost" data-checkout-provider="flutterwave" data-plan="${plan.code}"
-            ${plan.provider_availability?.flutterwave && !activationPeriodActive ? '' : `disabled title="${activationPeriodActive ? 'Available after the current activation period' : 'Flutterwave is not available for this plan'}"`}>
+            data-checkout-enabled="${Boolean(plan.provider_availability?.flutterwave && !activationPeriodActive)}"
+            disabled title="Acknowledge the payment terms before checkout">
             ${plan.provider_availability?.flutterwave ? 'Flutterwave' : 'Flutterwave unavailable'}
           </button>
         </div>
@@ -205,9 +219,29 @@ export async function renderBilling() {
       `).join('')}
     `;
 
+    const legalAcknowledgement = document.getElementById('billing-legal-acknowledgement');
+    const checkoutButtons = [...document.querySelectorAll('[data-checkout-provider]')];
+    const syncCheckoutButtons = () => {
+      checkoutButtons.forEach((button) => {
+        const providerAvailable = button.dataset.checkoutEnabled === 'true';
+        button.disabled = !providerAvailable || !legalAcknowledgement.checked;
+        button.title = providerAvailable
+          ? legalAcknowledgement.checked ? '' : 'Acknowledge the payment terms before checkout'
+          : activationPeriodActive
+            ? 'Available after the current activation period'
+            : `${button.dataset.checkoutProvider === 'paystack' ? 'Paystack' : 'Flutterwave'} is not available for this plan`;
+      });
+    };
+    legalAcknowledgement.addEventListener('change', syncCheckoutButtons);
+    syncCheckoutButtons();
+
     document.querySelectorAll('[data-checkout-provider]').forEach((button) => {
       button.addEventListener('click', async () => {
         if (button.disabled) return;
+        if (!legalAcknowledgement.checked) {
+          toast('Acknowledge the Terms of Service and Refund Policy before payment.', 'error');
+          return;
+        }
         const original = button.textContent;
         button.disabled = true;
         button.textContent = 'Opening...';
@@ -215,6 +249,7 @@ export async function renderBilling() {
           const checkout = await api.post('/billing/checkout', {
             provider: button.dataset.checkoutProvider,
             plan_code: button.dataset.plan,
+            legal_acknowledged: true,
           });
           window.open(checkout.authorization_url, '_blank', 'noopener,noreferrer');
           toast('Complete payment in the secure provider page. QuickPOS will update automatically.', 'info', 7000);
@@ -222,8 +257,8 @@ export async function renderBilling() {
         } catch (error) {
           toast(error.message, 'error', 5000);
         } finally {
-          button.disabled = false;
           button.textContent = original;
+          syncCheckoutButtons();
         }
       });
     });

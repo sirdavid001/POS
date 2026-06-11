@@ -9,6 +9,12 @@ export const registerSchema = z.object({
     name: z.string().min(1, 'Name is required'),
     store_name: z.string().trim().min(2, 'Store name is required').max(255),
     phone: z.string().optional(),
+    terms_accepted: z.literal(true, {
+      errorMap: () => ({ message: 'Accept the Terms of Service to create an account' }),
+    }),
+    privacy_acknowledged: z.literal(true, {
+      errorMap: () => ({ message: 'Acknowledge the Privacy Policy to create an account' }),
+    }),
   }),
 });
 
