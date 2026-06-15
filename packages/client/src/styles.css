@@ -760,6 +760,11 @@ select.input { appearance: none; cursor: pointer; }
   /* Modal full-screen on tiny phones */
   .modal { width: 100%; max-width: 100%; border-radius: 1rem 1rem 0 0; margin-top: auto; }
   .modal-overlay { align-items: flex-end; }
+
+  .install-gate { padding: 1rem; }
+  .install-gate-panel { padding: 1.5rem; }
+  .install-gate h1 { font-size: 1.9rem; }
+  .install-gate-actions .btn { width: 100%; }
 }
 
 /* Slide-up animation for mobile cart */
@@ -813,6 +818,88 @@ select.input { appearance: none; cursor: pointer; }
 .auth-success { background: oklch(0.65 0.2 145 / 0.1); }
 .auth-error { background: oklch(0.6 0.22 25 / 0.1); color: var(--color-danger-light); }
 .login-card .auth-success p { margin: 0.4rem 0 0; }
+
+/* ===== Install Gate ===== */
+.install-gate {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: radial-gradient(ellipse at 25% 20%, oklch(0.2 0.04 260), transparent 48%),
+              radial-gradient(ellipse at 78% 82%, oklch(0.18 0.035 160), transparent 52%),
+              var(--color-surface);
+}
+.install-gate-panel {
+  width: 100%;
+  max-width: 520px;
+  padding: 2.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background: var(--color-surface-glass);
+  box-shadow: 0 24px 80px oklch(0 0 0 / 0.24);
+}
+.install-gate-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.75rem;
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+.install-gate-brand img {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 0.9rem;
+}
+.install-gate-kicker {
+  color: var(--color-accent-light);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.6rem;
+  text-transform: uppercase;
+}
+.install-gate h1 {
+  max-width: 12ch;
+  font-size: 2.35rem;
+  line-height: 1.05;
+  margin-bottom: 1rem;
+}
+.install-gate-copy {
+  color: var(--color-text-muted);
+  line-height: 1.65;
+  margin-bottom: 1.5rem;
+}
+.install-gate-device-list {
+  display: grid;
+  gap: 0.65rem;
+  margin-bottom: 1.5rem;
+}
+.install-gate-device-list div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-surface-2);
+}
+.install-gate-device-list strong {
+  font-size: 0.9rem;
+}
+.install-gate-device-list span {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  text-align: right;
+}
+.install-gate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
 
 /* Terms consent */
 .auth-consent-group { margin-top: 1.25rem; margin-bottom: 0.5rem; }

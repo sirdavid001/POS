@@ -12,26 +12,36 @@ const platformDetails = {
   windows: {
     label: 'Windows',
     description: 'Windows 10 or later · 64-bit',
+    installLabel: 'Run the setup file',
+    installSteps: ['Download the signed setup file', 'Open the installer and approve Windows prompts', 'Launch QuickPOS and sign in'],
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4.8 10.7 3.7v7.4H3V4.8Zm8.8-1.3L21 2.2v8.9h-9.2V3.5ZM3 12.2h7.7v7.4L3 18.5v-6.3Zm8.8 0H21v8.9l-9.2-1.3v-7.6Z"/></svg>',
   },
   android: {
     label: 'Android',
     description: 'Android 8 or later · Signed APK',
+    installLabel: 'Install the APK',
+    installSteps: ['Download the verified APK', 'Allow installation when Android asks', 'Open QuickPOS and sign in'],
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7.3 5.8-1.2-2a.7.7 0 0 1 1.2-.7l1.2 2a8.6 8.6 0 0 1 7 0l1.2-2a.7.7 0 1 1 1.2.7l-1.2 2a7.1 7.1 0 0 1 3.1 5.5H4.2a7.1 7.1 0 0 1 3.1-5.5ZM8.2 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm7.6 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2ZM4.2 12.5h15.6v7a2.3 2.3 0 0 1-2.3 2.3h-11a2.3 2.3 0 0 1-2.3-2.3v-7Z"/></svg>',
   },
   macos: {
     label: 'macOS',
     description: 'DMG previews for Intel and Apple silicon',
+    installLabel: 'Mount the DMG',
+    installSteps: ['Download the DMG for your Mac', 'Drag QuickPOS into Applications', 'Open the app and sign in'],
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.7 12.8c0-2.5 2.1-3.8 2.2-3.9a4.8 4.8 0 0 0-3.8-2.1c-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.3-.9-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.3 2.5 1.3-.1 1.8-.8 3.4-.8s2 .8 3.4.8c1.4 0 2.3-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.9-1.1-2.9-3.8ZM14.1 5.1c.7-.9 1.2-2.1 1.1-3.3-1.1 0-2.4.7-3.2 1.6-.7.8-1.3 2-1.1 3.2 1.2.1 2.4-.6 3.2-1.5Z"/></svg>',
   },
   linux: {
     label: 'Linux',
     description: 'AppImage and Debian package',
+    installLabel: 'Choose a package',
+    installSteps: ['Download AppImage or Debian package', 'Mark AppImage executable if needed', 'Open QuickPOS and sign in'],
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c-2.2 0-3.8 2.2-3.8 5.3 0 1-.2 1.8-.8 2.7-1.5 2-2.4 4.1-2.1 6.2.2 1.5 1.1 2.3 2.2 2.3.7 0 1.3-.3 1.8-.7.8.9 1.7 1.4 2.7 1.4s1.9-.5 2.7-1.4c.5.4 1.1.7 1.8.7 1.1 0 2-.8 2.2-2.3.3-2.1-.6-4.2-2.1-6.2-.6-.9-.8-1.7-.8-2.7C15.8 4.2 14.2 2 12 2Zm-1.4 5.1c-.5 0-.9-.5-.9-1.1s.4-1.1.9-1.1.9.5.9 1.1-.4 1.1-.9 1.1Zm2.8 0c-.5 0-.9-.5-.9-1.1s.4-1.1.9-1.1.9.5.9 1.1-.4 1.1-.9 1.1Z"/></svg>',
   },
   ios: {
     label: 'iPhone and iPad',
     description: 'Installable Safari web app',
+    installLabel: 'Add to Home Screen',
+    installSteps: ['Open the link in Safari', 'Use Share, then Add to Home Screen', 'Launch QuickPOS from the icon'],
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.7 12.8c0-2.5 2.1-3.8 2.2-3.9a4.8 4.8 0 0 0-3.8-2.1c-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.3-.9-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.3 2.5 1.3-.1 1.8-.8 3.4-.8s2 .8 3.4.8c1.4 0 2.3-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.9-1.1-2.9-3.8ZM14.1 5.1c.7-.9 1.2-2.1 1.1-3.3-1.1 0-2.4.7-3.2 1.6-.7.8-1.3 2-1.1 3.2 1.2.1 2.4-.6 3.2-1.5Z"/></svg>',
   },
 };
@@ -160,18 +170,38 @@ export function renderReleaseDownloads(target, manifest, { onDownloadClick } = {
     : primaryRelease.sha256
       ? 'SHA-256 checksum included in release details'
       : 'Versioned official installer';
+  const installSteps = primaryDetail.installSteps
+    .map((step, index) => `
+      <li>
+        <span>${index + 1}</span>
+        <p>${step}</p>
+      </li>
+    `).join('');
 
   target.innerHTML = `
     <div class="download-showcase">
       <article class="primary-download-card">
         <div class="primary-card-top">
-          <span class="platform-icon platform-icon-large">${primaryDetail.icon}</span>
+          <div class="installer-identity">
+            <span class="platform-icon platform-icon-large">${primaryDetail.icon}</span>
+            <div>
+              <span>Detected installer</span>
+              <strong>${primaryDetail.label}</strong>
+            </div>
+          </div>
           <span class="verified-badge">${releaseBadge}</span>
         </div>
         <div class="primary-card-copy">
           <span class="recommended-label">${detected === primaryPlatform ? 'Recommended for this device' : 'Available now'}</span>
           <h2>QuickPOS for ${primaryDetail.label}</h2>
           <p>${primaryCopy}</p>
+        </div>
+        <div class="installer-steps" aria-label="${primaryDetail.label} installation steps">
+          <div>
+            <span class="section-kicker">${primaryDetail.installLabel}</span>
+            <strong>Install in three steps</strong>
+          </div>
+          <ol>${installSteps}</ol>
         </div>
         <div class="release-meta">
           <span><small>Version</small><strong>${primaryRelease.version}</strong></span>
@@ -183,9 +213,17 @@ export function renderReleaseDownloads(target, manifest, { onDownloadClick } = {
         </a>
         ${alternateDownloads ? `<div class="alternate-downloads"><span>Other format</span>${alternateDownloads}</div>` : ''}
         ${primaryRelease.signature_status === 'unsigned_preview' ? '<p class="release-warning">macOS may block this preview because it is not yet signed or notarized. Open Privacy & Security to approve it manually.</p>' : ''}
-        <div class="checksum-note">${utilityIcons.hash}<span>${integrityText}</span></div>
+        <div class="installer-assurance">
+          <span>${utilityIcons.hash}<strong>${integrityText}</strong></span>
+          <span>${utilityIcons.update}<strong>Updates handled inside the installed app</strong></span>
+        </div>
       </article>
       <aside class="platform-panel">
+        <div class="platform-panel-header">
+          <span class="section-kicker">Device center</span>
+          <h3>Install QuickPOS on every store device.</h3>
+          <p>Use the official build for each register, tablet, or back-office computer. Staff sign in after the app is installed.</p>
+        </div>
         ${availableCards ? `<div class="platform-panel-group"><div class="panel-title"><span>Other available builds</span><small>Direct download</small></div>${availableCards}</div>` : ''}
         <div class="platform-panel-group platform-roadmap">
           <div class="panel-title"><span>Platform roadmap</span><small>In development</small></div>

@@ -590,6 +590,23 @@ h3 { letter-spacing: -0.025em; }
 .trial-summary strong { font-size: 17px; }
 .trial-summary span { color: var(--muted); font-size: 13px; }
 .trial-summary a { grid-column: 1 / -1; padding-top: 13px; border-top: 1px solid var(--line); color: var(--color-primary-light); font-size: 13px; font-weight: 750; }
+.device-install-section { padding-bottom: 24px; }
+.device-install-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.device-install-grid article {
+  display: grid;
+  gap: 8px;
+  min-height: 132px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--color-surface-2);
+}
+.device-install-grid strong { font-size: 16px; }
+.device-install-grid span { color: var(--muted); font-size: 13px; line-height: 1.6; }
 .download-section { padding-top: 72px; }
 .download-section-heading {
   display: flex;
@@ -682,6 +699,28 @@ h3 { letter-spacing: -0.025em; }
   justify-content: space-between;
   gap: 20px;
 }
+.installer-identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.installer-identity div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.installer-identity span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.installer-identity strong {
+  overflow-wrap: anywhere;
+  font-size: 18px;
+}
 .platform-icon {
   display: grid;
   flex: 0 0 auto;
@@ -720,6 +759,59 @@ h3 { letter-spacing: -0.025em; }
 .recommended-label { color: var(--color-primary-light); font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
 .primary-card-copy h2 { margin: 10px 0 14px; font-size: clamp(34px, 4.4vw, 52px); }
 .primary-card-copy p { margin: 0; color: var(--muted); font-size: 16px; line-height: 1.7; }
+.installer-steps {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 16px;
+  margin: 28px 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: oklch(0.14 0.005 260 / 0.36);
+}
+.installer-steps > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+.installer-steps strong { font-size: 14px; }
+.installer-steps ol {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.installer-steps li {
+  display: grid;
+  gap: 10px;
+  min-height: 112px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--color-surface-2);
+}
+.installer-steps li span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  color: #fff;
+  background: var(--color-primary);
+  font-size: 12px;
+  font-weight: 850;
+}
+.installer-steps li p {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+}
 .release-meta {
   position: relative;
   z-index: 1;
@@ -757,6 +849,34 @@ h3 { letter-spacing: -0.025em; }
   font-size: 11px;
 }
 .checksum-note svg { width: 14px; height: 14px; }
+.installer-assurance {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+.installer-assurance span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--color-surface-3);
+  font-size: 11px;
+}
+.installer-assurance svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+.installer-assurance strong {
+  color: var(--muted);
+  font-weight: 750;
+}
 .platform-panel {
   display: flex;
   flex-direction: column;
@@ -765,6 +885,22 @@ h3 { letter-spacing: -0.025em; }
   border: 1px solid var(--line);
   border-radius: 26px;
   background: var(--color-surface-2);
+}
+.platform-panel-header {
+  padding: 18px 18px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.platform-panel-header h3 {
+  max-width: 340px;
+  margin: 7px 0 8px;
+  font-size: 24px;
+  line-height: 1.15;
+}
+.platform-panel-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
 }
 .platform-panel-group { padding: 16px; }
 .platform-panel-group + .platform-panel-group { border-top: 1px solid var(--line); }
@@ -2099,6 +2235,7 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
   .download-showcase { grid-template-columns: 1fr; }
   .platform-panel { min-height: auto; }
   .support-link { margin-top: 12px; }
+  .device-install-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .card-grid { grid-template-columns: repeat(2, 1fr); }
   .support-topic-grid { grid-template-columns: repeat(2, 1fr); }
   .support-hero-grid,
@@ -2126,7 +2263,7 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
   .menu-open .site-nav { display: flex; flex-direction: column; }
   .hero { padding-top: 58px; }
   .product-tiles { grid-template-columns: repeat(2, 1fr); }
-  .card-grid, .pricing-grid, .footer-grid, .assurance-grid { grid-template-columns: 1fr; }
+  .card-grid, .pricing-grid, .footer-grid, .assurance-grid, .device-install-grid { grid-template-columns: 1fr; }
   .download-hero { padding: 58px 0 46px; }
   .download-hero .page-intro h1 { font-size: clamp(39px, 12vw, 52px); overflow-wrap: anywhere; }
   .download-hero .page-intro p { font-size: 16px; }
@@ -2134,8 +2271,12 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
   .trial-summary { grid-template-columns: auto minmax(0, 1fr); }
   .download-section-heading { align-items: flex-start; flex-direction: column; }
   .primary-download-card { min-height: auto; padding: 24px; }
+  .primary-card-top { align-items: stretch; flex-direction: column; }
   .primary-card-copy { margin-top: 42px; }
   .primary-card-copy h2 { font-size: clamp(30px, 10vw, 40px); overflow-wrap: anywhere; }
+  .installer-steps > div { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .installer-steps ol { grid-template-columns: 1fr; }
+  .installer-steps li { min-height: auto; }
   .release-meta { margin-top: 38px; }
   .release-meta span { padding: 0 10px; }
   .release-meta strong { overflow-wrap: anywhere; }

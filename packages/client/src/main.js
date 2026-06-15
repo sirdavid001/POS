@@ -18,34 +18,40 @@ import { renderSettings } from './pages/settings.js';
 import { renderBilling } from './pages/billing.js';
 import { checkForAppUpdate } from './updates.js';
 import { api } from './api.js';
-
-// Service workers are unavailable when Electron loads the bundled app over file://.
-if (window.location.protocol !== 'file:') {
-  registerSW({
-    onNeedRefresh() {
-      console.log('New content available, ready to update.');
-    },
-    onOfflineReady() {
-      console.log('App ready to work offline');
-    },
-  });
-}
-
-// Register routes
-router.addRoute('/login', renderLoginPage);
-router.addRoute('/forgot-password', renderForgotPasswordPage);
-router.addRoute('/reset-password', renderResetPasswordPage);
-router.addRoute('/dashboard', renderDashboard);
-router.addRoute('/pos', renderPOS);
-router.addRoute('/products', renderProducts);
-router.addRoute('/orders', renderOrders);
-router.addRoute('/inventory', renderInventory);
-router.addRoute('/customers', renderCustomers);
-router.addRoute('/reports', renderReports);
-router.addRoute('/settings', renderSettings);
-router.addRoute('/billing', renderBilling);
+import { canAccessInstalledApp, renderInstallRequiredPage } from './installGate.js';
 
 async function startApplication() {
+  if (!canAccessInstalledApp()) {
+    renderInstallRequiredPage();
+    return;
+  }
+
+  // Service workers are unavailable when Electron loads the bundled app over file://.
+  if (window.location.protocol !== 'file:') {
+    registerSW({
+      onNeedRefresh() {
+        console.log('New content available, ready to update.');
+      },
+      onOfflineReady() {
+        console.log('App ready to work offline');
+      },
+    });
+  }
+
+  // Register routes
+  router.addRoute('/login', renderLoginPage);
+  router.addRoute('/forgot-password', renderForgotPasswordPage);
+  router.addRoute('/reset-password', renderResetPasswordPage);
+  router.addRoute('/dashboard', renderDashboard);
+  router.addRoute('/pos', renderPOS);
+  router.addRoute('/products', renderProducts);
+  router.addRoute('/orders', renderOrders);
+  router.addRoute('/inventory', renderInventory);
+  router.addRoute('/customers', renderCustomers);
+  router.addRoute('/reports', renderReports);
+  router.addRoute('/settings', renderSettings);
+  router.addRoute('/billing', renderBilling);
+
   if (localStorage.getItem('user')) {
     try {
       await api.get('/auth/me');
@@ -54,9 +60,17 @@ async function startApplication() {
     }
   }
   router.start();
-}
 
-startApplication();
+  // Only connect WS if user is logged in
+  if (localStorage.getItem('user')) {
+    connectWebSocket();
+  }
+
+  window.addEventListener('online', attemptSync);
+  document.addEventListener('DOMContentLoaded', attemptSync);
+  setTimeout(attemptSync, 2000); // Trigger a sync briefly after app load
+  setTimeout(checkForAppUpdate, 2500);
+}
 
 // WebSocket connection for real-time updates
 function getWebSocketUrl() {
@@ -100,12 +114,4 @@ function connectWebSocket() {
   }
 }
 
-// Only connect WS if user is logged in
-if (localStorage.getItem('user')) {
-  connectWebSocket();
-}
-
-window.addEventListener('online', attemptSync);
-document.addEventListener('DOMContentLoaded', attemptSync);
-setTimeout(attemptSync, 2000); // Trigger a sync briefly after app load
-setTimeout(checkForAppUpdate, 2500);
+startApplication();
