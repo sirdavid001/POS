@@ -9,6 +9,17 @@ function permissionStatusLabel(state) {
   return 'Check required';
 }
 
+function cameraPermissionHelp(error) {
+  const name = error?.name || '';
+  if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+    return 'No camera was found on this device. Connect a camera or use a USB barcode scanner.';
+  }
+  if (name === 'NotReadableError' || name === 'TrackStartError') {
+    return 'The camera is already being used by another app. Close the other app and try again.';
+  }
+  return 'Camera access is blocked. Enable camera permission for QuickPOS in your device privacy settings, then reopen QuickPOS.';
+}
+
 async function queryCameraPermission() {
   try {
     if (!navigator.permissions?.query) return 'unknown';
@@ -62,6 +73,11 @@ export async function renderPermissionsPage() {
           </div>
           <h3>Camera</h3>
           <p>Used to scan product barcodes from POS and product setup screens.</p>
+          <span class="permission-note" id="camera-permission-help">
+            ${cameraState === 'denied'
+              ? 'Enable camera access in your device privacy settings, then reopen QuickPOS.'
+              : 'QuickPOS will ask your device for camera permission when you allow access.'}
+          </span>
           <button class="btn btn-primary" type="button" id="request-camera-access">Allow camera access</button>
         </article>
 
@@ -106,6 +122,7 @@ export async function renderPermissionsPage() {
   document.getElementById('request-camera-access').addEventListener('click', async () => {
     const button = document.getElementById('request-camera-access');
     const status = document.getElementById('camera-permission-status');
+    const help = document.getElementById('camera-permission-help');
     button.disabled = true;
     button.textContent = 'Checking camera...';
 
@@ -113,11 +130,14 @@ export async function renderPermissionsPage() {
       await requestCameraAccess();
       status.className = 'badge badge-success';
       status.textContent = 'Allowed';
+      if (help) help.textContent = 'Camera is ready for barcode scanning.';
       toast('Camera access allowed', 'success');
     } catch (error) {
       status.className = 'badge badge-danger';
       status.textContent = 'Blocked';
-      toast(error.message || 'Camera access was blocked', 'error', 5000);
+      const message = cameraPermissionHelp(error);
+      if (help) help.textContent = message;
+      toast(message, 'error', 7000);
     } finally {
       button.disabled = false;
       button.textContent = 'Allow camera access';

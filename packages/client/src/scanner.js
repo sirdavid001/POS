@@ -69,6 +69,32 @@ function _handleUSBKey(e) {
 
 let _cameraScanner = null;
 
+function cameraErrorDetails(error) {
+  const name = error?.name || '';
+  if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+    return {
+      title: 'No camera found',
+      message: 'Connect a camera or use a USB barcode scanner, then try again.',
+    };
+  }
+  if (name === 'NotReadableError' || name === 'TrackStartError') {
+    return {
+      title: 'Camera is already in use',
+      message: 'Close other apps using the camera, then try again.',
+    };
+  }
+  if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError') {
+    return {
+      title: 'Camera access is blocked',
+      message: 'Allow camera access for QuickPOS in your device privacy settings, then reopen QuickPOS and try again.',
+    };
+  }
+  return {
+    title: 'Camera could not start',
+    message: 'Check that the camera is connected and allowed for QuickPOS, or use a USB barcode scanner instead.',
+  };
+}
+
 /**
  * Show a camera scanner modal overlay
  * @param {Function} onScan - callback with (barcodeValue: string)
@@ -174,13 +200,28 @@ export function openCameraScanner(onScan, options = {}) {
   ).catch((err) => {
     const region = document.getElementById('camera-scanner-region');
     if (region) {
+      const details = cameraErrorDetails(err);
       region.innerHTML = `
-        <div style="padding:2rem;text-align:center;color:var(--color-danger);">
-          <p style="font-size:1rem;margin-bottom:0.5rem;">📷 Camera access denied</p>
-          <p style="font-size:0.8rem;color:var(--color-text-muted);">Please allow camera access in your browser settings, or use a USB barcode scanner instead.</p>
-          <button class="btn btn-ghost btn-sm" style="margin-top:1rem;" onclick="this.closest('.modal-overlay').remove()">Close</button>
+        <div style="padding:2rem;text-align:center;">
+          <p style="font-size:1rem;margin-bottom:0.5rem;color:var(--color-danger);">${details.title}</p>
+          <p style="font-size:0.8rem;color:var(--color-text-muted);line-height:1.5;">${details.message}</p>
+          <div style="margin-top:1rem;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.75rem;background:var(--color-surface-2);text-align:left;font-size:0.75rem;color:var(--color-text-muted);line-height:1.5;">
+            <strong style="display:block;color:var(--color-text);margin-bottom:0.35rem;">Permission help</strong>
+            <span>macOS: System Settings > Privacy & Security > Camera > QuickPOS.</span><br>
+            <span>Windows: Settings > Privacy & security > Camera > allow desktop apps.</span><br>
+            <span>Android: Settings > Apps > QuickPOS > Permissions > Camera.</span>
+          </div>
+          <div style="display:flex;gap:0.5rem;justify-content:center;margin-top:1rem;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" id="retry-camera-scanner">Try again</button>
+            <button class="btn btn-ghost btn-sm" id="close-camera-error">Use USB scanner</button>
+          </div>
         </div>
       `;
+      document.getElementById('retry-camera-scanner')?.addEventListener('click', () => {
+        cleanup();
+        openCameraScanner(onScan, options);
+      });
+      document.getElementById('close-camera-error')?.addEventListener('click', cleanup);
     }
     console.error('Camera scanner error:', err);
   });
