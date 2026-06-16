@@ -3,6 +3,8 @@ import { icons } from '../utils.js';
 import { getSubscription } from '../entitlement.js';
 import { getOfflineQueueCount } from '../offline.js';
 
+const ACCOUNT_PORTAL_URL = 'https://quickpos.name.ng/account#billing';
+
 // Render the sidebar + main content shell
 export function renderLayout(activePage) {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -16,7 +18,6 @@ export function renderLayout(activePage) {
     { id: 'customers', label: 'Customers', icon: icons.customers, hash: '#/customers', roles: ['admin', 'manager', 'cashier'] },
     { id: 'orders', label: 'Orders', icon: icons.orders, hash: '#/orders', roles: ['admin', 'manager', 'cashier'] },
     { id: 'reports', label: 'Reports', icon: icons.reports, hash: '#/reports', roles: ['admin', 'manager'] },
-    { id: 'billing', label: 'Billing', icon: icons.billing, hash: '#/billing', roles: ['admin'] },
     { id: 'settings', label: 'Settings', icon: icons.settings, hash: '#/settings', roles: ['admin', 'manager'] },
   ];
 
@@ -94,11 +95,11 @@ export function renderLayout(activePage) {
         ? `${subscription.days_remaining ?? 0} day${subscription.days_remaining === 1 ? '' : 's'} left in your existing trial. Initial activation is required afterward.`
       : subscription.cancel_at_period_end && subscription.can_write
         ? `Renewal is cancelled. Access continues through ${new Date(subscription.current_period_end).toLocaleDateString('en-NG')}.`
-        : 'QuickPOS is read-only. Reports, exports, printing, statement email, and billing are still available.';
+        : 'QuickPOS is read-only. Reports, exports, printing, and statement email are still available.';
     banner.innerHTML = `
       <div class="subscription-banner ${subscription.can_write ? 'trial' : 'expired'}">
         <span>${message}</span>
-        ${user.role === 'admin' ? '<a href="#/billing" class="btn btn-sm btn-primary">View billing</a>' : ''}
+        ${user.role === 'admin' ? `<a href="${ACCOUNT_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary">Open account portal</a>` : ''}
       </div>
     `;
   }

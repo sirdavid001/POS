@@ -60,10 +60,7 @@ export function renderLoginPage() {
       localStorage.setItem('user', JSON.stringify(data.user));
       saveSubscription(data.subscription);
       toast('Welcome back, ' + data.user.name + '!', 'success');
-      window.location.hash =
-        data.user.role === 'admin' && data.subscription?.activation_required
-          ? '#/billing'
-          : '#/dashboard';
+      window.location.hash = '#/dashboard';
     } catch (err) {
       toast(err.message || 'Login failed', 'error');
       btn.disabled = false;

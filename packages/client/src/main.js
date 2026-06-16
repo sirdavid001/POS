@@ -15,7 +15,6 @@ import { renderInventory } from './pages/inventory.js';
 import { renderCustomers } from './pages/customers.js';
 import { renderReports } from './pages/reports.js';
 import { renderSettings } from './pages/settings.js';
-import { renderBilling } from './pages/billing.js';
 import { checkForAppUpdate } from './updates.js';
 import { api } from './api.js';
 import { canAccessInstalledApp, renderInstallRequiredPage } from './installGate.js';
@@ -50,7 +49,6 @@ async function startApplication() {
   router.addRoute('/customers', renderCustomers);
   router.addRoute('/reports', renderReports);
   router.addRoute('/settings', renderSettings);
-  router.addRoute('/billing', renderBilling);
 
   if (localStorage.getItem('user')) {
     try {
