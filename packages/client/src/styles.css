@@ -246,6 +246,40 @@ select.input { appearance: none; cursor: pointer; }
   border-top: 1px solid var(--color-border);
   margin-top: auto;
 }
+.offline-status {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.2rem 0.55rem;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.65rem;
+  background: var(--color-surface);
+}
+.offline-status-dot {
+  grid-row: span 2;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+  background: var(--color-success);
+  box-shadow: 0 0 0 4px oklch(0.65 0.2 145 / 0.12);
+}
+.offline-status strong {
+  font-size: 0.78rem;
+}
+.offline-status small {
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+}
+.offline-status.offline .offline-status-dot {
+  background: var(--color-warning);
+  box-shadow: 0 0 0 4px oklch(0.75 0.16 85 / 0.14);
+}
+.offline-status.pending .offline-status-dot {
+  background: var(--color-primary-light);
+  box-shadow: 0 0 0 4px oklch(0.65 0.18 260 / 0.14);
+}
 
 .main-content {
   flex: 1;

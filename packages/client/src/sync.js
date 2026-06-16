@@ -1,48 +1,50 @@
 import { api } from './api.js';
 import { toast } from './utils.js';
 import { canWriteBusinessData } from './entitlement.js';
-
-const QUEUE_KEY = 'quickpos_offline_orders';
+import { getOfflineQueue, reconcileQueuedTempId, removeOfflineQueueItem } from './offline.js';
 
 export async function attemptSync() {
   if (!canWriteBusinessData()) return;
-  const queueJson = localStorage.getItem(QUEUE_KEY);
-  if (!queueJson) return;
+  let queue = getOfflineQueue();
+  if (!Array.isArray(queue) || queue.length === 0) return;
 
   try {
-    const queue = JSON.parse(queueJson);
-    if (!Array.isArray(queue) || queue.length === 0) return;
-
-    console.log(`[Offline Sync] Attempting to sync ${queue.length} offline orders...`);
+    console.log(`[Offline Sync] Attempting to sync ${queue.length} offline changes...`);
     const successful = [];
-    
+
     // Process sequentially to maintain order and prevent server flood
     for (let i = 0; i < queue.length; i++) {
-      const orderData = queue[i];
+      const queued = queue[i];
       try {
-        await api.post('/orders', orderData);
-        successful.push(i);
+        let result = null;
+        if (queued.method === 'POST') result = await api.post(queued.path, queued.data, { skipOfflineQueue: true });
+        if (queued.method === 'PATCH') result = await api.patch(queued.path, queued.data, { skipOfflineQueue: true });
+        if (queued.method === 'DELETE') result = await api.delete(queued.path, { skipOfflineQueue: true });
+        const serverEntity = result?.product || result?.customer || result?.category || result?.supplier || result?.order;
+        if (queued.meta?.temp_id && serverEntity?.id) {
+          queue = reconcileQueuedTempId(queued.meta.temp_id, serverEntity.id);
+        }
+        successful.push(queued.id);
         // Wait 100ms between calls to avoid rate limits
         await new Promise(r => setTimeout(r, 100));
       } catch (err) {
         if (err.code === 'SUBSCRIPTION_EXPIRED') {
-          toast('Offline sales are paused until the store renews QuickPOS.', 'warning', 5000);
+          toast('Offline sync is paused until the store renews QuickPOS.', 'warning', 5000);
           break;
         }
-        console.error('[Offline Sync] Failed to sync order', orderData, err);
+        console.error('[Offline Sync] Failed to sync queued change', queued, err);
         // If it's a 4xx error (e.g. invalid data, insufficient stock), we might want to discard it or alert.
         // For now, only drop on 400s, keep retrying on 500s or network drops.
-        if (err.message && err.message.includes('400')) {
-           successful.push(i); // Drop corrupt/invalid orders so they don't block the queue forever
-           toast('Dropped invalid offline order', 'warning');
+        if (err.status >= 400 && err.status < 500) {
+           successful.push(queued.id); // Drop invalid changes so they don't block the queue forever
+           toast('Dropped one invalid offline change during sync', 'warning');
         }
       }
     }
 
     if (successful.length > 0) {
-      const remaining = queue.filter((_, idx) => !successful.includes(idx));
-      localStorage.setItem(QUEUE_KEY, JSON.stringify(remaining));
-      toast(`Successfully synced ${successful.length} offline orders!`, 'success');
+      successful.forEach(removeOfflineQueueItem);
+      toast(`Successfully synced ${successful.length} offline change${successful.length === 1 ? '' : 's'}!`, 'success');
     }
   } catch (err) {
     console.error('[Offline Sync] Sync engine failure', err);

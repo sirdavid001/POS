@@ -349,8 +349,8 @@ function renderProducts() {
   // Click handlers
   grid.querySelectorAll('.product-card').forEach(card => {
     card.addEventListener('click', () => {
-      const id = parseInt(card.dataset.productId);
-      const product = products.find(p => p.id === id);
+      const id = card.dataset.productId;
+      const product = products.find(p => String(p.id) === String(id));
       if (product) addToCart(product);
     });
   });

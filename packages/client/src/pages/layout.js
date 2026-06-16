@@ -1,6 +1,7 @@
 import { api } from '../api.js';
 import { icons } from '../utils.js';
 import { getSubscription } from '../entitlement.js';
+import { getOfflineQueueCount } from '../offline.js';
 
 // Render the sidebar + main content shell
 export function renderLayout(activePage) {
@@ -45,6 +46,7 @@ export function renderLayout(activePage) {
           `).join('')}
         </nav>
         <div class="sidebar-footer">
+          <div class="offline-status" id="offline-status"></div>
           <button id="logout-btn" class="nav-item" style="color:var(--color-danger);">
             ${icons.logout}
             <span>Logout</span>
@@ -102,6 +104,23 @@ export function renderLayout(activePage) {
   }
   renderSubscriptionBanner();
   window.addEventListener('subscription-updated', renderSubscriptionBanner, { once: true });
+
+  function renderOfflineStatus() {
+    const status = document.getElementById('offline-status');
+    if (!status) return;
+    const queued = getOfflineQueueCount();
+    const offline = !navigator.onLine;
+    status.className = `offline-status ${offline ? 'offline' : queued > 0 ? 'pending' : 'online'}`;
+    status.innerHTML = `
+      <span class="offline-status-dot"></span>
+      <strong>${offline ? 'Offline mode' : queued > 0 ? 'Sync pending' : 'Online'}</strong>
+      <small>${queued > 0 ? `${queued} saved change${queued === 1 ? '' : 's'}` : 'All changes synced'}</small>
+    `;
+  }
+  renderOfflineStatus();
+  window.addEventListener('online', renderOfflineStatus);
+  window.addEventListener('offline', renderOfflineStatus);
+  window.addEventListener('offline-queue-updated', renderOfflineStatus);
 
   // Mobile menu + overlay
   const mobileBtn = document.getElementById('mobile-menu-btn');

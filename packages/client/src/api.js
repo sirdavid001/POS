@@ -1,6 +1,14 @@
 // API client with JWT refresh support
 import { clearSubscription, saveSubscription } from './entitlement.js';
 import { resolveApiBase } from '../../shared/src/api.js';
+import {
+  cacheResponse,
+  enqueueOfflineRequest,
+  getCachedResponse,
+  isGetCacheable,
+  isNetworkError,
+  isWriteQueueable,
+} from './offline.js';
 
 // Development uses Vite's local proxy. Production always falls back to the
 // shared QuickPOS API so web, desktop, and mobile clients use one database.
@@ -58,14 +66,23 @@ class ApiClient {
       config.body = JSON.stringify(data);
     }
 
-    let response = await fetch(url, config);
+    let response;
+    try {
+      response = await fetch(url, config);
+    } catch (error) {
+      return this.handleOfflineRequest(method, path, data, error, options);
+    }
 
     // Auto-refresh on 401
     if (response.status === 401 && this.refreshToken) {
       const refreshed = await this.refreshAccessToken();
       if (refreshed) {
         config.headers['Authorization'] = `Bearer ${this.accessToken}`;
-        response = await fetch(url, config);
+        try {
+          response = await fetch(url, config);
+        } catch (error) {
+          return this.handleOfflineRequest(method, path, data, error, options);
+        }
       } else {
         this.clearTokens();
         window.location.hash = '#/login';
@@ -91,7 +108,27 @@ class ApiClient {
       throw new ApiError(json.error || 'Request failed', response, json);
     }
 
+    if (method === 'GET') {
+      cacheResponse(path, json);
+    }
+
     return json;
+  }
+
+  handleOfflineRequest(method, path, data, error, options = {}) {
+    if (!isNetworkError(error)) throw error;
+    if (options.skipOfflineQueue) throw error;
+
+    if (method === 'GET' && isGetCacheable(path)) {
+      const cached = getCachedResponse(path);
+      if (cached) return cached;
+    }
+
+    if (method !== 'GET' && isWriteQueueable(path)) {
+      return enqueueOfflineRequest({ method, path, data });
+    }
+
+    throw new Error('QuickPOS is offline and this data is not saved on this device yet.');
   }
 
   async refreshAccessToken() {
@@ -154,10 +191,10 @@ class ApiClient {
     };
   }
 
-  get(path) { return this.request('GET', path); }
-  post(path, data) { return this.request('POST', path, data); }
-  patch(path, data) { return this.request('PATCH', path, data); }
-  delete(path) { return this.request('DELETE', path); }
+  get(path, options) { return this.request('GET', path, null, options); }
+  post(path, data, options) { return this.request('POST', path, data, options); }
+  patch(path, data, options) { return this.request('PATCH', path, data, options); }
+  delete(path, options) { return this.request('DELETE', path, null, options); }
 }
 
 export const api = new ApiClient();
