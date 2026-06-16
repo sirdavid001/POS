@@ -309,7 +309,7 @@ function renderStaffDirectory(staff, currentUserId) {
             <div class="staff-member-actions" aria-label="Staff actions">
               <button class="staff-action-button" type="button" data-account-staff-edit="${encodedMember}">Edit</button>
               ${isCurrentUser ? '' : `
-                <button class="staff-action-button danger" type="button" data-account-staff-archive="${escapeHtml(member.id)}">Archive</button>
+                <button class="staff-action-button danger" type="button" data-account-staff-archive="${escapeHtml(member.id)}">Delete</button>
               `}
             </div>
           </article>
@@ -369,7 +369,7 @@ function showAccountStaffEditModal(member) {
         </div>
         <div class="staff-form-note">
           <strong>${member.is_current_user ? 'Use profile settings for your own admin access.' : 'Role and status changes apply to the installed app.'}</strong>
-          <span>${member.is_current_user ? 'Your role and active status are protected here so the store does not lock itself out.' : 'Archived or inactive staff cannot continue using QuickPOS.'}</span>
+          <span>${member.is_current_user ? 'Your role and active status are protected here so the store does not lock itself out.' : 'Deleted or inactive staff cannot continue using QuickPOS.'}</span>
         </div>
         <div class="account-modal-actions">
           <button class="button button-secondary" type="button" data-account-modal-cancel>Cancel</button>
@@ -1287,13 +1287,13 @@ function attachPortalHandlers() {
   document.querySelectorAll('[data-account-staff-archive]').forEach((button) => {
     button.addEventListener('click', async () => {
       const staffId = button.dataset.accountStaffArchive;
-      if (!staffId || !confirm('Archive this staff account and sign them out of QuickPOS?')) return;
+      if (!staffId || !confirm('Delete this staff account and sign them out of QuickPOS?')) return;
       const originalText = button.textContent;
       button.disabled = true;
-      button.textContent = 'Archiving...';
+      button.textContent = 'Deleting...';
       try {
         await siteApi.delete(`/account/staff/${staffId}`);
-        await loadPortal('Staff account archived.');
+        await loadPortal('Staff account deleted.');
       } catch (error) {
         setFlash(error.message || 'Could not archive staff account', 'error');
         button.disabled = false;
