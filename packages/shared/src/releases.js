@@ -31,7 +31,7 @@ function assetDetails(name) {
   return null;
 }
 
-export function manifestFromGitHubRelease(release, iosWebUrl = 'https://quickposs.vercel.app') {
+export function manifestFromGitHubRelease(release) {
   const version = String(release.tag_name || release.name || '').replace(/^v/, '').replace(/^QuickPOS\s+/i, '');
   if (!version) return null;
 
@@ -50,21 +50,6 @@ export function manifestFromGitHubRelease(release, iosWebUrl = 'https://quickpos
       minimum_supported_version: version,
       status: 'available',
     }];
-  });
-
-  releases.push({
-    platform: 'ios',
-    architecture: 'web',
-    file_type: 'PWA',
-    signature_status: 'web',
-    version,
-    url: iosWebUrl,
-    sha256: null,
-    size: null,
-    size_display: 'No download required',
-    release_notes: 'Open QuickPOS in Safari and choose Add to Home Screen. Native App Store distribution will follow.',
-    minimum_supported_version: version,
-    status: 'available',
   });
 
   return {

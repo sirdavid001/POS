@@ -1173,7 +1173,7 @@ function renderPortal({ overview, plans, providers, transactions, staff = [] }, 
             ` : `
               <div class="account-locked-downloads">
                 <strong>Pay activation first.</strong>
-                <p>Once payment is confirmed, this section will show Windows, Android, macOS, Linux, and iPhone options. The installed app uses the same login, but the website never opens the POS interface.</p>
+                <p>Once payment is confirmed, this section will show Windows, Android, macOS, and Linux installers. The installed app uses the same login, but the website never opens the POS interface.</p>
                 <button class="button" type="button" data-account-open-section="billing">Go to billing</button>
               </div>
             `}

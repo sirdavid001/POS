@@ -78,7 +78,6 @@ if (footer) {
 function detectPlatform() {
   const agent = navigator.userAgent.toLowerCase();
   if (agent.includes('android')) return 'android';
-  if (agent.includes('iphone') || agent.includes('ipad')) return 'ios';
   if (agent.includes('windows')) return 'windows';
   if (agent.includes('mac')) return 'macos';
   if (agent.includes('linux')) return 'linux';
@@ -106,11 +105,6 @@ const platformDetails = {
     description: 'AppImage and Debian package',
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c-2.2 0-3.8 2.2-3.8 5.3 0 1-.2 1.8-.8 2.7-1.5 2-2.4 4.1-2.1 6.2.2 1.5 1.1 2.3 2.2 2.3.7 0 1.3-.3 1.8-.7.8.9 1.7 1.4 2.7 1.4s1.9-.5 2.7-1.4c.5.4 1.1.7 1.8.7 1.1 0 2-.8 2.2-2.3.3-2.1-.6-4.2-2.1-6.2-.6-.9-.8-1.7-.8-2.7C15.8 4.2 14.2 2 12 2Zm-1.4 5.1c-.5 0-.9-.5-.9-1.1s.4-1.1.9-1.1.9.5.9 1.1-.4 1.1-.9 1.1Zm2.8 0c-.5 0-.9-.5-.9-1.1s.4-1.1.9-1.1.9.5.9 1.1-.4 1.1-.9 1.1Z"/></svg>',
   },
-  ios: {
-    label: 'iPhone and iPad',
-    description: 'Installable Safari web app',
-    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.7 12.8c0-2.5 2.1-3.8 2.2-3.9a4.8 4.8 0 0 0-3.8-2.1c-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.3-.9-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.3 2.5 1.3-.1 1.8-.8 3.4-.8s2 .8 3.4.8c1.4 0 2.3-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.9-1.1-2.9-3.8ZM14.1 5.1c.7-.9 1.2-2.1 1.1-3.3-1.1 0-2.4.7-3.2 1.6-.7.8-1.3 2-1.1 3.2 1.2.1 2.4-.6 3.2-1.5Z"/></svg>',
-  },
 };
 
 const utilityIcons = {
@@ -129,7 +123,6 @@ function releaseVariantLabel(platform, release) {
   if (platform === 'linux') return release.file_type === '.deb' ? 'Debian' : 'AppImage';
   if (platform === 'android') return 'APK';
   if (platform === 'windows') return 'Windows';
-  if (platform === 'ios') return 'Open';
   return release.file_type || release.architecture || 'Download';
 }
 
@@ -137,7 +130,7 @@ async function loadDownloads() {
   const target = document.querySelector('[data-download-grid]');
   if (!target) return;
   const detected = detectPlatform();
-  const platforms = ['windows', 'android', 'macos', 'linux', 'ios'];
+  const platforms = ['windows', 'android', 'macos', 'linux'];
 
   try {
     const manifestUrls = [
@@ -183,7 +176,6 @@ async function loadDownloads() {
         android: ['.apk'],
         macos: ['.dmg'],
         linux: ['.AppImage', '.deb'],
-        ios: ['PWA', 'App Store'],
       };
       return preferredTypes[platform]
         ?.map((type) => group.find((release) => release.file_type === type))
@@ -242,14 +234,10 @@ async function loadDownloads() {
       : primaryRelease.signature_status === 'unsigned_preview'
         ? `${utilityIcons.shield} Unsigned preview`
         : `${utilityIcons.shield} Checksum verified`;
-    const primaryAction = primaryPlatform === 'ios'
-      ? 'Open QuickPOS on iPhone'
-      : primaryPlatform === 'macos'
+    const primaryAction = primaryPlatform === 'macos'
         ? `Download for ${releaseVariantLabel(primaryPlatform, primaryRelease)}`
         : `Download for ${primaryDetail.label}`;
-    const primaryCopy = primaryPlatform === 'ios'
-      ? primaryRelease.release_notes
-      : `${primaryDetail.description}. Install the complete POS application, create your store, and activate five months of access.`;
+    const primaryCopy = `${primaryDetail.description}. Install the complete POS application, create your store, and activate five months of access.`;
     const alternateDownloads = (releaseGroups.get(primaryPlatform) || [])
       .filter((release) => release !== primaryRelease && release.status === 'available' && release.url)
       .map((release) => `
@@ -257,9 +245,7 @@ async function loadDownloads() {
           ${utilityIcons.download} ${releaseVariantLabel(primaryPlatform, release)} (${release.file_type})
         </a>
       `).join('');
-    const integrityText = primaryPlatform === 'ios'
-      ? 'Secure installable web app'
-      : primaryRelease.sha256
+    const integrityText = primaryRelease.sha256
         ? 'SHA-256 checksum included in release details'
         : 'Versioned official installer';
     target.innerHTML = `

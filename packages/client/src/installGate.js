@@ -1,12 +1,5 @@
 const DOWNLOADS_URL = 'https://quickpos.name.ng/downloads';
 
-function isStandaloneWebApp() {
-  return (
-    window.matchMedia?.('(display-mode: standalone)').matches ||
-    window.navigator.standalone === true
-  );
-}
-
 function isNativeAppShell() {
   const protocol = window.location.protocol;
   const capacitor = window.Capacitor;
@@ -23,7 +16,7 @@ function isNativeAppShell() {
 
 export function canAccessInstalledApp() {
   if (import.meta.env.DEV) return true;
-  return isNativeAppShell() || isStandaloneWebApp();
+  return isNativeAppShell();
 }
 
 export function renderInstallRequiredPage() {
@@ -44,7 +37,7 @@ export function renderInstallRequiredPage() {
         </p>
         <div class="install-gate-device-list" aria-label="Supported installation options">
           <div><strong>Desktop</strong><span>Windows, macOS, and Linux installers</span></div>
-          <div><strong>Mobile</strong><span>Android APK and iPhone web app</span></div>
+          <div><strong>Mobile</strong><span>Android APK installer</span></div>
           <div><strong>Secure access</strong><span>Sign in after installation only</span></div>
         </div>
         <div class="install-gate-actions">
