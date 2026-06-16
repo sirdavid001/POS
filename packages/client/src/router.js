@@ -1,4 +1,5 @@
 // Simple hash-based SPA router
+import { hasCompletedPermissionSetup } from './permissions.js';
 
 class Router {
   constructor() {
@@ -25,6 +26,11 @@ class Router {
     // Redirect to login if not authenticated
     if (!user && !publicRoutes.has(hash)) {
       window.location.hash = '#/login';
+      return;
+    }
+
+    if (user && !hasCompletedPermissionSetup() && hash !== '/permissions') {
+      window.location.hash = '#/permissions';
       return;
     }
 

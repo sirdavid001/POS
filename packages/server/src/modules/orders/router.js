@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getClient, query } from '../../config/database.js';
-import { authenticate } from '../../middleware/auth.js';
+import { authenticate, authorize } from '../../middleware/auth.js';
 import { requireActiveSubscription } from '../../middleware/subscription.js';
 import logger from '../../config/logger.js';
 import { broadcast } from '../../app.js';
@@ -140,7 +140,7 @@ router.post('/', async (req, res, next) => {
 });
 
 // GET orders (paginated)
-router.get('/', async (req, res, next) => {
+router.get('/', authorize('admin', 'manager'), async (req, res, next) => {
   try {
     const { page = 1, limit = 20, status, start_date, end_date } = req.query;
     const offset = (page - 1) * limit;
@@ -175,7 +175,7 @@ router.get('/', async (req, res, next) => {
 });
 
 // GET single order with items
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', authorize('admin', 'manager'), async (req, res, next) => {
   try {
     const orderResult = await query(
       `SELECT o.*, u.name as cashier_name, c.name as customer_name

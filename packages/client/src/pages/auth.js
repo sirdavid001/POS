@@ -60,7 +60,7 @@ export function renderLoginPage() {
       localStorage.setItem('user', JSON.stringify(data.user));
       saveSubscription(data.subscription);
       toast('Welcome back, ' + data.user.name + '!', 'success');
-      window.location.hash = '#/dashboard';
+      window.location.hash = '#/permissions';
     } catch (err) {
       toast(err.message || 'Login failed', 'error');
       btn.disabled = false;

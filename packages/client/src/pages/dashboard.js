@@ -281,12 +281,16 @@ async function renderCashierDashboard() {
 
       <div class="responsive-grid-2" style="margin-bottom:1.5rem;">
         <div class="glass-card" style="padding:1.25rem;">
-          <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">Recent Orders</h3>
-          <div id="recent-orders"><div class="spinner"></div></div>
-        </div>
-        <div class="glass-card" style="padding:1.25rem;">
           <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">Quick Actions</h3>
           <div id="quick-actions"><div class="spinner"></div></div>
+        </div>
+        <div class="glass-card" style="padding:1.25rem;">
+          <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">Shift Focus</h3>
+          <div class="cashier-focus-list">
+            <div><strong>Serve customers</strong><span>Use POS terminal for sales and receipts.</span></div>
+            <div><strong>Check item availability</strong><span>Search products before checkout.</span></div>
+            <div><strong>Capture customer details</strong><span>Add customer records when needed.</span></div>
+          </div>
         </div>
       </div>
 
@@ -307,19 +311,13 @@ async function renderCashierDashboard() {
   `;
 
   try {
-    const [orders, customers, products, lowStock] = await Promise.all([
-      api.get('/orders?limit=10'),
+    const [customers, products, lowStock] = await Promise.all([
       api.get('/customers?limit=1'),
       api.get('/products?limit=1'),
       api.get('/products/low-stock'),
     ]);
 
     document.getElementById('stats-grid').innerHTML = `
-      <div class="stat-card">
-        <div class="stat-label">Total Orders</div>
-        <div class="stat-value">${orders.total ?? orders.orders.length}</div>
-        <div class="stat-change" style="color:var(--color-text-muted);">Completed sales in your store</div>
-      </div>
       <div class="stat-card">
         <div class="stat-label">Customers</div>
         <div class="stat-value">${customers.total ?? customers.customers.length}</div>
@@ -335,32 +333,16 @@ async function renderCashierDashboard() {
         <div class="stat-value" style="color:${lowStock.products.length ? 'var(--color-warning)' : 'var(--color-success)'};">${lowStock.products.length}</div>
         <div class="stat-change" style="color:var(--color-text-muted);">${lowStock.products.length ? 'Needs attention' : 'All clear'}</div>
       </div>
+      <div class="stat-card">
+        <div class="stat-label">POS Access</div>
+        <div class="stat-value">Ready</div>
+        <div class="stat-change" style="color:var(--color-text-muted);">Open terminal to start a sale</div>
+      </div>
     `;
-
-    if (orders.orders.length === 0) {
-      document.getElementById('recent-orders').innerHTML = '<p style="color:var(--color-text-muted);font-size:0.85rem;">No orders yet. Start a new sale from the POS terminal.</p>';
-    } else {
-      document.getElementById('recent-orders').innerHTML = `
-        <table class="data-table">
-          <thead><tr><th>Order #</th><th>Total</th><th>Payment</th><th>Time</th></tr></thead>
-          <tbody>
-            ${orders.orders.slice(0, 5).map(o => `
-              <tr>
-                <td style="font-weight:600;">${o.order_number}</td>
-                <td>${formatCurrency(o.total)}</td>
-                <td>${(o.payment_method || 'cash').toUpperCase()}</td>
-                <td style="font-size:0.8rem;color:var(--color-text-muted);">${formatDateTime(o.created_at)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-    }
 
     document.getElementById('quick-actions').innerHTML = `
       <div style="display:grid;gap:0.75rem;">
         <a href="#/pos" class="btn btn-primary">Open POS Terminal</a>
-        <a href="#/orders" class="btn btn-secondary">View Order History</a>
         <a href="#/customers" class="btn btn-ghost">Manage Customers</a>
       </div>
     `;

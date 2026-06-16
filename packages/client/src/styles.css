@@ -281,6 +281,71 @@ select.input { appearance: none; cursor: pointer; }
   box-shadow: 0 0 0 4px oklch(0.65 0.18 260 / 0.14);
 }
 
+.permission-setup {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 1100px;
+}
+.permission-setup-header {
+  max-width: 760px;
+}
+.permission-setup-header h2 {
+  margin: 0.75rem 0 0.5rem;
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+}
+.permission-setup-header p {
+  color: var(--color-text-muted);
+  line-height: 1.7;
+}
+.permission-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.permission-card {
+  display: grid;
+  gap: 0.8rem;
+  min-height: 230px;
+  padding: 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.9rem;
+  background: var(--color-surface-2);
+}
+.permission-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.permission-icon {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.8rem;
+  background: var(--color-surface-3);
+  font-size: 1.2rem;
+}
+.permission-card h3 {
+  font-size: 1.05rem;
+}
+.permission-card p,
+.permission-note {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.permission-card .btn {
+  justify-self: start;
+  margin-top: auto;
+}
+.permission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
 .main-content {
   flex: 1;
   margin-left: 260px;
@@ -314,6 +379,27 @@ select.input { appearance: none; cursor: pointer; }
 .stat-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-muted); }
 .stat-value { font-size: 1.75rem; font-weight: 800; margin-top: 0.5rem; }
 .stat-change { font-size: 0.75rem; margin-top: 0.25rem; }
+
+.cashier-focus-list {
+  display: grid;
+  gap: 0.75rem;
+}
+.cashier-focus-list div {
+  padding: 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.65rem;
+  background: var(--color-surface-2);
+}
+.cashier-focus-list strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.9rem;
+}
+.cashier-focus-list span {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
 
 /* ===== Dashboard Stock Alert ===== */
 .glass-card.stock-alert-card {
@@ -778,6 +864,9 @@ select.input { appearance: none; cursor: pointer; }
 
   /* Sidebar: full width */
   .sidebar { width: 100%; }
+
+  .permission-grid { grid-template-columns: 1fr; }
+  .permission-actions .btn { width: 100%; }
 
   /* Toast: full width */
   .toast-container { left: 1rem; right: 1rem; }

@@ -72,21 +72,21 @@ export async function renderSettings() {
             <thead>
               <tr>
                 <th>Feature</th>
-                <th style="text-align:center;">👑 Admin</th>
+                ${isAdmin ? '<th style="text-align:center;">👑 Admin</th>' : ''}
                 <th style="text-align:center;">🏢 Manager</th>
                 <th style="text-align:center;">💳 Cashier</th>
               </tr>
             </thead>
             <tbody>
-              <tr><td>Dashboard</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
-              <tr><td>POS Terminal</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
-              <tr><td>Products (CRUD)</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="text-align:center;">View only</td></tr>
-              <tr><td>Inventory</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="text-align:center;">❌</td></tr>
-              <tr><td>Customers</td><td style="text-align:center;">✅ Full</td><td style="text-align:center;">✅ No delete</td><td style="text-align:center;">View + Add</td></tr>
-              <tr><td>Orders</td><td style="text-align:center;">✅ + Refund</td><td style="text-align:center;">✅ All orders</td><td style="text-align:center;">Own only</td></tr>
-              <tr><td>Reports</td><td style="text-align:center;">✅ + Export</td><td style="text-align:center;">✅ View only</td><td style="text-align:center;">❌</td></tr>
-              <tr><td>Store Settings</td><td style="text-align:center;">✅</td><td style="text-align:center;">❌</td><td style="text-align:center;">❌</td></tr>
-              <tr><td>Staff Management</td><td style="text-align:center;">✅ All roles</td><td style="text-align:center;">Cashiers only</td><td style="text-align:center;">❌</td></tr>
+              <tr><td>Dashboard</td>${isAdmin ? '<td style="text-align:center;">✅</td>' : ''}<td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
+              <tr><td>POS Terminal</td>${isAdmin ? '<td style="text-align:center;">✅</td>' : ''}<td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
+              <tr><td>Products (CRUD)</td>${isAdmin ? '<td style="text-align:center;">✅</td>' : ''}<td style="text-align:center;">✅</td><td style="text-align:center;">View only</td></tr>
+              <tr><td>Inventory</td>${isAdmin ? '<td style="text-align:center;">✅</td>' : ''}<td style="text-align:center;">✅</td><td style="text-align:center;">❌</td></tr>
+              <tr><td>Customers</td>${isAdmin ? '<td style="text-align:center;">✅ Full</td>' : ''}<td style="text-align:center;">✅ No delete</td><td style="text-align:center;">View + Add</td></tr>
+              <tr><td>Orders</td>${isAdmin ? '<td style="text-align:center;">✅ + Refund</td>' : ''}<td style="text-align:center;">✅ All orders</td><td style="text-align:center;">POS receipts only</td></tr>
+              <tr><td>Reports</td>${isAdmin ? '<td style="text-align:center;">✅ + Export</td>' : ''}<td style="text-align:center;">✅ View only</td><td style="text-align:center;">❌</td></tr>
+              <tr><td>Store Settings</td>${isAdmin ? '<td style="text-align:center;">✅</td>' : ''}<td style="text-align:center;">❌</td><td style="text-align:center;">❌</td></tr>
+              <tr><td>Staff Management</td>${isAdmin ? '<td style="text-align:center;">✅ All roles</td>' : ''}<td style="text-align:center;">Cashiers only</td><td style="text-align:center;">❌</td></tr>
             </tbody>
           </table>
         </div>

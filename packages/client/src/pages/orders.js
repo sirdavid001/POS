@@ -5,7 +5,18 @@ import { formatCurrency, formatDateTime, toast, downloadCSV } from '../utils.js'
 let currentOrdersData = [];
 
 export async function renderOrders() {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
   const content = renderLayout('orders');
+
+  if (user.role === 'cashier') {
+    content.innerHTML = `
+      <div class="empty-state">
+        <p>Order history is available to managers and admins only.</p>
+        <a href="#/pos" class="btn btn-primary" style="margin-top:1rem;">Open POS Terminal</a>
+      </div>
+    `;
+    return;
+  }
 
   content.innerHTML = `
     <div class="animate-fade-in">

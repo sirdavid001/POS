@@ -16,7 +16,7 @@ export function renderLayout(activePage) {
     { id: 'products', label: 'Products', icon: icons.products, hash: '#/products', roles: ['admin', 'manager'] },
     { id: 'inventory', label: 'Inventory', icon: icons.inventory, hash: '#/inventory', roles: ['admin', 'manager'] },
     { id: 'customers', label: 'Customers', icon: icons.customers, hash: '#/customers', roles: ['admin', 'manager', 'cashier'] },
-    { id: 'orders', label: 'Orders', icon: icons.orders, hash: '#/orders', roles: ['admin', 'manager', 'cashier'] },
+    { id: 'orders', label: 'Orders', icon: icons.orders, hash: '#/orders', roles: ['admin', 'manager'] },
     { id: 'reports', label: 'Reports', icon: icons.reports, hash: '#/reports', roles: ['admin', 'manager'] },
     { id: 'settings', label: 'Settings', icon: icons.settings, hash: '#/settings', roles: ['admin', 'manager'] },
   ];

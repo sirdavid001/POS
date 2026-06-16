@@ -36,14 +36,16 @@ router.patch('/store', authorize('admin'), async (req, res, next) => {
 // GET users (staff management)
 router.get('/users', authorize('admin', 'manager'), async (req, res, next) => {
   try {
+    const params = [req.user.store_id];
+    const roleFilter = req.user.role === 'manager' ? " AND r.name <> 'admin'" : '';
     const result = await query(
       `SELECT u.id, u.email, u.name, u.phone, u.is_active, u.last_login, u.created_at,
               r.name as role, creator.name AS created_by
        FROM users u
        JOIN roles r ON u.role_id = r.id
        LEFT JOIN users creator ON creator.id = u.created_by_user_id
-       WHERE u.store_id = $1 ORDER BY u.created_at DESC`,
-      [req.user.store_id]
+       WHERE u.store_id = $1${roleFilter} ORDER BY u.created_at DESC`,
+      params
     );
     res.json({ users: result.rows });
   } catch (err) { next(err); }

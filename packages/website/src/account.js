@@ -102,6 +102,7 @@ class SiteApi {
   get(path) { return this.request('GET', path); }
   post(path, data) { return this.request('POST', path, data); }
   patch(path, data) { return this.request('PATCH', path, data); }
+  delete(path) { return this.request('DELETE', path); }
 }
 
 const siteApi = new SiteApi();
@@ -277,6 +278,15 @@ function renderStaffDirectory(staff, currentUserId) {
         const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
         const isCurrentUser = String(member.id) === String(currentUserId);
         const isActive = member.is_active !== false;
+        const encodedMember = encodeURIComponent(JSON.stringify({
+          id: member.id,
+          name: member.name || '',
+          email: member.email || '',
+          phone: member.phone || '',
+          role,
+          is_active: isActive,
+          is_current_user: isCurrentUser,
+        }));
 
         return `
           <article class="staff-member">
@@ -296,11 +306,105 @@ function renderStaffDirectory(staff, currentUserId) {
                 <span>Added ${escapeHtml(formatDate(member.created_at))}</span>
               </div>
             </div>
+            <div class="staff-member-actions" aria-label="Staff actions">
+              <button class="staff-action-button" type="button" data-account-staff-edit="${encodedMember}">Edit</button>
+              ${isCurrentUser ? '' : `
+                <button class="staff-action-button danger" type="button" data-account-staff-archive="${escapeHtml(member.id)}">Archive</button>
+              `}
+            </div>
           </article>
         `;
       }).join('')}
     </div>
   `;
+}
+
+function showAccountStaffEditModal(member) {
+  const overlay = document.createElement('div');
+  overlay.className = 'account-modal-overlay';
+  overlay.innerHTML = `
+    <div class="account-modal" role="dialog" aria-modal="true" aria-labelledby="account-staff-edit-title">
+      <div class="account-modal-heading">
+        <div>
+          <span class="section-kicker">Staff access</span>
+          <h3 id="account-staff-edit-title">Edit staff account</h3>
+        </div>
+        <button class="account-modal-close" type="button" aria-label="Close staff editor">x</button>
+      </div>
+      <form id="account-staff-edit-form" class="account-form">
+        <div class="account-form-grid">
+          <label>
+            Full name
+            <input name="name" value="${escapeHtml(member.name || '')}" required>
+          </label>
+          <label>
+            Email address
+            <input name="email" type="email" value="${escapeHtml(member.email || '')}" required>
+          </label>
+          <label>
+            Phone number
+            <input name="phone" type="tel" value="${escapeHtml(member.phone || '')}" placeholder="Optional">
+          </label>
+          ${member.is_current_user ? '' : `
+            <label>
+              Role
+              <select name="role" required>
+                <option value="cashier" ${member.role === 'cashier' ? 'selected' : ''}>Cashier</option>
+                <option value="manager" ${member.role === 'manager' ? 'selected' : ''}>Manager</option>
+                <option value="admin" ${member.role === 'admin' ? 'selected' : ''}>Admin</option>
+              </select>
+            </label>
+            <label>
+              Account status
+              <select name="is_active" required>
+                <option value="true" ${member.is_active ? 'selected' : ''}>Active</option>
+                <option value="false" ${member.is_active ? '' : 'selected'}>Inactive</option>
+              </select>
+            </label>
+          `}
+          <label class="${member.is_current_user ? '' : 'span-2'}">
+            New password
+            <input name="password" type="password" minlength="8" autocomplete="new-password" placeholder="Leave blank to keep current password">
+          </label>
+        </div>
+        <div class="staff-form-note">
+          <strong>${member.is_current_user ? 'Use profile settings for your own admin access.' : 'Role and status changes apply to the installed app.'}</strong>
+          <span>${member.is_current_user ? 'Your role and active status are protected here so the store does not lock itself out.' : 'Archived or inactive staff cannot continue using QuickPOS.'}</span>
+        </div>
+        <div class="account-modal-actions">
+          <button class="button button-secondary" type="button" data-account-modal-cancel>Cancel</button>
+          <button class="button" type="submit">Save staff account</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  const close = () => overlay.remove();
+  overlay.querySelector('[data-account-modal-cancel]')?.addEventListener('click', close);
+  overlay.querySelector('.account-modal-close')?.addEventListener('click', close);
+  overlay.addEventListener('click', (event) => {
+    if (event.target === overlay) close();
+  });
+  overlay.querySelector('#account-staff-edit-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = event.submitter;
+    const payload = payloadFromForm(event.target, ['phone', 'password']);
+    if (payload.is_active !== undefined) payload.is_active = payload.is_active === 'true';
+    button.disabled = true;
+    button.textContent = 'Saving...';
+    try {
+      await siteApi.patch(`/account/staff/${member.id}`, payload);
+      close();
+      await loadPortal('Staff account updated.');
+    } catch (error) {
+      setFlash(error.message || 'Could not update staff account', 'error');
+      button.disabled = false;
+      button.textContent = 'Save staff account';
+    }
+  });
+
+  document.body.appendChild(overlay);
+  overlay.querySelector('input[name="name"]')?.focus();
 }
 
 function routeInfo() {
@@ -1167,6 +1271,35 @@ function attachPortalHandlers() {
       button.disabled = false;
       button.textContent = 'Create staff account';
     }
+  });
+
+  document.querySelectorAll('[data-account-staff-edit]').forEach((button) => {
+    button.addEventListener('click', () => {
+      try {
+        const member = JSON.parse(decodeURIComponent(button.dataset.accountStaffEdit || '{}'));
+        showAccountStaffEditModal(member);
+      } catch {
+        setFlash('Could not open that staff account. Refresh and try again.', 'error');
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-account-staff-archive]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const staffId = button.dataset.accountStaffArchive;
+      if (!staffId || !confirm('Archive this staff account and sign them out of QuickPOS?')) return;
+      const originalText = button.textContent;
+      button.disabled = true;
+      button.textContent = 'Archiving...';
+      try {
+        await siteApi.delete(`/account/staff/${staffId}`);
+        await loadPortal('Staff account archived.');
+      } catch (error) {
+        setFlash(error.message || 'Could not archive staff account', 'error');
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+    });
   });
 
   const acknowledgement = document.getElementById('account-billing-ack');
