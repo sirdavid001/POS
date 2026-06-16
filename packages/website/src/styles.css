@@ -545,52 +545,107 @@ h3 { letter-spacing: -0.025em; }
 }
 .download-hero {
   position: relative;
-  padding: 82px 0 68px;
+  padding: 76px 0 56px;
   overflow: hidden;
   border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--color-surface-1), var(--color-surface-2));
 }
 .download-hero::before {
   position: absolute;
-  width: 620px;
-  height: 620px;
-  right: -170px;
-  top: -360px;
-  border-radius: 50%;
-  background: oklch(0.55 0.2 260 / 0.11);
+  inset: 0;
+  background:
+    linear-gradient(90deg, oklch(1 0 0 / 0.035) 1px, transparent 1px),
+    linear-gradient(180deg, oklch(1 0 0 / 0.035) 1px, transparent 1px);
+  background-size: 48px 48px;
   content: "";
-  filter: blur(2px);
+  mask-image: linear-gradient(180deg, #000, transparent 76%);
+  opacity: 0.55;
 }
 .download-hero-grid {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 410px);
+  align-items: center;
   gap: 64px;
 }
 .download-hero-grid > *,
 .download-showcase > * { min-width: 0; }
-.download-hero .page-intro h1 { max-width: 700px; margin-bottom: 22px; }
-.download-hero .page-intro p { max-width: 670px; }
+.download-hero .page-intro h1 { max-width: 760px; margin-bottom: 22px; }
+.download-hero .page-intro p { max-width: 690px; }
 .download-hero .trust-row { margin-top: 28px; }
+.download-command-card,
 .trial-summary {
   display: grid;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: oklch(0.16 0.012 260 / 0.82);
+  box-shadow: 0 22px 60px oklch(0 0 0 / 0.22);
+}
+.download-command-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.download-command-card img,
+.trial-summary img { width: 58px; height: 58px; border-radius: 14px; }
+.download-command-card h2 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.08;
+}
+.download-command-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+.download-command-list {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--color-surface-2);
+}
+.download-command-list span {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+.download-command-list strong {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  color: #fff;
+  background: var(--green);
+  font-size: 11px;
+}
+.download-command-card a,
+.trial-summary a {
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  color: var(--color-primary-light);
+  font-size: 13px;
+  font-weight: 800;
+}
+.trial-summary {
   grid-template-columns: auto minmax(170px, 1fr);
   align-items: center;
-  gap: 14px;
   width: 350px;
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  background: var(--color-surface-glass);
-  box-shadow: 0 18px 50px oklch(0 0 0 / 0.16);
-  backdrop-filter: blur(18px);
 }
-.trial-summary img { width: 58px; height: 58px; border-radius: 14px; }
 .trial-summary div { display: grid; gap: 4px; }
 .trial-summary strong { font-size: 17px; }
 .trial-summary span { color: var(--muted); font-size: 13px; }
-.trial-summary a { grid-column: 1 / -1; padding-top: 13px; border-top: 1px solid var(--line); color: var(--color-primary-light); font-size: 13px; font-weight: 750; }
-.device-install-section { padding-bottom: 24px; }
+.trial-summary a { grid-column: 1 / -1; }
+.device-install-section { padding: 64px 0 30px; }
 .device-install-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -598,15 +653,34 @@ h3 { letter-spacing: -0.025em; }
 }
 .device-install-grid article {
   display: grid;
-  gap: 8px;
-  min-height: 132px;
-  padding: 20px;
+  align-content: start;
+  gap: 10px;
+  min-height: 176px;
+  padding: 22px;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 16px;
   background: var(--color-surface-2);
 }
-.device-install-grid strong { font-size: 16px; }
-.device-install-grid span { color: var(--muted); font-size: 13px; line-height: 1.6; }
+.device-install-grid strong { font-size: 19px; line-height: 1.2; }
+.device-install-grid p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.device-platform-label {
+  width: max-content;
+  max-width: 100%;
+  padding: 6px 9px;
+  border: 1px solid oklch(0.65 0.2 145 / 0.25);
+  border-radius: 999px;
+  color: var(--color-accent);
+  background: oklch(0.65 0.2 145 / 0.08);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 .download-section { padding-top: 72px; }
 .download-section-heading {
   display: flex;
@@ -626,6 +700,7 @@ h3 { letter-spacing: -0.025em; }
 .release-status {
   display: inline-flex;
   align-items: center;
+  flex: none;
   gap: 8px;
   padding: 8px 11px;
   border: 1px solid oklch(0.65 0.2 145 / 0.25);
@@ -641,6 +716,38 @@ h3 { letter-spacing: -0.025em; }
   border-radius: 50%;
   background: var(--color-success);
   box-shadow: 0 0 0 4px oklch(0.65 0.2 145 / 0.12);
+}
+.download-flow-section { padding-top: 56px; }
+.download-flow-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.download-flow-grid article {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 230px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--color-surface-2);
+}
+.download-flow-grid span {
+  color: var(--color-primary-light);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+.download-flow-grid h3 {
+  margin: 8px 0 0;
+  font-size: 20px;
+}
+.download-flow-grid p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
 }
 .download-loading {
   display: flex;
@@ -2312,11 +2419,13 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
   .legal-process-grid { grid-template-columns: 1fr; }
   .activation-metrics { max-width: 620px; }
   .download-hero-grid { grid-template-columns: 1fr; gap: 38px; }
+  .download-command-card { max-width: 520px; }
   .trial-summary { width: min(100%, 430px); }
   .download-showcase { grid-template-columns: 1fr; }
   .platform-panel { min-height: auto; }
   .support-link { margin-top: 12px; }
-  .device-install-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .device-install-grid,
+  .download-flow-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .card-grid { grid-template-columns: repeat(2, 1fr); }
   .support-topic-grid { grid-template-columns: repeat(2, 1fr); }
   .support-hero-grid,
@@ -2349,8 +2458,13 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
   .download-hero .page-intro h1 { font-size: clamp(39px, 12vw, 52px); overflow-wrap: anywhere; }
   .download-hero .page-intro p { font-size: 16px; }
   .download-hero .trust-row { gap: 10px 14px; }
+  .download-command-card { padding: 18px; }
+  .download-command-top { align-items: flex-start; flex-direction: column; }
   .trial-summary { grid-template-columns: auto minmax(0, 1fr); }
   .download-section-heading { align-items: flex-start; flex-direction: column; }
+  .download-flow-grid { grid-template-columns: 1fr; }
+  .download-flow-grid article,
+  .device-install-grid article { min-height: auto; }
   .primary-download-card { min-height: auto; padding: 24px; }
   .primary-card-top { align-items: stretch; flex-direction: column; }
   .primary-card-copy { margin-top: 42px; }
