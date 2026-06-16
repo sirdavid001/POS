@@ -29,7 +29,10 @@
     "mobile:ios": "npm run mobile:sync && cap open ios",
     "desktop:start": "npm run build -w packages/client && electron .",
     "desktop:win": "npm run build -w packages/client && electron-builder --win nsis --x64",
-    "desktop:mac": "npm run build -w packages/client && electron-builder --mac dmg",
+    "desktop:mac": "npm run build -w packages/client && electron-builder --mac dmg --x64",
+    "desktop:mac:intel": "npm run build -w packages/client && electron-builder --mac dmg --x64",
+    "desktop:mac:apple": "npm run build -w packages/client && electron-builder --mac dmg --arm64",
+    "desktop:mac:universal": "npm run build -w packages/client && electron-builder --mac dmg --universal",
     "desktop:linux": "npm run build -w packages/client && electron-builder --linux AppImage deb --x64",
     "website:dev": "npm run dev -w packages/website",
     "website:build": "npm run build -w packages/website"

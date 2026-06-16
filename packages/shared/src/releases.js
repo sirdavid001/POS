@@ -15,7 +15,9 @@ function assetDetails(name) {
   if (/^QuickPOS-.*\.dmg$/i.test(name)) {
     return {
       platform: 'macos',
-      architecture: name.includes('arm64') ? 'arm64' : 'x64',
+      architecture: name.includes('universal')
+        ? 'universal'
+        : name.includes('arm64') ? 'arm64' : 'x64',
       file_type: '.dmg',
       signature_status: 'unsigned_preview',
     };

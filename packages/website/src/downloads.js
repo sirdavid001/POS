@@ -54,7 +54,11 @@ export const utilityIcons = {
 };
 
 function releaseVariantLabel(platform, release) {
-  if (platform === 'macos') return release.architecture === 'arm64' ? 'Apple silicon' : 'Intel';
+  if (platform === 'macos') {
+    if (release.architecture === 'arm64') return 'Apple silicon Mac';
+    if (release.architecture === 'universal') return 'Universal Mac';
+    return 'Intel Mac';
+  }
   if (platform === 'linux') return release.file_type === '.deb' ? 'Debian' : 'AppImage';
   if (platform === 'android') return 'APK';
   if (platform === 'windows') return 'Windows';

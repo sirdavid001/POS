@@ -202,4 +202,8 @@ APPLE_TEAM_ID
 ```
 
 Only enable macOS publication after the DMG can be signed and notarized.
+For Intel Macs such as MacBook Pro models with Core i5/i7 processors, publish
+the `x64` DMG from `npm run desktop:mac:intel`. Use
+`npm run desktop:mac:apple` for Apple silicon, or
+`npm run desktop:mac:universal` when a larger combined DMG is preferred.
 iPhone distribution must use TestFlight or the App Store, not a direct IPA.
