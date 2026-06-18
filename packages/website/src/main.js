@@ -65,6 +65,7 @@ if (footer) {
         <strong>Legal</strong>
         <a href="/terms">Terms of Service</a>
         <a href="/privacy">Privacy Policy</a>
+        <a href="/account-deletion">Account Deletion</a>
         <a href="/refund">Refund Policy</a>
         <p>Current versions effective June 11, 2026.</p>
       </div>

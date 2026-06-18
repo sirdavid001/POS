@@ -14,6 +14,7 @@ export default defineConfig({
         support: resolve(__dirname, 'support.html'),
         legal: resolve(__dirname, 'legal.html'),
         privacy: resolve(__dirname, 'privacy.html'),
+        accountDeletion: resolve(__dirname, 'account-deletion.html'),
         terms: resolve(__dirname, 'terms.html'),
         refund: resolve(__dirname, 'refund.html'),
       },
