@@ -56,7 +56,7 @@ const output = path.resolve(argument('output', 'latest.json'));
 const version = argument('version');
 const releaseNotes = argument('notes', `QuickPOS ${version}`);
 const minimumSupportedVersion = argument('minimum', version);
-const baseUrl = argument('base-url', 'https://downloads.quickpos.name.ng').replace(/\/$/, '');
+const baseUrl = argument('base-url', 'https://downloads.quickpos.com.ng').replace(/\/$/, '');
 const flatArtifactUrls = process.argv.includes('--flat-artifact-urls');
 const iosWebUrl = argument('ios-web-url');
 

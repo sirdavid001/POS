@@ -104,21 +104,21 @@ const config = {
 
   email: {
     resendApiKey: process.env.RESEND_API_KEY || '',
-    from: process.env.EMAIL_FROM || 'QuickPOS <billing@quickpos.name.ng>',
-    replyTo: process.env.EMAIL_REPLY_TO || 'support@quickpos.name.ng',
+    from: process.env.EMAIL_FROM || 'QuickPOS <billing@quickpos.com.ng>',
+    replyTo: process.env.EMAIL_REPLY_TO || 'support@quickpos.com.ng',
   },
 
   auth: {
     passwordResetUrl:
       process.env.PASSWORD_RESET_URL ||
-      'https://quickpos.name.ng/account#reset-password',
+      'https://quickpos.com.ng/account#reset-password',
     passwordResetExpiryMinutes: Number(process.env.PASSWORD_RESET_EXPIRY_MINUTES) || 30,
   },
 
   billing: {
     checkoutReturnUrl:
       process.env.BILLING_RETURN_URL ||
-      'https://quickpos.name.ng/account#billing',
+      'https://quickpos.com.ng/account#billing',
     cronSecret: process.env.CRON_SECRET || '',
   },
 
@@ -131,7 +131,7 @@ const config = {
     manifestUrl:
       process.env.RELEASE_MANIFEST_URL ||
       process.env.DOWNLOADS_MANIFEST_URL ||
-      'https://downloads.quickpos.name.ng/latest.json',
+      'https://downloads.quickpos.com.ng/latest.json',
     githubLatestReleaseUrl:
       process.env.GITHUB_LATEST_RELEASE_URL ||
       'https://api.github.com/repos/sirdavid001/POS/releases/latest',

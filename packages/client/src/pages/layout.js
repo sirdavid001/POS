@@ -3,7 +3,7 @@ import { icons } from '../utils.js';
 import { getSubscription } from '../entitlement.js';
 import { getOfflineQueueCount } from '../offline.js';
 
-const ACCOUNT_PORTAL_URL = 'https://quickpos.name.ng/account#billing';
+const ACCOUNT_PORTAL_URL = 'https://quickpos.com.ng/account#billing';
 
 // Render the sidebar + main content shell
 export function renderLayout(activePage) {

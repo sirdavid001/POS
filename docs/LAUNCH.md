@@ -14,7 +14,7 @@ directory.
 Set:
 
 ```text
-VITE_RELEASE_MANIFEST_URL=https://downloads.quickpos.name.ng/latest.json
+VITE_RELEASE_MANIFEST_URL=https://downloads.quickpos.com.ng/latest.json
 ```
 
 Add these GitHub Actions secrets to enable
@@ -26,7 +26,7 @@ VERCEL_ORG_ID
 VERCEL_WEBSITE_PROJECT_ID
 ```
 
-Attach both `quickpos.name.ng` and `www.quickpos.name.ng` to the website
+Attach both `quickpos.com.ng` and `www.quickpos.com.ng` to the website
 project. In Cloudflare DNS, add the exact A/CNAME targets displayed by Vercel
 for those domains. Keep the records DNS-only while Vercel verifies and issues
 HTTPS certificates. Redirect `www` to the apex domain in Vercel.
@@ -37,15 +37,15 @@ https://vercel.com/docs/domains/working-with-domains/add-a-domain
 ## 2. Create the download service
 
 Create a private Cloudflare R2 bucket for installers. Connect the custom domain
-`downloads.quickpos.name.ng` from the R2 bucket settings. Do not enable the
+`downloads.quickpos.com.ng` from the R2 bucket settings. Do not enable the
 temporary `r2.dev` URL for production distribution.
 
 Allow public `GET` and `HEAD` access through the custom domain. Configure CORS
 for:
 
 ```text
-https://quickpos.name.ng
-https://www.quickpos.name.ng
+https://quickpos.com.ng
+https://www.quickpos.com.ng
 ```
 
 Create an R2 API token scoped to this bucket and add these GitHub Actions
@@ -119,12 +119,12 @@ Verify a sending domain in Resend and set:
 
 ```text
 RESEND_API_KEY
-EMAIL_FROM=QuickPOS <billing@quickpos.name.ng>
-EMAIL_REPLY_TO=support@quickpos.name.ng
+EMAIL_FROM=QuickPOS <billing@quickpos.com.ng>
+EMAIL_REPLY_TO=support@quickpos.com.ng
 ```
 
 Configure a real mailbox or Cloudflare Email Routing destination for
-`support@quickpos.name.ng`; Resend sending-domain verification does not create
+`support@quickpos.com.ng`; Resend sending-domain verification does not create
 an inbox.
 
 Set `CRON_SECRET` on the server. Vercel invokes

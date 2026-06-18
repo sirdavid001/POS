@@ -3,7 +3,7 @@ import { manifestFromGitHubRelease } from '../../shared/src/releases.js';
 
 const MANIFEST_URL =
   import.meta.env.VITE_RELEASE_MANIFEST_URL ||
-  'https://downloads.quickpos.name.ng/latest.json';
+  'https://downloads.quickpos.com.ng/latest.json';
 const CURRENT_VERSION = import.meta.env.VITE_APP_VERSION || '1.0.0';
 
 function compareVersions(left, right) {

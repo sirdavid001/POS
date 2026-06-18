@@ -48,7 +48,7 @@ export async function sendBillingEmail({
           <h1 style="font-size:24px">${escapeHtml(heading)}</h1>
           <p style="line-height:1.65">${escapeHtml(body)}</p>
           <p style="line-height:1.65">Manage your plan in QuickPOS. For help, email
-            <a href="mailto:support@quickpos.name.ng">support@quickpos.name.ng</a>.
+            <a href="mailto:support@quickpos.com.ng">support@quickpos.com.ng</a>.
           </p>
         </div>
       `,

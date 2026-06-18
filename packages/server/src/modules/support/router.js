@@ -6,7 +6,7 @@ import { validate } from '../../middleware/validate.js';
 import { supportContactSchema } from './schema.js';
 
 const router = Router();
-const SUPPORT_EMAIL = 'support@quickpos.name.ng';
+const SUPPORT_EMAIL = 'support@quickpos.com.ng';
 
 function escapeHtml(value = '') {
   return String(value)

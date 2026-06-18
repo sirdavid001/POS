@@ -1,4 +1,4 @@
-const DOWNLOADS_URL = 'https://quickpos.name.ng/downloads';
+const DOWNLOADS_URL = 'https://quickpos.com.ng/downloads';
 
 function isNativeAppShell() {
   const protocol = window.location.protocol;
@@ -42,7 +42,7 @@ export function renderInstallRequiredPage() {
         </div>
         <div class="install-gate-actions">
           <a class="btn btn-primary btn-lg" href="${DOWNLOADS_URL}">Download app</a>
-          <a class="btn btn-ghost btn-lg" href="https://quickpos.name.ng/support">Get support</a>
+          <a class="btn btn-ghost btn-lg" href="https://quickpos.com.ng/support">Get support</a>
         </div>
       </section>
     </main>

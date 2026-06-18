@@ -1,7 +1,7 @@
 import { track } from '@vercel/analytics';
 import { resolveApiBase } from '../../shared/src/api.js';
 
-const SUPPORT_EMAIL = 'support@quickpos.name.ng';
+const SUPPORT_EMAIL = 'support@quickpos.com.ng';
 const form = document.getElementById('support-form');
 const alertTarget = document.querySelector('[data-support-alert]');
 const chatMessages = document.querySelector('[data-chat-messages]');

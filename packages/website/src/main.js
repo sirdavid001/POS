@@ -58,8 +58,8 @@ if (footer) {
         <strong>Help</strong>
         <a href="/faq">FAQ</a>
         <a href="/support">Support</a>
-        <a href="mailto:support@quickpos.name.ng">Customer support</a>
-        <a href="mailto:support@quickpos.name.ng?subject=Privacy%20or%20legal%20request">Privacy or legal request</a>
+        <a href="mailto:support@quickpos.com.ng">Customer support</a>
+        <a href="mailto:support@quickpos.com.ng?subject=Privacy%20or%20legal%20request">Privacy or legal request</a>
       </div>
       <div>
         <strong>Legal</strong>
@@ -135,7 +135,7 @@ async function loadDownloads() {
   try {
     const manifestUrls = [
       import.meta.env.VITE_RELEASE_MANIFEST_URL,
-      'https://downloads.quickpos.name.ng/latest.json',
+      'https://downloads.quickpos.com.ng/latest.json',
     ].filter(Boolean);
     let manifest = null;
 

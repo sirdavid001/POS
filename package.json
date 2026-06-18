@@ -4,9 +4,9 @@
   "description": "QuickPOS point-of-sale software for modern retail stores.",
   "author": {
     "name": "QuickPOS",
-    "email": "support@quickpos.name.ng"
+    "email": "support@quickpos.com.ng"
   },
-  "homepage": "https://quickpos.name.ng",
+  "homepage": "https://quickpos.com.ng",
   "desktopName": "QuickPOS",
   "private": true,
   "main": "desktop/main.cjs",
@@ -97,7 +97,7 @@
     },
     "publish": {
       "provider": "generic",
-      "url": "https://downloads.quickpos.name.ng/desktop/windows"
+      "url": "https://downloads.quickpos.com.ng/desktop/windows"
     },
     "nsis": {
       "oneClick": false,

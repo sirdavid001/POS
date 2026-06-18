@@ -48,7 +48,7 @@ export async function sendPasswordResetEmail({
           If you did not request this, you can ignore this email. Your password will not change.
         </p>
         <p style="line-height:1.65">
-          For help, email <a href="mailto:support@quickpos.name.ng">support@quickpos.name.ng</a>.
+          For help, email <a href="mailto:support@quickpos.com.ng">support@quickpos.com.ng</a>.
         </p>
       </div>
     `,
