@@ -1,0 +1,18 @@
+default_platform(:android)
+
+platform :android do
+  desc "Upload the signed QuickPOS bundle to Google Play internal testing"
+  lane :internal do
+    supply(
+      package_name: "ng.name.quickpos",
+      json_key: ".credentials/google-play-service-account.json",
+      aab: "android/app/build/outputs/bundle/release/app-release.aab",
+      track: "internal",
+      release_status: "draft",
+      skip_upload_metadata: true,
+      skip_upload_changelogs: false,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+end

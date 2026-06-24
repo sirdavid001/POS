@@ -1,0 +1,2 @@
+json_key_file(".credentials/google-play-service-account.json")
+package_name("ng.name.quickpos")

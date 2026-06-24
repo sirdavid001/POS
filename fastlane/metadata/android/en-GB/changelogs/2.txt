@@ -1,0 +1,1 @@
+Updated store listing and app configuration for QuickPOS.
