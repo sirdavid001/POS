@@ -1,14 +1,20 @@
-import { toast } from './utils.js';
-import { manifestFromGitHubRelease } from '../../shared/src/releases.js';
-
 const MANIFEST_URL =
   import.meta.env.VITE_RELEASE_MANIFEST_URL ||
   'https://downloads.quickpos.com.ng/latest.json';
+const DOWNLOADS_URL =
+  import.meta.env.VITE_DOWNLOADS_URL ||
+  'https://quickpos.com.ng/downloads';
 const CURRENT_VERSION = import.meta.env.VITE_APP_VERSION || '1.0.0';
 
 function compareVersions(left, right) {
-  const a = String(left).replace(/^v/, '').split('.').map(Number);
-  const b = String(right).replace(/^v/, '').split('.').map(Number);
+  const a = String(left)
+    .replace(/^v/, '')
+    .split('.')
+    .map((part) => Number(part.match(/^\d+/)?.[0] || 0));
+  const b = String(right)
+    .replace(/^v/, '')
+    .split('.')
+    .map((part) => Number(part.match(/^\d+/)?.[0] || 0));
   for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
     const difference = (a[index] || 0) - (b[index] || 0);
     if (difference !== 0) return difference;
@@ -29,35 +35,25 @@ function currentPlatform() {
 async function findAvailableRelease(platform) {
   try {
     const response = await fetch(MANIFEST_URL, { cache: 'no-store' });
-    if (response.ok) {
-      const manifest = await response.json();
-      const release = manifest.releases?.find((item) =>
-        item.platform === platform && item.status === 'available'
-      );
-      if (platform === 'ios' && release?.file_type === 'PWA') return null;
-      if (release) return { release, manifest };
-    }
+    if (!response.ok) return null;
+
+    const manifest = await response.json();
+    const release = manifest.releases?.find((item) =>
+      item.platform === platform && item.status === 'available'
+    );
+    if (platform === 'ios' && release?.file_type === 'PWA') return null;
+    if (release) return { release, manifest };
   } catch {
-    // Fall back to GitHub Releases while the R2 release host is unavailable.
+    // Update checks should stay quiet if the official release host is unavailable.
   }
 
-  const response = await fetch(
-    'https://api.github.com/repos/sirdavid001/POS/releases/latest',
-    { cache: 'no-store' },
-  );
-  if (!response.ok) return null;
-  const githubRelease = await response.json();
-  const manifest = manifestFromGitHubRelease(githubRelease);
-  if (!manifest) return null;
-  const release = manifest.releases?.find((item) =>
-    item.platform === platform && item.status === 'available'
-  );
-  if (platform === 'ios' && release?.file_type === 'PWA') return null;
-  return release ? { release, manifest } : null;
+  return null;
 }
 
 export async function checkForAppUpdate() {
   if (!localStorage.getItem('user')) return;
+  if (document.querySelector('.app-update-banner')) return;
+
   const platform = currentPlatform();
   if (!platform) return;
 
@@ -74,7 +70,7 @@ export async function checkForAppUpdate() {
         <strong>QuickPOS ${release.version} is available</strong>
         <span>${release.release_notes || manifest.release_notes || 'A new verified release is ready.'}</span>
       </div>
-      <a class="btn btn-primary btn-sm" href="${release.url}" target="_blank" rel="noopener">Download update</a>
+      <a class="btn btn-primary btn-sm" href="${DOWNLOADS_URL}" target="_blank" rel="noopener">Download update</a>
       <button class="btn btn-ghost btn-sm" type="button" aria-label="Dismiss update">Later</button>
     `;
     banner.querySelector('button').addEventListener('click', () => banner.remove());
