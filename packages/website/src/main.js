@@ -1,6 +1,8 @@
 import './styles.css';
 import { inject, track } from '@vercel/analytics';
 import { manifestFromGitHubRelease } from '../../shared/src/releases.js';
+import { resolveApiBase } from '../../shared/src/api.js';
+import { clearStoredSiteSession, readSiteSession, SITE_SESSION_EVENT } from './session.js';
 
 inject();
 
@@ -13,21 +15,74 @@ const navigation = [
   ['faq', '/faq', 'FAQ'],
   ['support', '/support', 'Support'],
 ];
+const accountNavigation = [
+  ['staff', '/account#staff', 'Staff'],
+  ['billing', '/account#billing', 'Billing'],
+  ['downloads', '/account#downloads', 'Downloads'],
+  ['support', '/support', 'Support'],
+];
+const accountPublicNavigation = [
+  ['home', '/', 'Home'],
+  ['pricing', '/pricing', 'Pricing'],
+  ['support', '/support', 'Support'],
+];
+const API_BASE = resolveApiBase(import.meta.env.VITE_API_URL, {
+  development: import.meta.env.DEV,
+});
+
+function escapeNavigationText(value = '') {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function accountRoute() {
+  return window.location.hash.replace(/^#/, '').split('?')[0] || 'signin';
+}
 
 const header = document.querySelector('[data-site-header]');
-if (header) {
+function renderSiteHeader() {
+  if (!header) return;
+  const session = readSiteSession();
+  const signedIn = Boolean(session.accessToken);
+  const onAccountPage = page === 'account';
+  const links = signedIn && onAccountPage
+    ? accountNavigation
+    : onAccountPage ? accountPublicNavigation : navigation;
+  const route = accountRoute();
+  const accountHomeActive = onAccountPage && ['portal', 'overview', 'profile', 'store'].includes(route);
+  const accountAction = ['create', 'register', 'signup'].includes(route)
+    ? '<a href="/account#signin" class="nav-signin">Sign in</a>'
+    : '<a href="/account#create" class="button button-small">Create account</a>';
+  const displayName = session.user?.name?.trim() || 'My account';
+  const initial = displayName.charAt(0).toUpperCase() || 'A';
+
   header.innerHTML = `
     <div class="site-shell nav-shell">
       <a class="brand" href="/" aria-label="QuickPOS home">
         <img class="brand-mark" src="/brand/quickpos-mark.svg" alt="">
         <span>QuickPOS</span>
       </a>
-      <button class="menu-button" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
-      <nav id="site-nav" class="site-nav">
-        ${navigation.map(([id, href, label]) => `
-          <a href="${href}" class="${page === id ? 'active' : ''}">${label}</a>
+      <button class="menu-button" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open navigation menu">
+        <span></span><span></span><span></span><b>Menu</b>
+      </button>
+      <nav id="site-nav" class="site-nav" aria-label="Primary navigation">
+        ${links.map(([id, href, label]) => `
+          <a href="${href}" class="${page === id || (onAccountPage && route === id) ? 'active' : ''}">${label}</a>
         `).join('')}
-        <a href="/account#create" class="button button-small">Create account</a>
+        ${signedIn ? `
+          <a href="/account#overview" class="nav-account ${accountHomeActive ? 'active' : ''}" aria-label="Open ${escapeNavigationText(displayName)} account">
+            <span>${escapeNavigationText(initial)}</span>
+            <strong>${escapeNavigationText(displayName)}</strong>
+          </a>
+          <button class="nav-signout" type="button" data-site-signout>Sign out</button>
+        ` : `
+          ${onAccountPage ? '' : '<a href="/account#signin" class="nav-signin">Sign in</a>'}
+          ${accountAction}
+        `}
       </nav>
     </div>
   `;
@@ -35,6 +90,46 @@ if (header) {
   menu.addEventListener('click', () => {
     const open = header.classList.toggle('menu-open');
     menu.setAttribute('aria-expanded', String(open));
+    menu.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
+  });
+
+  header.querySelectorAll('.site-nav a').forEach((link) => {
+    link.addEventListener('click', () => {
+      header.classList.remove('menu-open');
+      menu.setAttribute('aria-expanded', 'false');
+    });
+  });
+
+  header.querySelector('[data-site-signout]')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = 'Signing out…';
+    try {
+      if (session.refreshToken) {
+        await fetch(`${API_BASE}/auth/logout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: session.refreshToken }),
+        });
+      }
+    } catch {
+      // A local sign-out must still succeed if the network is unavailable.
+    }
+    clearStoredSiteSession();
+    window.location.assign('/account#signin');
+  });
+}
+
+if (header) {
+  renderSiteHeader();
+  window.addEventListener(SITE_SESSION_EVENT, renderSiteHeader);
+  if (page === 'account') window.addEventListener('hashchange', renderSiteHeader);
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !header.classList.contains('menu-open')) return;
+    header.classList.remove('menu-open');
+    const menu = header.querySelector('.menu-button');
+    menu?.setAttribute('aria-expanded', 'false');
+    menu?.focus();
   });
 }
 

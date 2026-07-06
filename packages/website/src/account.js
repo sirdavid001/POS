@@ -1,12 +1,12 @@
 import { track } from '@vercel/analytics';
 import { renderReleaseDownloads } from './downloads.js';
+import {
+  clearStoredSiteSession,
+  readSiteSession,
+  storeSiteSession,
+  updateStoredSiteUser,
+} from './session.js';
 import { resolveApiBase } from '../../shared/src/api.js';
-
-const SITE_KEYS = {
-  accessToken: 'quickpos_site_access_token',
-  refreshToken: 'quickpos_site_refresh_token',
-  user: 'quickpos_site_user',
-};
 
 const root = document.querySelector('[data-account-root]');
 let activationPoll = null;
@@ -17,28 +17,25 @@ const API_BASE = resolveApiBase(import.meta.env.VITE_API_URL, {
 
 class SiteApi {
   constructor() {
-    this.accessToken = localStorage.getItem(SITE_KEYS.accessToken);
-    this.refreshToken = localStorage.getItem(SITE_KEYS.refreshToken);
+    const session = readSiteSession();
+    this.accessToken = session.accessToken;
+    this.refreshToken = session.refreshToken;
   }
 
   setSession(data) {
     this.accessToken = data.accessToken;
     this.refreshToken = data.refreshToken;
-    localStorage.setItem(SITE_KEYS.accessToken, data.accessToken);
-    localStorage.setItem(SITE_KEYS.refreshToken, data.refreshToken);
-    localStorage.setItem(SITE_KEYS.user, JSON.stringify(data.user));
+    storeSiteSession(data);
   }
 
   updateUser(user) {
-    localStorage.setItem(SITE_KEYS.user, JSON.stringify(user));
+    updateStoredSiteUser(user);
   }
 
   clearSession() {
     this.accessToken = null;
     this.refreshToken = null;
-    localStorage.removeItem(SITE_KEYS.accessToken);
-    localStorage.removeItem(SITE_KEYS.refreshToken);
-    localStorage.removeItem(SITE_KEYS.user);
+    clearStoredSiteSession();
   }
 
   async refreshAccessToken() {
@@ -52,7 +49,12 @@ class SiteApi {
       if (!response.ok) return false;
       const data = await response.json();
       this.accessToken = data.accessToken;
-      localStorage.setItem(SITE_KEYS.accessToken, data.accessToken);
+      const session = readSiteSession();
+      storeSiteSession({
+        accessToken: data.accessToken,
+        refreshToken: this.refreshToken,
+        user: session.user,
+      });
       return true;
     } catch {
       return false;
@@ -1520,9 +1522,14 @@ async function loadPortal(flash = '') {
 function bootstrap() {
   if (!root) return;
   const { mode, params } = routeInfo();
+  const publicAuthRoutes = ['signin', 'login', 'create', 'register', 'signup', 'forgot-password'];
 
   if (mode === 'reset-password' || params.get('token')) {
     renderResetPassword();
+    return;
+  }
+  if (siteApi.accessToken && publicAuthRoutes.includes(mode)) {
+    window.location.replace('#overview');
     return;
   }
   if (mode === 'forgot-password') {
