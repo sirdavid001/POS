@@ -682,14 +682,38 @@ function renderAdminOnly() {
   `;
 }
 
+function subscriptionStatusLabel(subscription) {
+  if (!subscription) return 'Checking access';
+  const labels = {
+    grandfathered: 'Full access',
+    pending_activation: 'Activation required',
+    trialing: 'Trial access',
+    active: subscription.cancel_at_period_end ? 'Active · renewal off' : 'Active',
+    past_due: 'Payment required',
+    cancelled: 'Renewal cancelled',
+    expired: 'Access expired',
+  };
+  return labels[subscription.status] || 'Access review';
+}
+
 function statusCopy(subscription) {
-  if (!subscription) return 'Checking subscription status.';
-  if (subscription.status === 'grandfathered') return 'Your store has full access.';
+  if (!subscription) return 'We are confirming your account access.';
+  if (subscription.status === 'grandfathered') return 'Your store has full access with no renewal payment required.';
+  if (subscription.status === 'trialing') {
+    return subscription.trial_ends_at
+      ? `Your trial includes full access through ${formatDate(subscription.trial_ends_at)}.`
+      : 'Your store currently has full trial access.';
+  }
   if (subscription.activation_required) return 'Complete the one-time activation to unlock downloads and full app access.';
-  if (subscription.status === 'active') return `Active through ${formatDate(subscription.current_period_end)}.`;
-  if (subscription.status === 'expired') return 'Your subscription has expired. Renew before downloading the app.';
-  if (subscription.cancel_at_period_end) return `Access continues through ${formatDate(subscription.current_period_end)}.`;
-  return `${subscription.status || 'Subscription'} status is being checked.`;
+  if (subscription.cancel_at_period_end || subscription.status === 'cancelled') {
+    return subscription.current_period_end
+      ? `Your access continues through ${formatDate(subscription.current_period_end)}; automatic renewal is off.`
+      : 'Automatic renewal is off and no further charge is scheduled.';
+  }
+  if (subscription.status === 'active') return `Your paid access is active through ${formatDate(subscription.current_period_end)}.`;
+  if (subscription.status === 'past_due') return 'Your latest renewal payment was not confirmed. Update billing to keep access active.';
+  if (subscription.status === 'expired') return 'Your paid access has ended. Renew to restore downloads and full app access.';
+  return 'We are reviewing your subscription access. Refresh shortly or contact support if this continues.';
 }
 
 function planDescription(plan) {
@@ -952,9 +976,9 @@ function renderPortal({ overview, plans, providers, transactions, staff = [] }, 
           </div>
         </div>
         <aside class="account-status-card">
-          <span class="account-badge ${unlocked ? 'success' : 'warning'}">${escapeHtml(subscription?.status || 'checking')}</span>
+          <span class="account-badge ${unlocked ? 'success' : 'warning'}">${escapeHtml(subscriptionStatusLabel(subscription))}</span>
           <h2>${unlocked ? 'Downloads unlocked' : 'Activation required'}</h2>
-          <p>${statusCopy(subscription)}</p>
+          <p>${escapeHtml(statusCopy(subscription))}</p>
           <button class="button button-secondary" type="button" id="account-logout">Sign out</button>
         </aside>
       </div>
@@ -1169,12 +1193,12 @@ function renderPortal({ overview, plans, providers, transactions, staff = [] }, 
             <div class="billing-summary-grid">
               <article>
                 <span>Current status</span>
-                <strong>${escapeHtml(subscription?.status || 'Checking')}</strong>
-                <p>${statusCopy(subscription)}</p>
+                <strong>${escapeHtml(subscriptionStatusLabel(subscription))}</strong>
+                <p>${escapeHtml(statusCopy(subscription))}</p>
               </article>
               <article>
                 <span>Current plan</span>
-                <strong>${escapeHtml(subscription?.plan_name || subscription?.plan_code || (subscription?.activation_required ? 'Activation required' : 'Not selected'))}</strong>
+                <strong>${escapeHtml(subscription?.plan_name || (subscription?.plan_code ? paymentPlanName(subscription.plan_code) : '') || (subscription?.activation_required ? 'Activation required' : 'Not selected'))}</strong>
                 <p>${subscription?.recurring ? 'Renews automatically until cancelled.' : 'No automatic renewal is active.'}</p>
               </article>
               <article>
@@ -1191,7 +1215,7 @@ function renderPortal({ overview, plans, providers, transactions, staff = [] }, 
                   <h3>Payment history</h3>
                   <p>Only payments confirmed by your payment provider are shown here.</p>
                 </div>
-                <span>${confirmedTransactions.length} confirmed ${confirmedTransactions.length === 1 ? 'payment' : 'payments'}</span>
+                <span>${confirmedTransactions.length ? `${confirmedTransactions.length} confirmed ${confirmedTransactions.length === 1 ? 'payment' : 'payments'}` : 'No payments yet'}</span>
               </div>
               ${renderTransactions(confirmedTransactions)}
             </div>
