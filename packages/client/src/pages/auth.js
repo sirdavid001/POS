@@ -2,6 +2,7 @@ import { api } from '../api.js';
 import { saveSubscription } from '../entitlement.js';
 import { toast } from '../utils.js';
 import { hasCompletedPermissionSetup } from '../permissions.js';
+import { attemptSync } from '../sync.js';
 
 const authBrand = `
   <div class="auth-brand">
@@ -60,6 +61,7 @@ export function renderLoginPage() {
       api.setTokens(data.accessToken, data.refreshToken);
       localStorage.setItem('user', JSON.stringify(data.user));
       saveSubscription(data.subscription);
+      await attemptSync();
       toast('Welcome back, ' + data.user.name + '!', 'success');
       window.location.hash = hasCompletedPermissionSetup() ? '#/dashboard' : '#/permissions';
     } catch (err) {

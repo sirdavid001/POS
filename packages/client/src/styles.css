@@ -272,7 +272,7 @@ select.input { appearance: none; cursor: pointer; }
   background: var(--color-surface);
 }
 .offline-status-dot {
-  grid-row: span 2;
+  grid-row: span 3;
   width: 0.65rem;
   height: 0.65rem;
   border-radius: 999px;
@@ -286,6 +286,19 @@ select.input { appearance: none; cursor: pointer; }
   color: var(--color-text-muted);
   font-size: 0.7rem;
 }
+.offline-sync-button {
+  grid-column: 2;
+  width: max-content;
+  margin-top: 0.3rem;
+  padding: 0;
+  border: 0;
+  color: var(--color-primary-light);
+  background: transparent;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.offline-sync-button:hover { text-decoration: underline; }
 .offline-status.offline .offline-status-dot {
   background: var(--color-warning);
   box-shadow: 0 0 0 4px oklch(0.75 0.16 85 / 0.14);
@@ -293,6 +306,20 @@ select.input { appearance: none; cursor: pointer; }
 .offline-status.pending .offline-status-dot {
   background: var(--color-primary-light);
   box-shadow: 0 0 0 4px oklch(0.65 0.18 260 / 0.14);
+}
+.offline-status.attention .offline-status-dot {
+  background: var(--color-danger);
+  box-shadow: 0 0 0 4px oklch(0.6 0.22 25 / 0.14);
+}
+.offline-security-note {
+  margin-bottom: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid oklch(0.55 0.2 260 / 0.25);
+  border-radius: 0.65rem;
+  color: var(--color-text-muted);
+  background: oklch(0.55 0.2 260 / 0.08);
+  font-size: 0.78rem;
+  line-height: 1.5;
 }
 
 .permission-setup {

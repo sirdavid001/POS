@@ -1,7 +1,8 @@
 import { api } from '../api.js';
 import { escapeHTML, icons } from '../utils.js';
 import { getSubscription } from '../entitlement.js';
-import { getOfflineQueueCount } from '../offline.js';
+import { getLastSyncAt, getOfflineQueueCount, getOfflineQueueSummary } from '../offline.js';
+import { attemptSync } from '../sync.js';
 
 const ACCOUNT_PORTAL_URL = 'https://quickpos.com.ng/account#billing';
 
@@ -68,8 +69,12 @@ export function renderLayout(activePage) {
 
   // Logout handler
   document.getElementById('logout-btn').addEventListener('click', async () => {
+    const pending = getOfflineQueueCount();
+    if (pending > 0 && !confirm(`${pending} offline change${pending === 1 ? ' is' : 's are'} still saved on this device. Sign out anyway?`)) {
+      return;
+    }
     try {
-      await api.post('/auth/logout', { refreshToken: api.refreshToken });
+      if (navigator.onLine) await api.post('/auth/logout', { refreshToken: api.refreshToken });
     } catch {}
     api.clearTokens();
     window.location.hash = '#/login';
@@ -106,22 +111,38 @@ export function renderLayout(activePage) {
   renderSubscriptionBanner();
   window.addEventListener('subscription-updated', renderSubscriptionBanner, { once: true });
 
+  let currentSyncState = 'idle';
+
   function renderOfflineStatus() {
     const status = document.getElementById('offline-status');
     if (!status) return;
-    const queued = getOfflineQueueCount();
+    const summary = getOfflineQueueSummary();
+    const queued = summary.count;
     const offline = !navigator.onLine;
-    status.className = `offline-status ${offline ? 'offline' : queued > 0 ? 'pending' : 'online'}`;
+    const syncing = ['checking', 'syncing', 'refreshing', 'retrying'].includes(currentSyncState);
+    const attention = summary.needs_attention > 0 || currentSyncState === 'attention';
+    const stateClass = offline ? 'offline' : attention ? 'attention' : syncing || queued > 0 ? 'pending' : 'online';
+    const lastSync = getLastSyncAt();
+    const lastSyncCopy = lastSync
+      ? `Updated ${new Date(lastSync).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}`
+      : 'Connect once to prepare offline data';
+    status.className = `offline-status ${stateClass}`;
     status.innerHTML = `
       <span class="offline-status-dot"></span>
-      <strong>${offline ? 'Offline mode' : queued > 0 ? 'Sync pending' : 'Online'}</strong>
-      <small>${queued > 0 ? `${queued} saved change${queued === 1 ? '' : 's'}` : 'All changes synced'}</small>
+      <strong>${offline ? 'Working offline' : attention ? 'Sync needs review' : syncing ? 'Syncing…' : queued > 0 ? 'Ready to sync' : 'Online & synced'}</strong>
+      <small>${queued > 0 ? `${queued} change${queued === 1 ? '' : 's'} saved safely` : lastSyncCopy}</small>
+      ${offline ? '' : '<button type="button" class="offline-sync-button" id="sync-now-btn">Sync now</button>'}
     `;
+    document.getElementById('sync-now-btn')?.addEventListener('click', () => attemptSync({ manual: true }));
   }
   renderOfflineStatus();
   window.addEventListener('online', renderOfflineStatus);
   window.addEventListener('offline', renderOfflineStatus);
   window.addEventListener('offline-queue-updated', renderOfflineStatus);
+  window.addEventListener('sync-status-changed', (event) => {
+    currentSyncState = event.detail?.status || 'idle';
+    renderOfflineStatus();
+  });
 
   // Mobile menu + overlay
   const mobileBtn = document.getElementById('mobile-menu-btn');

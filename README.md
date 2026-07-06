@@ -1,6 +1,6 @@
 # QuickPOS
 
-QuickPOS is a full-stack point-of-sale application built as an npm workspace monorepo. It includes a Vite-powered frontend, an Express + PostgreSQL backend, shared workspace code, Docker support, JWT authentication, role-based access, reporting, inventory management, offline order queueing, barcode scanning, and real-time dashboard updates over WebSockets.
+QuickPOS is a full-stack point-of-sale application built as an npm workspace monorepo. It includes a Vite-powered frontend, an Express + PostgreSQL backend, shared workspace code, Docker support, JWT authentication, role-based access, reporting, inventory management, offline-first store operation and synchronization, barcode scanning, and real-time dashboard updates over WebSockets.
 
 ## Features
 
@@ -10,7 +10,7 @@ QuickPOS is a full-stack point-of-sale application built as an npm workspace mon
 - Store-wide sales statements for owners with print, PDF, Excel, and email delivery
 - Sales reporting with dashboard metrics and Chart.js visualizations
 - Barcode support through camera scanning and USB/Bluetooth scanners
-- Offline-friendly frontend with PWA support and queued local sales sync
+- Offline-first frontend with per-user store snapshots, queued sales and management changes, local reporting, and automatic reconnect sync
 - Real-time order updates via WebSockets
 - Paystack payment initialization and verification endpoints
 - Dockerized local environment for PostgreSQL, API, and frontend
@@ -164,6 +164,7 @@ The backend exposes versioned routes under `/api/v1`.
 - `/payments` for payment recording and Paystack flows
 - `/reports` for revenue, sales, top products, and recent order summaries
 - `/settings` for store settings and staff management
+- `/sync/bootstrap` for the authenticated device snapshot used by offline mode
 
 Health checks are available at:
 
@@ -173,7 +174,9 @@ Health checks are available at:
 
 ## Notes
 
-- The frontend stores auth tokens and offline order queues in `localStorage`
+- The frontend stores auth tokens, store-scoped offline snapshots, and per-user sync queues in device `localStorage`
+- Sales, products, categories, customers, stock adjustments, suppliers, store settings, order history, and cached reports remain available after the device has completed an online sync
+- Security-sensitive actions such as staff credential changes, password resets, and statement email delivery still require an internet connection
 - Dashboard updates can refresh in real time when new orders are created
 - The backend can use `DATABASE_URL` directly or derive a connection string from `POSTGRES_*` or `PG*` variables
 - Paystack is wired in; Stripe keys exist in config but Stripe flows are not implemented in this repo yet

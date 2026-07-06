@@ -24,6 +24,7 @@ import jobsRouter from './modules/jobs/router.js';
 import accountRouter from './modules/account/router.js';
 import downloadsRouter from './modules/downloads/router.js';
 import supportRouter from './modules/support/router.js';
+import syncRouter from './modules/sync/router.js';
 import { query } from './config/database.js';
 
 const app = express();
@@ -84,6 +85,7 @@ app.use('/api/v1/jobs', jobsRouter);
 app.use('/api/v1/account', accountRouter);
 app.use('/api/v1/downloads', downloadsRouter);
 app.use('/api/v1/support', supportRouter);
+app.use('/api/v1/sync', syncRouter);
 
 const getHealthPayload = (overrides = {}) => ({
   status: 'ok',

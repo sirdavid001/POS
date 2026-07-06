@@ -1,10 +1,11 @@
 import './styles.css';
 import { registerSW } from 'virtual:pwa-register';
-import { attemptSync } from './sync.js';
+import { attemptSync, refreshOfflineSnapshot } from './sync.js';
 import { router } from './router.js';
 import { checkForAppUpdate } from './updates.js';
 import { api } from './api.js';
 import { canAccessInstalledApp, renderInstallRequiredPage } from './installGate.js';
+import { toast } from './utils.js';
 
 async function startApplication() {
   if (!canAccessInstalledApp()) {
@@ -46,6 +47,7 @@ async function startApplication() {
     } catch {
       // A previously verified entitlement may still permit limited offline use.
     }
+    await attemptSync();
   }
   router.start();
 
@@ -55,17 +57,22 @@ async function startApplication() {
   }
 
   window.addEventListener('online', () => {
-    attemptSync();
+    attemptSync({ manual: false });
     connectWebSocket();
   });
   window.addEventListener('offline', () => {
     clearTimeout(wsReconnectTimer);
     activeWebSocket?.close();
   });
-  document.addEventListener('DOMContentLoaded', attemptSync);
-  setTimeout(attemptSync, 2000); // Trigger a sync briefly after app load
+  window.setInterval(() => {
+    if (navigator.onLine && localStorage.getItem('user')) attemptSync();
+  }, 60_000);
   setTimeout(checkForAppUpdate, 2500);
 }
+
+window.addEventListener('offline-storage-error', (event) => {
+  toast(event.detail?.message || 'Offline storage is unavailable.', 'error', 7000);
+});
 
 // WebSocket connection for real-time updates
 function getWebSocketUrl() {
@@ -97,8 +104,8 @@ function connectWebSocket() {
     ws.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data);
-        const { event: eventName, data } = payload;
         window.dispatchEvent(new CustomEvent('ws-message', { detail: payload }));
+        refreshOfflineSnapshot({ force: true });
       } catch {}
     };
 

@@ -133,7 +133,9 @@ export async function renderInventory() {
       const form = new FormData(e.target);
       try {
         await api.post('/inventory/adjust', {
-          product_id: parseInt(form.get('product_id')),
+          product_id: /^\d+$/.test(form.get('product_id'))
+            ? Number(form.get('product_id'))
+            : form.get('product_id'),
           type: form.get('type'),
           quantity: parseInt(form.get('quantity')),
           reason: form.get('reason') || undefined,

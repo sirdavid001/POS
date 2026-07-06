@@ -2,6 +2,7 @@
 import { clearSubscription, saveSubscription } from './entitlement.js';
 import { resolveApiBase } from '../../shared/src/api.js';
 import {
+  cacheMutationResponse,
   cacheResponse,
   enqueueOfflineRequest,
   getCachedResponse,
@@ -67,6 +68,9 @@ class ApiClient {
     }
 
     let response;
+    if (!navigator.onLine) {
+      return this.handleOfflineRequest(method, path, data, new TypeError('Network unavailable'), options);
+    }
     try {
       response = await fetch(url, config);
     } catch (error) {
@@ -94,6 +98,15 @@ class ApiClient {
     try {
       json = await response.json();
     } catch {
+      if (response.status >= 500) {
+        if (method === 'GET' && isGetCacheable(path)) {
+          const cached = getCachedResponse(path);
+          if (cached) return cached;
+        }
+        if (method !== 'GET' && isWriteQueueable(path) && !options.skipOfflineQueue) {
+          return enqueueOfflineRequest({ method, path, data });
+        }
+      }
       throw new Error(`Server returned an invalid response (HTTP ${response.status}). Please check your connection.`);
     }
 
@@ -102,6 +115,13 @@ class ApiClient {
     }
 
     if (!response.ok) {
+      if (method === 'GET' && response.status >= 500 && isGetCacheable(path)) {
+        const cached = getCachedResponse(path);
+        if (cached) return cached;
+      }
+      if (method !== 'GET' && response.status >= 500 && isWriteQueueable(path) && !options.skipOfflineQueue) {
+        return enqueueOfflineRequest({ method, path, data });
+      }
       if (json.code === 'SUBSCRIPTION_EXPIRED') {
         window.dispatchEvent(new CustomEvent('subscription-expired', { detail: json.subscription }));
       }
@@ -110,6 +130,8 @@ class ApiClient {
 
     if (method === 'GET') {
       cacheResponse(path, json);
+    } else {
+      cacheMutationResponse(method, path, json);
     }
 
     return json;

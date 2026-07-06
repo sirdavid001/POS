@@ -138,7 +138,9 @@ export async function renderSettings() {
   // Staff list
   async function loadStaff() {
     try {
-      const { users: staff } = await api.get('/settings/users');
+      const staffResponse = await api.get('/settings/users');
+      const staff = staffResponse.users;
+      const offlineMode = Boolean(staffResponse.offline);
       const staffList = document.getElementById('staff-list');
 
       if (staff.length === 0) {
@@ -146,7 +148,11 @@ export async function renderSettings() {
         return;
       }
 
-      staffList.innerHTML = staff.map(u => {
+      staffList.innerHTML = `${offlineMode ? `
+        <div class="offline-security-note">
+          Staff accounts are available to review offline. Connect to the internet to change login access or passwords securely.
+        </div>
+      ` : ''}${staff.map(u => {
         const isSelf = u.id === user.id;
         const roleBadge = u.role === 'admin' ? 'badge-info' : u.role === 'manager' ? 'badge-warning' : 'badge-success';
         const roleIcon = u.role === 'admin' ? '👑' : u.role === 'manager' ? '🏢' : '💳';
@@ -182,7 +188,13 @@ export async function renderSettings() {
             </div>
           </div>
         `;
-      }).join('');
+      }).join('')}`;
+
+      if (offlineMode) {
+        document.getElementById('add-staff-btn').disabled = true;
+        staffList.querySelectorAll('button, select').forEach((control) => { control.disabled = true; });
+        return;
+      }
 
       // Event delegation for staff actions
       staffList.querySelectorAll('[data-action="change-role"]').forEach(el => {

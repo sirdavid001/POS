@@ -552,6 +552,26 @@ app.get('/api/v1/products/lookup/:barcode', auth, async (req, res) => {
   }
 });
 
+// ===== Offline Sync Bootstrap =====
+app.get('/api/v1/sync/bootstrap', auth, (req, res) => {
+  const canManage = ['admin', 'manager'].includes(req.user.role);
+  res.json({
+    snapshot: {
+      store,
+      products,
+      categories,
+      customers,
+      suppliers,
+      orders: canManage ? orders.slice(0, 500) : [],
+      logs: canManage ? inventoryLogs.slice(0, 500) : [],
+      users: canManage
+        ? users.map(({ password, ...user }) => user)
+        : [],
+    },
+    synced_at: new Date().toISOString(),
+  });
+});
+
 // ===== Health =====
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 

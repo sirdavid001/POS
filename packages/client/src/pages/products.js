@@ -369,7 +369,9 @@ function showProductModal(product, onSave) {
       cost_price: parseFloat(form.get('cost_price')) || 0,
       stock_quantity: parseInt(form.get('stock_quantity')) || 0,
       low_stock_threshold: parseInt(form.get('low_stock_threshold')) || 10,
-      category_id: form.get('category_id') ? parseInt(form.get('category_id')) : null,
+      category_id: form.get('category_id')
+        ? (/^\d+$/.test(form.get('category_id')) ? Number(form.get('category_id')) : form.get('category_id'))
+        : null,
       description: form.get('description') || undefined,
     };
 
