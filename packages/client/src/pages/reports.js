@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { renderLayout } from './layout.js';
-import { formatCurrency, toast } from '../utils.js';
+import { escapeHTML, formatCurrency, toast } from '../utils.js';
 import { showStoreStatementModal } from './store-statement.js';
 
 export async function renderReports() {
@@ -40,7 +40,7 @@ export async function renderReports() {
         <div class="stat-card"><div class="spinner"></div></div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">
+      <div class="responsive-grid-2">
         <div class="glass-card" style="padding:1.25rem;">
           <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">Sales Breakdown</h3>
           <div id="sales-breakdown"><div class="spinner"></div></div>
@@ -106,7 +106,7 @@ export async function renderReports() {
             <tbody>
               ${salesData.sales.map(s => `
                 <tr>
-                  <td style="font-weight:600;">${s.period}</td>
+                  <td style="font-weight:600;">${escapeHTML(s.period)}</td>
                   <td>${s.total_orders}</td>
                   <td style="color:var(--color-accent);">${formatCurrency(s.revenue)}</td>
                   <td>${formatCurrency(s.avg_order_value)}</td>
@@ -124,7 +124,7 @@ export async function renderReports() {
         document.getElementById('report-top-products').innerHTML = topProducts.products.map((p, i) => `
           <div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;border-bottom:1px solid var(--color-border);">
             <span class="badge badge-info" style="min-width:30px;justify-content:center;">#${i + 1}</span>
-            <span style="flex:1;font-size:0.85rem;">${p.product_name}</span>
+            <span style="flex:1;font-size:0.85rem;">${escapeHTML(p.product_name)}</span>
             <span style="font-size:0.8rem;color:var(--color-text-muted);">${p.total_quantity} sold</span>
             <span style="font-weight:700;font-size:0.85rem;">${formatCurrency(p.total_revenue)}</span>
           </div>

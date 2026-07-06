@@ -5,9 +5,11 @@ import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import { createServer } from 'http';
+import { WebSocket, WebSocketServer } from 'ws';
 
 const app = express();
 const server = createServer(app);
+const wss = new WebSocketServer({ server, path: '/ws' });
 const PORT = 3001;
 const JWT_SECRET = 'demo-secret';
 
@@ -82,6 +84,13 @@ const suppliers = [
 let orderIdCounter = 1;
 const orders = [];
 const inventoryLogs = [];
+
+function broadcast(event, data) {
+  const message = JSON.stringify({ event, data });
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) client.send(message);
+  });
+}
 
 function generateOrderNumber() {
   const ts = Date.now().toString(36).toUpperCase();
@@ -205,8 +214,25 @@ app.post('/api/v1/categories', auth, (req, res) => {
 
 // ===== Orders =====
 app.post('/api/v1/orders', auth, (req, res) => {
-  const { items, payment_method, customer_id, discount_amount = 0 } = req.body;
+  const {
+    items,
+    payment_method = 'cash',
+    payment_reference,
+    customer_id,
+    discount_amount = 0,
+    client_order_id,
+  } = req.body;
   if (!items?.length) return res.status(400).json({ error: 'Order must have items' });
+  if (!['cash', 'card', 'transfer'].includes(payment_method)) {
+    return res.status(400).json({ error: 'Unsupported payment method' });
+  }
+  if (payment_method !== 'cash' && !payment_reference?.trim()) {
+    return res.status(400).json({ error: 'A payment reference is required for card and transfer sales' });
+  }
+  const existingOrder = client_order_id
+    ? orders.find((order) => order.client_order_id === client_order_id)
+    : null;
+  if (existingOrder) return res.json({ order: existingOrder, idempotent: true });
 
   let subtotal = 0;
   const orderItems = [];
@@ -231,12 +257,14 @@ app.post('/api/v1/orders', auth, (req, res) => {
     id: orderIdCounter++, store_id: 1, user_id: req.user.id, customer_id: customer_id || null,
     order_number: orderNumber, subtotal: subtotal.toFixed(2), tax_amount: taxAmount.toFixed(2),
     discount_amount: discount_amount.toFixed(2), total: total.toFixed(2), status: 'completed',
-    payment_method: payment_method || 'cash', cashier_name: req.user.name,
+    payment_method, payment_reference: payment_reference || null, client_order_id: client_order_id || null,
+    cashier_name: req.user.name,
     customer_name: customers.find(c => c.id == customer_id)?.name || null,
     paid_at: new Date().toISOString(), created_at: new Date().toISOString(), items: orderItems,
   };
 
   orders.unshift(order);
+  broadcast('NEW_ORDER', { order_number: order.order_number, total: order.total, cashier_id: req.user.id });
   res.status(201).json({ order });
 });
 

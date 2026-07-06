@@ -99,6 +99,8 @@ function createOfflineOrder(data) {
   });
   const subtotal = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
   const discount = Number(data.discount_amount || 0);
+  const store = getBestCachedStore();
+  const taxAmount = subtotal * (Number(store.tax_rate || 0) / 100);
   const order = {
     id: tempId(),
     offline: true,
@@ -107,9 +109,9 @@ function createOfflineOrder(data) {
     customer_id: data.customer_id || null,
     payment_method: data.payment_method || 'cash',
     subtotal,
-    tax_amount: 0,
+    tax_amount: taxAmount,
     discount_amount: discount,
-    total: subtotal - discount,
+    total: subtotal + taxAmount - discount,
     status: 'completed',
     items,
   };
@@ -117,6 +119,13 @@ function createOfflineOrder(data) {
   updateProductStockForOrder(data.items || []);
   addOrderToCachedLists(order);
   return { order, offline: true, queued: true };
+}
+
+function getBestCachedStore() {
+  const entry = getCachedEntries()
+    .filter((item) => item.path.startsWith('/settings/store') && item.data?.store)
+    .sort((a, b) => new Date(b.cached_at || 0) - new Date(a.cached_at || 0))[0];
+  return entry?.data?.store || {};
 }
 
 function getBestCachedProducts() {
@@ -360,6 +369,14 @@ export function enqueueOfflineRequest({ method, path, data }) {
 
 export function removeOfflineQueueItem(id) {
   const queue = getOfflineQueue().filter((item) => item.id !== id);
+  storageSet(QUEUE_KEY, queue);
+  window.dispatchEvent(new CustomEvent('offline-queue-updated', { detail: { count: queue.length } }));
+}
+
+export function updateOfflineQueueItem(id, changes) {
+  const queue = getOfflineQueue().map((item) => (
+    item.id === id ? { ...item, ...changes } : item
+  ));
   storageSet(QUEUE_KEY, queue);
   window.dispatchEvent(new CustomEvent('offline-queue-updated', { detail: { count: queue.length } }));
 }

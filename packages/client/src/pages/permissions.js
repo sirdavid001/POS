@@ -1,5 +1,4 @@
 import { completePermissionSetup } from '../permissions.js';
-import { renderLayout } from './layout.js';
 import { toast } from '../utils.js';
 
 function permissionStatusLabel(state) {
@@ -51,7 +50,9 @@ function localStorageAvailable() {
 }
 
 export async function renderPermissionsPage() {
-  const content = renderLayout('permissions');
+  const app = document.getElementById('app');
+  app.innerHTML = '<main class="permission-page"><div id="page-content"></div></main>';
+  const content = document.getElementById('page-content');
   const cameraState = await queryCameraPermission();
   const storageReady = localStorageAvailable();
 
@@ -60,7 +61,7 @@ export async function renderPermissionsPage() {
       <div class="permission-setup-header">
         <span class="badge badge-info">Device setup</span>
         <h2>Allow QuickPOS permissions</h2>
-        <p>Set up this device before using the POS. Camera access is needed for barcode scanning, while local storage keeps offline sales safe until sync.</p>
+        <p>Set up this device before using the POS. Camera access is optional for barcode scanning, while local storage keeps offline sales safe until sync.</p>
       </div>
 
       <div class="permission-grid">
@@ -114,7 +115,6 @@ export async function renderPermissionsPage() {
 
       <div class="permission-actions">
         <button class="btn btn-primary btn-lg" type="button" id="finish-permission-setup" ${storageReady ? '' : 'disabled'}>Continue to QuickPOS</button>
-        <button class="btn btn-ghost btn-lg" type="button" id="skip-camera-setup">Continue without camera</button>
       </div>
     </div>
   `;
@@ -150,8 +150,4 @@ export async function renderPermissionsPage() {
   }
 
   document.getElementById('finish-permission-setup').addEventListener('click', finishSetup);
-  document.getElementById('skip-camera-setup').addEventListener('click', () => {
-    toast('Camera setup skipped. You can still use USB scanners.', 'info');
-    finishSetup();
-  });
 }

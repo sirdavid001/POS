@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { renderLayout } from './layout.js';
-import { formatCurrency, formatDateTime, toast, downloadCSV } from '../utils.js';
+import { escapeAttribute, escapeHTML, formatCurrency, formatDateTime, toast, downloadCSV } from '../utils.js';
 
 let currentOrdersData = [];
 
@@ -31,7 +31,7 @@ export async function renderOrders() {
         </select>
         <button class="btn btn-ghost btn-sm" id="export-orders-csv">⬇️ Export CSV</button>
       </div>
-      <div class="glass-card table-scroll-wrapper" style="overflow:hidden;">
+      <div class="glass-card table-scroll-wrapper">
         <table class="data-table">
           <thead><tr><th>Order #</th><th>Cashier</th><th>Customer</th><th>Total</th><th>Payment</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
           <tbody id="orders-tbody">
@@ -58,14 +58,14 @@ export async function renderOrders() {
 
       tbody.innerHTML = data.orders.map(o => `
         <tr>
-          <td style="font-weight:600;">${o.order_number}</td>
-          <td>${o.cashier_name || '-'}</td>
-          <td>${o.customer_name || 'Walk-in'}</td>
+          <td style="font-weight:600;">${escapeHTML(o.order_number)}</td>
+          <td>${escapeHTML(o.cashier_name || '-')}</td>
+          <td>${escapeHTML(o.customer_name || 'Walk-in')}</td>
           <td style="font-weight:600;">${formatCurrency(o.total)}</td>
           <td><span class="badge badge-info">${(o.payment_method || 'cash').toUpperCase()}</span></td>
-          <td><span class="badge badge-${o.status === 'completed' ? 'success' : o.status === 'cancelled' ? 'danger' : 'warning'}">${o.status}</span></td>
+          <td><span class="badge badge-${o.status === 'completed' ? 'success' : o.status === 'cancelled' ? 'danger' : 'warning'}">${escapeHTML(o.status)}</span></td>
           <td style="font-size:0.8rem;color:var(--color-text-muted);">${formatDateTime(o.created_at)}</td>
-          <td><button class="btn btn-ghost btn-sm view-order" data-id="${o.id}">View</button></td>
+          <td><button class="btn btn-ghost btn-sm view-order" data-id="${escapeAttribute(o.id)}">View</button></td>
         </tr>
       `).join('');
 
@@ -103,13 +103,14 @@ function showOrderDetail(order) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
-    <div class="modal" style="max-width:500px;">
-      <h3 style="font-weight:700;margin-bottom:1rem;">Order ${order.order_number}</h3>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="order-modal-title" style="max-width:500px;">
+      <h3 id="order-modal-title" style="font-weight:700;margin-bottom:1rem;">Order ${escapeHTML(order.order_number)}</h3>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;font-size:0.85rem;margin-bottom:1rem;">
-        <div><span style="color:var(--color-text-muted);">Cashier:</span> ${order.cashier_name || '-'}</div>
-        <div><span style="color:var(--color-text-muted);">Customer:</span> ${order.customer_name || 'Walk-in'}</div>
-        <div><span style="color:var(--color-text-muted);">Payment:</span> ${(order.payment_method || '').toUpperCase()}</div>
-        <div><span style="color:var(--color-text-muted);">Status:</span> <span class="badge badge-${order.status === 'completed' ? 'success' : 'warning'}">${order.status}</span></div>
+        <div><span style="color:var(--color-text-muted);">Cashier:</span> ${escapeHTML(order.cashier_name || '-')}</div>
+        <div><span style="color:var(--color-text-muted);">Customer:</span> ${escapeHTML(order.customer_name || 'Walk-in')}</div>
+        <div><span style="color:var(--color-text-muted);">Payment:</span> ${escapeHTML((order.payment_method || '').toUpperCase())}</div>
+        ${order.payments?.[0]?.reference ? `<div><span style="color:var(--color-text-muted);">Reference:</span> ${escapeHTML(order.payments[0].reference)}</div>` : ''}
+        <div><span style="color:var(--color-text-muted);">Status:</span> <span class="badge badge-${order.status === 'completed' ? 'success' : 'warning'}">${escapeHTML(order.status)}</span></div>
         <div style="grid-column:1/-1;"><span style="color:var(--color-text-muted);">Date:</span> ${formatDateTime(order.created_at)}</div>
       </div>
       <table class="data-table" style="margin-bottom:1rem;">
@@ -117,7 +118,7 @@ function showOrderDetail(order) {
         <tbody>
           ${(order.items || []).map(i => `
             <tr>
-              <td>${i.product_name}</td>
+              <td>${escapeHTML(i.product_name)}</td>
               <td>${i.quantity}</td>
               <td>${formatCurrency(i.unit_price)}</td>
               <td style="font-weight:600;">${formatCurrency(i.total)}</td>
@@ -131,9 +132,10 @@ function showOrderDetail(order) {
         <div>Discount: -${formatCurrency(order.discount_amount)}</div>
         <div style="font-weight:800;font-size:1.1rem;margin-top:0.5rem;">Total: ${formatCurrency(order.total)}</div>
       </div>
-      <button class="btn btn-ghost" style="width:100%;margin-top:1rem;" onclick="this.closest('.modal-overlay').remove()">Close</button>
+      <button class="btn btn-ghost" id="close-order-detail" type="button" style="width:100%;margin-top:1rem;">Close</button>
     </div>
   `;
   document.body.appendChild(overlay);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.querySelector('#close-order-detail').addEventListener('click', () => overlay.remove());
 }

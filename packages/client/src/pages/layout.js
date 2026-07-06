@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { icons } from '../utils.js';
+import { escapeHTML, icons } from '../utils.js';
 import { getSubscription } from '../entitlement.js';
 import { getOfflineQueueCount } from '../offline.js';
 
@@ -26,7 +26,7 @@ export function renderLayout(activePage) {
   app.innerHTML = `
     <div class="app-layout">
       <!-- Mobile menu button -->
-      <button id="mobile-menu-btn" class="btn btn-ghost" style="position:fixed;top:0.75rem;left:0.75rem;z-index:60;padding:0.5rem;">
+      <button id="mobile-menu-btn" class="btn btn-ghost" type="button" aria-label="Open navigation menu" aria-expanded="false" style="position:fixed;top:0.75rem;left:0.75rem;z-index:60;padding:0.5rem;">
         ${icons.menu}
       </button>
 
@@ -36,11 +36,11 @@ export function renderLayout(activePage) {
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-logo">
           <div class="app-brand"><img src="./brand/quickpos-mark.svg" alt="" width="36" height="36"><span>QuickPOS</span></div>
-          <p>${user.name || 'User'} · ${(user.role || 'cashier').charAt(0).toUpperCase() + (user.role || '').slice(1)}</p>
+          <p>${escapeHTML(user.name || 'User')} · ${escapeHTML((user.role || 'cashier').charAt(0).toUpperCase() + (user.role || '').slice(1))}</p>
         </div>
         <nav class="sidebar-nav">
           ${visibleNav.map(item => `
-            <a href="${item.hash}" class="nav-item ${activePage === item.id ? 'active' : ''}" data-page="${item.id}">
+            <a href="${item.hash}" class="nav-item ${activePage === item.id ? 'active' : ''}" data-page="${item.id}" ${activePage === item.id ? 'aria-current="page"' : ''}>
               ${item.icon}
               <span>${item.label}</span>
             </a>
@@ -131,11 +131,15 @@ export function renderLayout(activePage) {
   function openSidebar() {
     sidebar.classList.add('open');
     overlay.classList.add('active');
+    mobileBtn.setAttribute('aria-expanded', 'true');
+    mobileBtn.setAttribute('aria-label', 'Close navigation menu');
   }
 
   function closeSidebar() {
     sidebar.classList.remove('open');
     overlay.classList.remove('active');
+    mobileBtn.setAttribute('aria-expanded', 'false');
+    mobileBtn.setAttribute('aria-label', 'Open navigation menu');
   }
 
   mobileBtn.addEventListener('click', () => {

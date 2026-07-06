@@ -4,6 +4,8 @@ import { authenticate, authorize } from '../../middleware/auth.js';
 import { requireActiveSubscription } from '../../middleware/subscription.js';
 import logger from '../../config/logger.js';
 import { broadcast } from '../../app.js';
+import { validate } from '../../middleware/validate.js';
+import { createOrderSchema } from './schema.js';
 
 const router = Router();
 router.use(authenticate);
@@ -17,14 +19,64 @@ function generateOrderNumber() {
 }
 
 // POST create order (checkout)
-router.post('/', async (req, res, next) => {
+router.post('/', validate(createOrderSchema), async (req, res, next) => {
   const client = await getClient();
   try {
     await client.query('BEGIN');
-    const { items, customer_id, payment_method, discount_amount = 0, notes } = req.body;
+    const {
+      items,
+      customer_id,
+      payment_method = 'cash',
+      payment_reference,
+      discount_amount = 0,
+      notes,
+      client_order_id,
+    } = req.body;
 
-    if (!items || items.length === 0) {
+    if (!Array.isArray(items) || items.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Order must have at least one item' });
+    }
+    if (!['cash', 'card', 'transfer'].includes(payment_method)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Unsupported payment method' });
+    }
+    if (payment_method !== 'cash' && !payment_reference?.trim()) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'A payment reference is required for card and transfer sales' });
+    }
+    if (!items.every((item) => Number.isInteger(Number(item.quantity)) && Number(item.quantity) > 0)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Every order item must have a positive whole-number quantity' });
+    }
+
+    if (client_order_id) {
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        `${req.user.store_id}:${client_order_id}`,
+      ]);
+      const existingOrder = await client.query(
+        'SELECT * FROM orders WHERE store_id = $1 AND client_order_id = $2',
+        [req.user.store_id, client_order_id]
+      );
+      if (existingOrder.rows[0]) {
+        const existingItems = await client.query(
+          'SELECT * FROM order_items WHERE order_id = $1 ORDER BY id',
+          [existingOrder.rows[0].id]
+        );
+        const existingPayment = await client.query(
+          'SELECT reference FROM payments WHERE order_id = $1 ORDER BY id DESC LIMIT 1',
+          [existingOrder.rows[0].id]
+        );
+        await client.query('COMMIT');
+        return res.json({
+          order: {
+            ...existingOrder.rows[0],
+            items: existingItems.rows,
+            payment_reference: existingPayment.rows[0]?.reference || null,
+          },
+          idempotent: true,
+        });
+      }
     }
 
     // Get store tax rate
@@ -37,7 +89,10 @@ router.post('/', async (req, res, next) => {
     // Validate items and calculate totals
     for (const item of items) {
       const productResult = await client.query(
-        'SELECT id, name, price, stock_quantity FROM products WHERE id = $1 AND store_id = $2 AND is_active = true',
+        `SELECT id, name, price, stock_quantity
+         FROM products
+         WHERE id = $1 AND store_id = $2 AND is_active = true
+         FOR UPDATE`,
         [item.product_id, req.user.store_id]
       );
 
@@ -55,7 +110,7 @@ router.post('/', async (req, res, next) => {
         });
       }
 
-      const itemDiscount = item.discount || 0;
+      const itemDiscount = Math.max(0, Number(item.discount || 0));
       const itemTotal = (parseFloat(product.price) * item.quantity) - itemDiscount;
       subtotal += itemTotal;
 
@@ -82,15 +137,23 @@ router.post('/', async (req, res, next) => {
       );
     }
 
+    const orderDiscount = Math.max(0, Number(discount_amount || 0));
     const taxAmount = subtotal * (taxRate / 100);
-    const total = subtotal + taxAmount - discount_amount;
+    const total = subtotal + taxAmount - orderDiscount;
+    if (total < 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Discount cannot exceed the order amount' });
+    }
     const orderNumber = generateOrderNumber();
 
     // Create order
     const orderResult = await client.query(
-      `INSERT INTO orders (store_id, user_id, customer_id, order_number, subtotal, tax_amount, discount_amount, total, status, payment_method, notes, paid_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'completed',$9,$10,NOW()) RETURNING *`,
-      [req.user.store_id, req.user.id, customer_id || null, orderNumber, subtotal, taxAmount, discount_amount, total, payment_method || 'cash', notes || null]
+      `INSERT INTO orders
+       (store_id, user_id, customer_id, order_number, subtotal, tax_amount, discount_amount,
+        total, status, payment_method, notes, paid_at, client_order_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'completed',$9,$10,NOW(),$11) RETURNING *`,
+      [req.user.store_id, req.user.id, customer_id || null, orderNumber, subtotal, taxAmount,
+       orderDiscount, total, payment_method, notes || null, client_order_id || null]
     );
 
     const order = orderResult.rows[0];
@@ -106,9 +169,10 @@ router.post('/', async (req, res, next) => {
 
     // Record payment
     await client.query(
-      `INSERT INTO payments (order_id, store_id, amount, method, provider, status)
-       VALUES ($1,$2,$3,$4,$5,'success')`,
-      [order.id, req.user.store_id, total, payment_method || 'cash', payment_method === 'card' ? 'paystack' : 'cash']
+      `INSERT INTO payments (order_id, store_id, amount, method, provider, reference, status)
+       VALUES ($1,$2,$3,$4,$5,$6,'success')`,
+      [order.id, req.user.store_id, total, payment_method,
+       payment_method === 'cash' ? 'cash' : 'manual', payment_reference?.trim() || null]
     );
 
     // Audit log
@@ -129,7 +193,7 @@ router.post('/', async (req, res, next) => {
     });
 
     res.status(201).json({
-      order: { ...order, items: orderItems },
+      order: { ...order, items: orderItems, payment_reference: payment_reference?.trim() || null },
     });
   } catch (err) {
     await client.query('ROLLBACK');

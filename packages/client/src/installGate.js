@@ -14,9 +14,14 @@ function isNativeAppShell() {
   );
 }
 
+function isInstalledWebApp() {
+  return window.matchMedia?.('(display-mode: standalone)').matches === true
+    || window.navigator.standalone === true;
+}
+
 export function canAccessInstalledApp() {
   if (import.meta.env.DEV) return true;
-  return isNativeAppShell();
+  return isNativeAppShell() || isInstalledWebApp();
 }
 
 export function renderInstallRequiredPage() {

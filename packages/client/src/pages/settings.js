@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { renderLayout } from './layout.js';
-import { toast } from '../utils.js';
+import { escapeAttribute, escapeHTML, toast } from '../utils.js';
 
 export async function renderSettings() {
   const content = renderLayout('settings');
@@ -21,27 +21,13 @@ export async function renderSettings() {
             <div class="form-group"><label class="label">Address</label><input class="input" name="address" id="s-address"></div>
             <div class="form-group"><label class="label">Phone</label><input class="input" name="phone" id="s-phone"></div>
             <div class="form-group"><label class="label">Email</label><input class="input" type="email" name="email" id="s-email"></div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+            <div class="form-grid-2">
               <div class="form-group"><label class="label">Tax Rate (%)</label><input class="input" type="number" step="0.01" name="tax_rate" id="s-tax"></div>
               <div class="form-group"><label class="label">Currency</label><input class="input" name="currency" id="s-currency"></div>
             </div>
             <div class="form-group"><label class="label">Receipt Header</label><textarea class="input" name="receipt_header" id="s-rh" rows="2" style="resize:vertical;"></textarea></div>
             <div class="form-group"><label class="label">Receipt Footer</label><textarea class="input" name="receipt_footer" id="s-rf" rows="2" style="resize:vertical;"></textarea></div>
             <button type="submit" class="btn btn-primary" style="width:100%;">Save Settings</button>
-          </form>
-        </div>
-        ` : ''}
-
-        ${isAdmin || isManager ? `
-        <div class="glass-card" style="padding:1.5rem;align-self:start;">
-          <h3 style="font-size:1rem;font-weight:700;margin-bottom:1.25rem;">🛡️ Security Settings</h3>
-          <form id="security-form">
-            <div class="form-group">
-              <label class="label">Checkout Override PIN</label>
-              <input class="input" type="password" id="s-manager-pin" placeholder="Enter 4-digit PIN" maxlength="4" style="letter-spacing:0.5rem;font-size:1.2rem;max-width:180px;">
-              <p style="font-size:0.75rem;color:var(--color-text-muted);margin-top:0.4rem;line-height:1.4;">This PIN is required to authorize voided carts or high-risk actions by cashiers. It is saved locally to this specific terminal.</p>
-            </div>
-            <button type="submit" class="btn btn-primary" style="width:100%;margin-top:1rem;">Save Security PIN</button>
           </form>
         </div>
         ` : ''}
@@ -80,11 +66,11 @@ export async function renderSettings() {
             <tbody>
               <tr><td>Dashboard</td>${isAdmin ? '<td style="text-align:center;">✅</td>' : ''}<td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
               <tr><td>POS Terminal</td>${isAdmin ? '<td style="text-align:center;">✅</td>' : ''}<td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
-              <tr><td>Products (CRUD)</td>${isAdmin ? '<td style="text-align:center;">✅</td>' : ''}<td style="text-align:center;">✅</td><td style="text-align:center;">View only</td></tr>
+              <tr><td>Products (CRUD)</td>${isAdmin ? '<td style="text-align:center;">✅</td>' : ''}<td style="text-align:center;">✅</td><td style="text-align:center;">❌</td></tr>
               <tr><td>Inventory</td>${isAdmin ? '<td style="text-align:center;">✅</td>' : ''}<td style="text-align:center;">✅</td><td style="text-align:center;">❌</td></tr>
               <tr><td>Customers</td>${isAdmin ? '<td style="text-align:center;">✅ Full</td>' : ''}<td style="text-align:center;">✅ No delete</td><td style="text-align:center;">View + Add</td></tr>
-              <tr><td>Orders</td>${isAdmin ? '<td style="text-align:center;">✅ + Refund</td>' : ''}<td style="text-align:center;">✅ All orders</td><td style="text-align:center;">POS receipts only</td></tr>
-              <tr><td>Reports</td>${isAdmin ? '<td style="text-align:center;">✅ + Export</td>' : ''}<td style="text-align:center;">✅ View only</td><td style="text-align:center;">❌</td></tr>
+              <tr><td>Orders</td>${isAdmin ? '<td style="text-align:center;">✅ All orders</td>' : ''}<td style="text-align:center;">✅ All orders</td><td style="text-align:center;">POS receipts only</td></tr>
+              <tr><td>Reports</td>${isAdmin ? '<td style="text-align:center;">✅ + Export</td>' : ''}<td style="text-align:center;">✅ + Export</td><td style="text-align:center;">❌</td></tr>
               <tr><td>Store Settings</td>${isAdmin ? '<td style="text-align:center;">✅</td>' : ''}<td style="text-align:center;">❌</td><td style="text-align:center;">❌</td></tr>
               <tr><td>Staff Management</td>${isAdmin ? '<td style="text-align:center;">✅ All roles</td>' : ''}<td style="text-align:center;">Cashiers only</td><td style="text-align:center;">❌</td></tr>
             </tbody>
@@ -149,23 +135,6 @@ export async function renderSettings() {
     });
   }
 
-  if (isAdmin || isManager) {
-    const savedPin = localStorage.getItem('quickpos_manager_pin') || '';
-    const pinInput = document.getElementById('s-manager-pin');
-    if (pinInput && savedPin) pinInput.value = savedPin;
-
-    const secForm = document.getElementById('security-form');
-    if (secForm) {
-      secForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const pin = document.getElementById('s-manager-pin').value.trim();
-        if (pin.length < 4) return toast('PIN should be at least 4 characters', 'error');
-        localStorage.setItem('quickpos_manager_pin', pin);
-        toast('Security PIN saved securely to this terminal', 'success');
-      });
-    }
-  }
-
   // Staff list
   async function loadStaff() {
     try {
@@ -192,24 +161,24 @@ export async function renderSettings() {
             <div style="display:flex;align-items:center;gap:0.75rem;">
               <div style="width:36px;height:36px;border-radius:50%;background:var(--color-surface-3);display:flex;align-items:center;justify-content:center;font-size:1rem;">${roleIcon}</div>
               <div>
-                <div style="font-weight:600;font-size:0.9rem;">${u.name} ${isSelf ? '<span style="font-size:0.7rem;color:var(--color-primary);">(You)</span>' : ''}</div>
-                <div style="font-size:0.75rem;color:var(--color-text-muted);">${u.email}</div>
-                ${u.created_by ? `<div style="font-size:0.7rem;color:var(--color-text-muted);margin-top:0.15rem;">Created by ${u.created_by}</div>` : ''}
+                <div style="font-weight:600;font-size:0.9rem;">${escapeHTML(u.name)} ${isSelf ? '<span style="font-size:0.7rem;color:var(--color-primary);">(You)</span>' : ''}</div>
+                <div style="font-size:0.75rem;color:var(--color-text-muted);">${escapeHTML(u.email)}</div>
+                ${u.created_by ? `<div style="font-size:0.7rem;color:var(--color-text-muted);margin-top:0.15rem;">Created by ${escapeHTML(u.created_by)}</div>` : ''}
               </div>
             </div>
             <div style="display:flex;align-items:center;gap:0.5rem;">
               ${canChangeRole ? `
-                <select class="input" style="width:auto;padding:0.3rem 0.5rem;font-size:0.75rem;" data-user-id="${u.id}" data-action="change-role">
+                <select class="input" style="width:auto;padding:0.3rem 0.5rem;font-size:0.75rem;" data-user-id="${escapeAttribute(u.id)}" data-action="change-role">
                   <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
                   <option value="manager" ${u.role === 'manager' ? 'selected' : ''}>Manager</option>
                   <option value="cashier" ${u.role === 'cashier' ? 'selected' : ''}>Cashier</option>
                 </select>
               ` : `
-                <span class="badge ${roleBadge}">${u.role}</span>
+                <span class="badge ${roleBadge}">${escapeHTML(u.role)}</span>
               `}
-              <span class="badge ${u.is_active ? 'badge-success' : 'badge-danger'}" style="cursor:${canToggle ? 'pointer' : 'default'};" ${canToggle ? `data-user-id="${u.id}" data-action="toggle-active" data-active="${u.is_active}"` : ''}>${u.is_active ? 'Active' : 'Inactive'}</span>
-              ${canEdit ? `<button class="btn btn-ghost btn-sm" data-user-id="${u.id}" data-user-name="${u.name}" data-user-email="${u.email}" data-action="edit-staff" style="padding:0.25rem 0.5rem;font-size:0.75rem;" title="Edit credentials">✏️</button>` : ''}
-              ${canDelete ? `<button class="btn btn-ghost btn-sm" data-user-id="${u.id}" data-action="delete" style="color:var(--color-danger);padding:0.25rem 0.5rem;font-size:0.75rem;">×</button>` : ''}
+              <button type="button" class="badge ${u.is_active ? 'badge-success' : 'badge-danger'} staff-status" style="cursor:${canToggle ? 'pointer' : 'default'};" ${canToggle ? `data-user-id="${escapeAttribute(u.id)}" data-action="toggle-active" data-active="${u.is_active}"` : 'disabled'}>${u.is_active ? 'Active' : 'Inactive'}</button>
+              ${canEdit ? `<button class="btn btn-ghost btn-sm" data-user-id="${escapeAttribute(u.id)}" data-user-name="${escapeAttribute(u.name)}" data-user-email="${escapeAttribute(u.email)}" data-action="edit-staff" style="padding:0.25rem 0.5rem;font-size:0.75rem;" aria-label="Edit ${escapeAttribute(u.name)} credentials">✏️</button>` : ''}
+              ${canDelete ? `<button class="btn btn-ghost btn-sm" data-user-id="${escapeAttribute(u.id)}" data-action="delete" style="color:var(--color-danger);padding:0.25rem 0.5rem;font-size:0.75rem;" aria-label="Archive ${escapeAttribute(u.name)}">×</button>` : ''}
             </div>
           </div>
         `;
@@ -269,17 +238,17 @@ export async function renderSettings() {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
-      <div class="modal" style="max-width:420px;">
-        <h3 style="font-weight:700;margin-bottom:0.5rem;">Edit Staff Credentials</h3>
-        <p style="font-size:0.8rem;color:var(--color-text-muted);margin-bottom:1.25rem;">Update login details for <strong>${currentName}</strong></p>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="edit-staff-title" style="max-width:420px;">
+        <h3 id="edit-staff-title" style="font-weight:700;margin-bottom:0.5rem;">Edit Staff Credentials</h3>
+        <p style="font-size:0.8rem;color:var(--color-text-muted);margin-bottom:1.25rem;">Update login details for <strong>${escapeHTML(currentName)}</strong></p>
         <form id="edit-staff-form">
           <div class="form-group">
             <label class="label">Full Name</label>
-            <input class="input" name="name" value="${currentName}" placeholder="Full name">
+            <input class="input" name="name" value="${escapeAttribute(currentName)}" placeholder="Full name">
           </div>
           <div class="form-group">
             <label class="label">Email</label>
-            <input class="input" type="email" name="email" value="${currentEmail}" placeholder="Email address">
+            <input class="input" type="email" name="email" value="${escapeAttribute(currentEmail)}" placeholder="Email address">
           </div>
           <div class="form-group">
             <label class="label">New Password</label>
@@ -336,8 +305,8 @@ export async function renderSettings() {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
-      <div class="modal" style="max-width:420px;">
-        <h3 style="font-weight:700;margin-bottom:1.25rem;">Add Staff Member</h3>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="add-staff-title" style="max-width:420px;">
+        <h3 id="add-staff-title" style="font-weight:700;margin-bottom:1.25rem;">Add Staff Member</h3>
         <form id="staff-form">
           <div class="form-group">
             <label class="label">Full Name *</label>

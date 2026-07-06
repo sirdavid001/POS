@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { renderLayout } from './layout.js';
-import { formatCurrency, formatDateTime, icons } from '../utils.js';
+import { escapeHTML, formatCurrency, formatDateTime, icons } from '../utils.js';
 import Chart from 'chart.js/auto';
 
 if (!window._wsDashboardMounted) {
@@ -43,7 +43,7 @@ function renderLowStockAlert(products, { canManageInventory = false } = {}) {
         return `
           <div class="stock-alert-item">
             <div class="stock-alert-product">
-              <strong>${product.name}</strong>
+              <strong>${escapeHTML(product.name)}</strong>
               <span>Reorder level: ${product.low_stock_threshold}</span>
             </div>
             <div class="stock-alert-level ${isOutOfStock ? 'is-empty' : ''}">
@@ -225,9 +225,9 @@ async function renderManagerDashboard() {
           <tbody>
             ${recentOrders.orders.map(o => `
               <tr>
-                <td style="font-weight:600;">${o.order_number}</td>
+                <td style="font-weight:600;">${escapeHTML(o.order_number)}</td>
                 <td>${formatCurrency(o.total)}</td>
-                <td>${o.cashier || '-'}</td>
+                <td>${escapeHTML(o.cashier || '-')}</td>
                 <td style="font-size:0.8rem;color:var(--color-text-muted);">${formatDateTime(o.created_at)}</td>
               </tr>
             `).join('')}
@@ -246,7 +246,7 @@ async function renderManagerDashboard() {
           <tbody>
             ${topProducts.products.map((p, i) => `
               <tr>
-                <td><span class="badge badge-info" style="margin-right:0.5rem;">#${i + 1}</span> ${p.product_name}</td>
+                <td><span class="badge badge-info" style="margin-right:0.5rem;">#${i + 1}</span> ${escapeHTML(p.product_name)}</td>
                 <td>${p.total_quantity}</td>
                 <td>${formatCurrency(p.total_revenue)}</td>
               </tr>
@@ -258,7 +258,7 @@ async function renderManagerDashboard() {
 
     renderLowStockAlert(lowStock.products, { canManageInventory: true });
   } catch (err) {
-    content.innerHTML = `<div class="empty-state"><p>Failed to load dashboard: ${err.message}</p></div>`;
+    content.innerHTML = `<div class="empty-state"><p>Failed to load dashboard: ${escapeHTML(err.message)}</p></div>`;
   }
 }
 
@@ -349,6 +349,6 @@ async function renderCashierDashboard() {
 
     renderLowStockAlert(lowStock.products);
   } catch (err) {
-    content.innerHTML = `<div class="empty-state"><p>Failed to load dashboard: ${err.message}</p></div>`;
+    content.innerHTML = `<div class="empty-state"><p>Failed to load dashboard: ${escapeHTML(err.message)}</p></div>`;
   }
 }

@@ -6,6 +6,8 @@ function ensureContainer() {
   if (!container) {
     container = document.createElement('div');
     container.className = 'toast-container';
+    container.setAttribute('aria-live', 'polite');
+    container.setAttribute('aria-atomic', 'false');
     document.body.appendChild(container);
   }
 }
@@ -14,6 +16,7 @@ export function toast(message, type = 'info', duration = 3000) {
   ensureContainer();
   const el = document.createElement('div');
   el.className = `toast toast-${type}`;
+  el.setAttribute('role', type === 'error' ? 'alert' : 'status');
   el.textContent = message;
   container.appendChild(el);
 
@@ -42,6 +45,19 @@ export function formatDateTime(dateStr) {
     year: 'numeric', month: 'short', day: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
+}
+
+export function escapeHTML(value = '') {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+export function escapeAttribute(value = '') {
+  return escapeHTML(value);
 }
 
 // Debounce
@@ -103,51 +119,4 @@ export function downloadCSV(dataArray, filename) {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-}
-
-// Manager Auth Utility
-export function promptManagerPIN() {
-  return new Promise((resolve) => {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.style.zIndex = '100000';
-    overlay.innerHTML = `
-      <div class="modal" style="max-width:320px;text-align:center;">
-        <h3 style="font-weight:700;margin-bottom:0.5rem;font-size:1.1rem;">🛡️ Manager Auth</h3>
-        <p style="font-size:0.85rem;color:var(--color-danger);margin-bottom:1.5rem;">This action requires Manager approval.</p>
-        <input type="password" id="manager-pin-input" class="input" placeholder="Enter PIN (1234)" style="text-align:center;font-size:1.5rem;letter-spacing:0.5rem;margin-bottom:1rem;" autocomplete="off">
-        <div style="display:flex;gap:0.5rem;">
-          <button class="btn btn-ghost" id="cancel-pin" style="flex:1;">Cancel</button>
-          <button class="btn btn-primary" id="submit-pin" style="flex:1;">Authorize</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-
-    const input = document.getElementById('manager-pin-input');
-    const cancelBtn = document.getElementById('cancel-pin');
-    const submitBtn = document.getElementById('submit-pin');
-
-    setTimeout(() => input.focus(), 100);
-
-    const cleanup = () => { overlay.remove(); };
-
-    const handleSubmit = () => {
-      const pin = input.value.trim();
-      const activePin = localStorage.getItem('quickpos_manager_pin') || '1234';
-      if (pin === activePin) { // Dynamic secure PIN
-        cleanup();
-        resolve(true);
-      } else {
-        input.value = '';
-        input.style.borderColor = 'var(--color-danger)';
-        toast('Invalid Manager PIN', 'error');
-      }
-    };
-
-    submitBtn.addEventListener('click', handleSubmit);
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSubmit(); });
-    cancelBtn.addEventListener('click', () => { cleanup(); resolve(false); });
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) { cleanup(); resolve(false); } });
-  });
 }

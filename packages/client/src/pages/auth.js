@@ -1,6 +1,7 @@
 import { api } from '../api.js';
 import { saveSubscription } from '../entitlement.js';
 import { toast } from '../utils.js';
+import { hasCompletedPermissionSetup } from '../permissions.js';
 
 const authBrand = `
   <div class="auth-brand">
@@ -60,7 +61,7 @@ export function renderLoginPage() {
       localStorage.setItem('user', JSON.stringify(data.user));
       saveSubscription(data.subscription);
       toast('Welcome back, ' + data.user.name + '!', 'success');
-      window.location.hash = '#/permissions';
+      window.location.hash = hasCompletedPermissionSetup() ? '#/dashboard' : '#/permissions';
     } catch (err) {
       toast(err.message || 'Login failed', 'error');
       btn.disabled = false;

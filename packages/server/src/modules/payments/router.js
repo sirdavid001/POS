@@ -81,10 +81,25 @@ router.post('/record', async (req, res, next) => {
   try {
     const { order_id, amount, method, reference } = req.body;
 
+    if (!['cash', 'card', 'transfer'].includes(method)) {
+      return res.status(400).json({ error: 'Unsupported payment method' });
+    }
+    if (method !== 'cash' && !reference?.trim()) {
+      return res.status(400).json({ error: 'A payment reference is required for card and transfer payments' });
+    }
+    const order = await query(
+      'SELECT id, total FROM orders WHERE id = $1 AND store_id = $2',
+      [order_id, req.user.store_id]
+    );
+    if (!order.rows[0]) return res.status(404).json({ error: 'Order not found' });
+    if (Math.abs(Number(amount) - Number(order.rows[0].total)) > 0.009) {
+      return res.status(400).json({ error: 'Payment amount must match the order total' });
+    }
+
     const result = await query(
       `INSERT INTO payments (order_id, store_id, amount, method, provider, reference, status)
        VALUES ($1,$2,$3,$4,$5,$6,'success') RETURNING *`,
-      [order_id, req.user.store_id, amount, method, method === 'card' ? 'paystack' : 'cash', reference || null]
+      [order_id, req.user.store_id, amount, method, method === 'cash' ? 'cash' : 'manual', reference?.trim() || null]
     );
 
     res.status(201).json({ payment: result.rows[0] });

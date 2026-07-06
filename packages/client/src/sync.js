@@ -1,7 +1,12 @@
 import { api } from './api.js';
 import { toast } from './utils.js';
 import { canWriteBusinessData } from './entitlement.js';
-import { getOfflineQueue, reconcileQueuedTempId, removeOfflineQueueItem } from './offline.js';
+import {
+  getOfflineQueue,
+  reconcileQueuedTempId,
+  removeOfflineQueueItem,
+  updateOfflineQueueItem,
+} from './offline.js';
 
 export async function attemptSync() {
   if (!canWriteBusinessData()) return;
@@ -33,11 +38,12 @@ export async function attemptSync() {
           break;
         }
         console.error('[Offline Sync] Failed to sync queued change', queued, err);
-        // If it's a 4xx error (e.g. invalid data, insufficient stock), we might want to discard it or alert.
-        // For now, only drop on 400s, keep retrying on 500s or network drops.
         if (err.status >= 400 && err.status < 500) {
-           successful.push(queued.id); // Drop invalid changes so they don't block the queue forever
-           toast('Dropped one invalid offline change during sync', 'warning');
+          updateOfflineQueueItem(queued.id, {
+            last_error: err.message || 'This change needs attention before it can sync',
+            last_attempted_at: new Date().toISOString(),
+          });
+          toast('One offline change needs attention and was kept safely on this device', 'warning', 6000);
         }
       }
     }

@@ -22,6 +22,13 @@ class Router {
     const hash = rawHash.split('?')[0];
     const user = localStorage.getItem('user');
     const publicRoutes = new Set(['/login', '/forgot-password', '/reset-password']);
+    const roleAccess = {
+      '/products': ['admin', 'manager'],
+      '/inventory': ['admin', 'manager'],
+      '/orders': ['admin', 'manager'],
+      '/reports': ['admin', 'manager'],
+      '/settings': ['admin', 'manager'],
+    };
 
     // Redirect to login if not authenticated
     if (!user && !publicRoutes.has(hash)) {
@@ -38,6 +45,19 @@ class Router {
     if (user && ['/login', '/forgot-password'].includes(hash)) {
       window.location.hash = '#/dashboard';
       return;
+    }
+
+    if (user && hasCompletedPermissionSetup() && hash === '/permissions') {
+      window.location.hash = '#/dashboard';
+      return;
+    }
+
+    if (user && roleAccess[hash]) {
+      const role = JSON.parse(user || '{}').role;
+      if (!roleAccess[hash].includes(role)) {
+        window.location.hash = '#/dashboard';
+        return;
+      }
     }
 
     // Find matching route

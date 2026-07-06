@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { query } from '../../config/database.js';
-import { authenticate } from '../../middleware/auth.js';
+import { authenticate, authorize } from '../../middleware/auth.js';
 import { requireActiveSubscription } from '../../middleware/subscription.js';
 
 const router = Router();
@@ -60,7 +60,7 @@ router.post('/', async (req, res, next) => {
 });
 
 // PATCH update customer
-router.patch('/:id', async (req, res, next) => {
+router.patch('/:id', authorize('admin', 'manager'), async (req, res, next) => {
   try {
     const { name, email, phone, address, notes, loyalty_points } = req.body;
     const result = await query(
@@ -76,7 +76,7 @@ router.patch('/:id', async (req, res, next) => {
 });
 
 // DELETE customer
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', authorize('admin'), async (req, res, next) => {
   try {
     const result = await query(
       'DELETE FROM customers WHERE id = $1 AND store_id = $2 RETURNING id',

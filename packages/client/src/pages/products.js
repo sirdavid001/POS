@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { renderLayout } from './layout.js';
-import { formatCurrency, toast, icons } from '../utils.js';
+import { escapeAttribute, escapeHTML, formatCurrency, toast, icons } from '../utils.js';
 import { openCameraScanner } from '../scanner.js';
 
 export async function renderProducts() {
@@ -20,7 +20,7 @@ export async function renderProducts() {
         </select>
       </div>
 
-      <div class="glass-card table-scroll-wrapper" style="overflow:hidden;">
+      <div class="glass-card table-scroll-wrapper">
         <table class="data-table" id="products-table">
           <thead>
             <tr><th style="width:50px;"></th><th>Name</th><th>SKU</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr>
@@ -65,13 +65,13 @@ export async function renderProducts() {
         <tr>
           <td style="width:50px;padding:0.35rem;">
             ${p.image_url
-              ? `<img src="${p.image_url}" alt="${p.name}" style="width:40px;height:40px;object-fit:contain;border-radius:0.375rem;background:rgba(255,255,255,0.05);">`
+              ? `<img src="${escapeAttribute(p.image_url)}" alt="" style="width:40px;height:40px;object-fit:contain;border-radius:0.375rem;background:rgba(255,255,255,0.05);">`
               : `<div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:0.375rem;background:rgba(255,255,255,0.05);font-size:1.2rem;">📦</div>`
             }
           </td>
-          <td style="font-weight:600;">${p.name}</td>
-          <td style="font-size:0.8rem;color:var(--color-text-muted);">${p.sku || '-'}</td>
-          <td>${p.category_name || '-'}</td>
+          <td style="font-weight:600;">${escapeHTML(p.name)}</td>
+          <td style="font-size:0.8rem;color:var(--color-text-muted);">${escapeHTML(p.sku || '-')}</td>
+          <td>${escapeHTML(p.category_name || '-')}</td>
           <td>${formatCurrency(p.price)}</td>
           <td>
             <span class="${p.stock_quantity <= p.low_stock_threshold ? 'badge badge-danger' : ''}" style="font-weight:600;">
@@ -80,8 +80,8 @@ export async function renderProducts() {
           </td>
           <td><span class="badge ${p.is_active ? 'badge-success' : 'badge-warning'}">${p.is_active ? 'Active' : 'Inactive'}</span></td>
           <td>
-            <button class="btn btn-ghost btn-sm edit-product" data-id="${p.id}">Edit</button>
-            <button class="btn btn-ghost btn-sm delete-product" data-id="${p.id}" style="color:var(--color-danger);">Delete</button>
+            <button class="btn btn-ghost btn-sm edit-product" data-id="${escapeAttribute(p.id)}">Edit</button>
+            <button class="btn btn-ghost btn-sm delete-product" data-id="${escapeAttribute(p.id)}" style="color:var(--color-danger);">Delete</button>
           </td>
         </tr>
       `).join('');
@@ -129,21 +129,21 @@ function showProductModal(product, onSave) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
-    <div class="modal" style="max-width:520px;">
-      <h3 style="font-weight:700;margin-bottom:1.25rem;">${isEdit ? 'Edit Product' : 'New Product'}</h3>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="product-modal-title" style="max-width:520px;">
+      <h3 id="product-modal-title" style="font-weight:700;margin-bottom:1.25rem;">${isEdit ? 'Edit Product' : 'New Product'}</h3>
       <form id="product-form">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div class="form-grid-2">
           <div class="form-group" style="grid-column:1/-1;">
             <label class="label">Product Image</label>
             <div style="display:flex;gap:0.75rem;align-items:start;">
               <div id="image-preview" style="width:80px;height:80px;border-radius:0.5rem;border:1px dashed var(--color-border);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;background:rgba(255,255,255,0.05);">
                 ${product?.image_url
-                  ? `<img src="${product.image_url}" style="width:100%;height:100%;object-fit:contain;">`
+                  ? `<img src="${escapeAttribute(product.image_url)}" alt="" style="width:100%;height:100%;object-fit:contain;">`
                   : `<span style="font-size:2rem;">📷</span>`
                 }
               </div>
               <div style="flex:1;">
-                <input class="input" name="image_url" id="image-url-input" value="${product?.image_url || ''}" placeholder="Image URL (auto-filled from barcode lookup)" style="margin-bottom:0.35rem;font-size:0.8rem;">
+                <input class="input" name="image_url" id="image-url-input" value="${escapeAttribute(product?.image_url || '')}" placeholder="Image URL (auto-filled from barcode lookup)" style="margin-bottom:0.35rem;font-size:0.8rem;">
                 <label class="btn btn-ghost btn-sm" style="cursor:pointer;font-size:0.75rem;" id="image-upload-label">
                   📁 Upload Image
                   <input type="file" accept="image/*" id="image-upload-input" style="display:none;">
@@ -153,16 +153,16 @@ function showProductModal(product, onSave) {
           </div>
           <div class="form-group" style="grid-column:1/-1;">
             <label class="label">Product Name *</label>
-            <input class="input" name="name" value="${product?.name || ''}" required>
+            <input class="input" name="name" value="${escapeAttribute(product?.name || '')}" required>
           </div>
           <div class="form-group">
             <label class="label">SKU</label>
-            <input class="input" name="sku" value="${product?.sku || ''}">
+            <input class="input" name="sku" value="${escapeAttribute(product?.sku || '')}">
           </div>
           <div class="form-group">
             <label class="label">Barcode</label>
-            <div style="display:flex;gap:0.5rem;">
-              <input class="input" name="barcode" id="barcode-input" value="${product?.barcode || ''}" placeholder="Scan or type barcode" style="flex:1;">
+            <div class="barcode-controls">
+              <input class="input" name="barcode" id="barcode-input" value="${escapeAttribute(product?.barcode || '')}" placeholder="Scan or type barcode" style="flex:1;">
               <button type="button" class="btn btn-ghost btn-sm" id="scan-barcode-btn" title="Scan barcode with camera" style="padding:0.5rem;">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="8" x2="13" y2="8"/><line x1="7" y1="16" x2="15" y2="16"/></svg>
               </button>
@@ -174,19 +174,19 @@ function showProductModal(product, onSave) {
           <div id="lookup-status" style="grid-column:1/-1;display:none;"></div>
           <div class="form-group">
             <label class="label">Price (₦) *</label>
-            <input class="input" type="number" step="0.01" name="price" value="${product?.price || ''}" required>
+            <input class="input" type="number" min="0" step="0.01" name="price" value="${escapeAttribute(product?.price || '')}" required>
           </div>
           <div class="form-group">
             <label class="label">Cost Price (₦)</label>
-            <input class="input" type="number" step="0.01" name="cost_price" value="${product?.cost_price || ''}">
+            <input class="input" type="number" min="0" step="0.01" name="cost_price" value="${escapeAttribute(product?.cost_price || '')}">
           </div>
           <div class="form-group">
             <label class="label">Stock Quantity</label>
-            <input class="input" type="number" name="stock_quantity" value="${product?.stock_quantity ?? 0}">
+            <input class="input" type="number" min="0" name="stock_quantity" value="${escapeAttribute(product?.stock_quantity ?? 0)}">
           </div>
           <div class="form-group">
             <label class="label">Low Stock Alert</label>
-            <input class="input" type="number" name="low_stock_threshold" value="${product?.low_stock_threshold ?? 10}">
+            <input class="input" type="number" min="0" name="low_stock_threshold" value="${escapeAttribute(product?.low_stock_threshold ?? 10)}">
           </div>
           <div class="form-group" style="grid-column:1/-1;">
             <label class="label">Category</label>
@@ -196,7 +196,7 @@ function showProductModal(product, onSave) {
           </div>
           <div class="form-group" style="grid-column:1/-1;">
             <label class="label">Description</label>
-            <textarea class="input" name="description" rows="2" style="resize:vertical;">${product?.description || ''}</textarea>
+            <textarea class="input" name="description" rows="2" style="resize:vertical;">${escapeHTML(product?.description || '')}</textarea>
           </div>
         </div>
         <div style="display:flex;gap:0.5rem;margin-top:1.25rem;">
@@ -224,6 +224,24 @@ function showProductModal(product, onSave) {
   document.getElementById('cancel-product').addEventListener('click', () => overlay.remove());
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
 
+  function renderImagePreview(url) {
+    const preview = document.getElementById('image-preview');
+    preview.replaceChildren();
+    if (!url) {
+      const placeholder = document.createElement('span');
+      placeholder.textContent = '📷';
+      placeholder.style.fontSize = '2rem';
+      preview.appendChild(placeholder);
+      return;
+    }
+    const image = document.createElement('img');
+    image.alt = '';
+    image.src = url;
+    image.style.cssText = 'width:100%;height:100%;object-fit:contain;';
+    image.addEventListener('error', () => renderImagePreview(''), { once: true });
+    preview.appendChild(image);
+  }
+
   // Barcode lookup function — queries online databases
   async function lookupBarcode(barcode) {
     if (!barcode || barcode.length < 4) {
@@ -236,7 +254,7 @@ function showProductModal(product, onSave) {
     statusDiv.innerHTML = `
       <div style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem;border-radius:0.5rem;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);">
         <div class="spinner" style="width:18px;height:18px;border-width:2px;"></div>
-        <span style="font-size:0.8rem;">Looking up barcode <strong>${barcode}</strong> online...</span>
+        <span style="font-size:0.8rem;">Looking up barcode <strong>${escapeHTML(barcode)}</strong> online...</span>
       </div>
     `;
 
@@ -256,7 +274,7 @@ function showProductModal(product, onSave) {
           const imgInput = document.getElementById('image-url-input');
           const imgPreview = document.getElementById('image-preview');
           if (imgInput) imgInput.value = p.image_url;
-          if (imgPreview) imgPreview.innerHTML = `<img src="${p.image_url}" style="width:100%;height:100%;object-fit:contain;">`;
+          if (imgPreview) renderImagePreview(p.image_url);
         }
 
         // Try to match category
@@ -273,10 +291,10 @@ function showProductModal(product, onSave) {
 
         statusDiv.innerHTML = `
           <div style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem;border-radius:0.5rem;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);">
-            ${p.image_url ? `<img src="${p.image_url}" style="width:48px;height:48px;object-fit:contain;border-radius:0.375rem;background:#fff;">` : ''}
+            ${p.image_url ? `<img src="${escapeAttribute(p.image_url)}" alt="" style="width:48px;height:48px;object-fit:contain;border-radius:0.375rem;background:#fff;">` : ''}
             <div style="flex:1;min-width:0;">
               <div style="font-size:0.85rem;font-weight:600;color:var(--color-success);">✓ Product found!</div>
-              <div style="font-size:0.75rem;color:var(--color-text-muted);">Source: ${result.source}${p.brand ? ` · Brand: ${p.brand}` : ''}${p.quantity_info ? ` · ${p.quantity_info}` : ''}</div>
+              <div style="font-size:0.75rem;color:var(--color-text-muted);">Source: ${escapeHTML(result.source)}${p.brand ? ` · Brand: ${escapeHTML(p.brand)}` : ''}${p.quantity_info ? ` · ${escapeHTML(p.quantity_info)}` : ''}</div>
             </div>
           </div>
         `;
@@ -288,7 +306,7 @@ function showProductModal(product, onSave) {
       } else {
         statusDiv.innerHTML = `
           <div style="padding:0.75rem;border-radius:0.5rem;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);font-size:0.8rem;color:var(--color-warning);">
-            ⚠ Product not found in online databases for barcode: ${barcode}. Enter details manually.
+            ⚠ Product not found in online databases for barcode: ${escapeHTML(barcode)}. Enter details manually.
           </div>
         `;
         toast('Product not found online — fill in details manually', 'info');
@@ -296,7 +314,7 @@ function showProductModal(product, onSave) {
     } catch (err) {
       statusDiv.innerHTML = `
         <div style="padding:0.75rem;border-radius:0.5rem;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);font-size:0.8rem;color:var(--color-danger);">
-          ✕ Lookup failed: ${err.message || 'Network error'}. Enter details manually.
+          ✕ Lookup failed: ${escapeHTML(err.message || 'Network error')}. Enter details manually.
         </div>
       `;
     }
@@ -327,7 +345,7 @@ function showProductModal(product, onSave) {
     reader.onload = (ev) => {
       const dataUrl = ev.target.result;
       document.getElementById('image-url-input').value = dataUrl;
-      document.getElementById('image-preview').innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:contain;">`;
+      renderImagePreview(dataUrl);
       toast('Image uploaded', 'success');
     };
     reader.readAsDataURL(file);
@@ -336,9 +354,7 @@ function showProductModal(product, onSave) {
   // Image URL preview on manual input
   document.getElementById('image-url-input').addEventListener('change', (e) => {
     const url = e.target.value.trim();
-    if (url) {
-      document.getElementById('image-preview').innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:contain;" onerror="this.parentElement.innerHTML='<span style=font-size:2rem>📷</span>'">`;
-    }
+    renderImagePreview(url);
   });
 
   document.getElementById('product-form').addEventListener('submit', async (e) => {

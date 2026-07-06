@@ -1,20 +1,21 @@
 import { api } from '../api.js';
 import { canWriteBusinessData } from '../entitlement.js';
 import { renderLayout } from './layout.js';
-import { formatCurrency, toast, debounce, icons, promptManagerPIN } from '../utils.js';
+import { escapeAttribute, escapeHTML, formatCurrency, toast, debounce, icons } from '../utils.js';
 import { startUSBScanner, stopUSBScanner, openCameraScanner, scanButtonHTML } from '../scanner.js';
+import { calculateCartTotals, createClientOrderId } from '../pos-math.js';
 
 let cart = [];
 let products = [];
 let storeSettings = {
   name: 'QuickPOS Store',
+  tax_rate: 0,
   receipt_header: '',
   receipt_footer: 'Thank you for your business!'
 };
 
 function getCartTotal() {
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-  return { subtotal, tax: 0, discount: 0, total: subtotal };
+  return calculateCartTotals(cart, storeSettings.tax_rate);
 }
 
 function renderCart() {
@@ -30,31 +31,44 @@ function renderCart() {
   cartItems.innerHTML = cart.map((item, i) => `
     <div class="cart-item animate-fade-in">
       ${item.image_url
-        ? `<img src="${item.image_url}" alt="" style="width:36px;height:36px;object-fit:contain;border-radius:0.375rem;flex-shrink:0;background:rgba(128,128,128,0.08);">`
+        ? `<img src="${escapeAttribute(item.image_url)}" alt="" style="width:36px;height:36px;object-fit:contain;border-radius:0.375rem;flex-shrink:0;background:rgba(128,128,128,0.08);">`
         : `<div style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:0.375rem;flex-shrink:0;background:rgba(128,128,128,0.08);font-size:1rem;">📦</div>`
       }
-      <div class="cart-item-name">${item.name}</div>
+      <div class="cart-item-name">${escapeHTML(item.name)}</div>
       <div class="cart-item-qty">
-        <button onclick="window._posUpdateQty(${i}, -1)">−</button>
+        <button type="button" data-cart-action="decrease" data-index="${i}" aria-label="Decrease ${escapeAttribute(item.name)} quantity">−</button>
         <span style="min-width:20px;text-align:center;font-weight:600;">${item.qty}</span>
-        <button onclick="window._posUpdateQty(${i}, 1)">+</button>
+        <button type="button" data-cart-action="increase" data-index="${i}" aria-label="Increase ${escapeAttribute(item.name)} quantity">+</button>
       </div>
       <div class="cart-item-price">${formatCurrency(item.price * item.qty)}</div>
-      <button class="cart-item-remove" onclick="window._posRemoveItem(${i})">×</button>
+      <button type="button" class="cart-item-remove" data-cart-action="remove" data-index="${i}" aria-label="Remove ${escapeAttribute(item.name)} from cart">×</button>
     </div>
   `).join('');
+
+  cartItems.querySelectorAll('[data-cart-action]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const index = Number(button.dataset.index);
+      const action = button.dataset.cartAction;
+      if (action === 'decrease') updateCartQuantity(index, -1);
+      if (action === 'increase') updateCartQuantity(index, 1);
+      if (action === 'remove') removeCartItem(index);
+    });
+  });
 
   const totals = getCartTotal();
   cartSummary.innerHTML = `
     <div class="cart-summary-row"><span>Subtotal</span><span>${formatCurrency(totals.subtotal)}</span></div>
+    ${totals.tax > 0 ? `<div class="cart-summary-row"><span>Tax (${Number(storeSettings.tax_rate)}%)</span><span>${formatCurrency(totals.tax)}</span></div>` : ''}
     <div class="cart-summary-row cart-total"><span>Total</span><span>${formatCurrency(totals.total)}</span></div>
     <div style="display:flex;gap:0.5rem;margin-top:1rem;">
-      <button class="btn btn-ghost" style="flex:1;" onclick="window._posClearCart()">Clear</button>
-      <button class="btn btn-accent btn-lg" style="flex:2;" onclick="window._posCheckout()">
+      <button class="btn btn-ghost" id="clear-cart" type="button" style="flex:1;">Clear</button>
+      <button class="btn btn-accent btn-lg" id="checkout-cart" type="button" style="flex:2;">
         Pay ${formatCurrency(totals.total)}
       </button>
     </div>
   `;
+  document.getElementById('clear-cart').addEventListener('click', clearCart);
+  document.getElementById('checkout-cart').addEventListener('click', checkoutCart);
 
   // Update mobile cart badge
   const cartBadge = document.getElementById('mobile-cart-badge');
@@ -93,8 +107,7 @@ function handleBarcodeScan(barcode) {
   }
 }
 
-// Global functions for inline handlers
-window._posUpdateQty = (index, delta) => {
+function updateCartQuantity(index, delta) {
   cart[index].qty += delta;
   if (cart[index].qty <= 0) cart.splice(index, 1);
   else if (cart[index].qty > cart[index].stock) {
@@ -102,28 +115,24 @@ window._posUpdateQty = (index, delta) => {
     toast('Maximum stock reached', 'error');
   }
   renderCart();
-};
+}
 
-window._posRemoveItem = (index) => {
+function removeCartItem(index) {
   cart.splice(index, 1);
   renderCart();
-};
+}
 
-window._posClearCart = async () => {
+function clearCart() {
   if (cart.length === 0) return;
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  if (user.role !== 'admin' && user.role !== 'manager') {
-    const authorized = await promptManagerPIN();
-    if (!authorized) return toast('Cart clear cancelled', 'info');
-  }
+  if (!confirm('Clear every item from this cart?')) return;
   cart = [];
   renderCart();
-};
+}
 
-window._posCheckout = () => {
+function checkoutCart() {
   if (cart.length === 0) return;
   showPaymentModal();
-};
+}
 
 function showPaymentModal() {
   const totals = getCartTotal();
@@ -131,19 +140,25 @@ function showPaymentModal() {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
-    <div class="modal" style="max-width:420px;">
-      <h3 style="font-size:1.15rem;font-weight:700;margin-bottom:1.5rem;">Complete Payment</h3>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title" style="max-width:420px;">
+      <h3 id="payment-modal-title" style="font-size:1.15rem;font-weight:700;margin-bottom:1.5rem;">Complete Payment</h3>
       <div style="text-align:center;margin-bottom:1.5rem;">
         <div style="font-size:0.8rem;color:var(--color-text-muted);text-transform:uppercase;">Total Amount</div>
         <div style="font-size:2rem;font-weight:800;color:var(--color-accent);">${formatCurrency(totals.total)}</div>
         <div style="font-size:0.8rem;color:var(--color-text-muted);">${cart.length} item(s)</div>
       </div>
 
-      <label class="label">Payment Method</label>
-      <div style="display:flex;gap:0.5rem;margin-bottom:1.5rem;">
-        <button class="btn btn-primary pay-method-btn active-method" data-method="cash" style="flex:1;">💵 Cash</button>
-        <button class="btn btn-ghost pay-method-btn" data-method="card" style="flex:1;">💳 Card</button>
-        <button class="btn btn-ghost pay-method-btn" data-method="transfer" style="flex:1;">🏦 Transfer</button>
+      <span class="label" id="payment-method-label">Payment Method</span>
+      <div role="group" aria-labelledby="payment-method-label" style="display:flex;gap:0.5rem;margin-bottom:1.5rem;">
+        <button type="button" class="btn btn-primary pay-method-btn active-method" aria-pressed="true" data-method="cash" style="flex:1;">💵 Cash</button>
+        <button type="button" class="btn btn-ghost pay-method-btn" aria-pressed="false" data-method="card" style="flex:1;">💳 Card</button>
+        <button type="button" class="btn btn-ghost pay-method-btn" aria-pressed="false" data-method="transfer" style="flex:1;">🏦 Transfer</button>
+      </div>
+
+      <div class="form-group" id="payment-reference-group" hidden>
+        <label class="label" for="payment-reference">Payment Reference</label>
+        <input class="input" id="payment-reference" autocomplete="off" placeholder="Terminal or bank reference">
+        <p class="field-help">Confirm the payment on the external terminal or bank app before completing this sale.</p>
       </div>
 
       <div class="form-group">
@@ -163,6 +178,12 @@ function showPaymentModal() {
   `;
 
   document.body.appendChild(overlay);
+  const previousFocus = document.activeElement;
+  const closePaymentModal = () => {
+    overlay.remove();
+    previousFocus?.focus?.();
+  };
+  overlay.querySelector('[data-method="cash"]').focus();
 
   // Load customers
   api.get('/customers?limit=100').then(data => {
@@ -180,15 +201,23 @@ function showPaymentModal() {
   overlay.querySelectorAll('.pay-method-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       overlay.querySelectorAll('.pay-method-btn').forEach(b => { b.className = 'btn btn-ghost pay-method-btn'; b.style.flex = '1'; });
+      overlay.querySelectorAll('.pay-method-btn').forEach(b => b.setAttribute('aria-pressed', 'false'));
       btn.className = 'btn btn-primary pay-method-btn active-method';
+      btn.setAttribute('aria-pressed', 'true');
       btn.style.flex = '1';
       selectedMethod = btn.dataset.method;
+      const referenceGroup = document.getElementById('payment-reference-group');
+      const referenceInput = document.getElementById('payment-reference');
+      referenceGroup.hidden = selectedMethod === 'cash';
+      referenceInput.required = selectedMethod !== 'cash';
+      if (selectedMethod === 'cash') referenceInput.value = '';
     });
   });
 
   // Cancel
-  document.getElementById('cancel-payment').addEventListener('click', () => overlay.remove());
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.getElementById('cancel-payment').addEventListener('click', closePaymentModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closePaymentModal(); });
+  overlay.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePaymentModal(); });
 
   // Confirm
   document.getElementById('confirm-payment').addEventListener('click', async () => {
@@ -198,6 +227,12 @@ function showPaymentModal() {
     }
 
     const confirmBtn = document.getElementById('confirm-payment');
+    const paymentReference = document.getElementById('payment-reference').value.trim();
+    if (selectedMethod !== 'cash' && !paymentReference) {
+      toast('Enter the confirmed terminal or bank reference', 'warning');
+      document.getElementById('payment-reference').focus();
+      return;
+    }
     confirmBtn.disabled = true;
     confirmBtn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;"></div> Processing...';
 
@@ -207,13 +242,15 @@ function showPaymentModal() {
         quantity: item.qty,
       })),
       payment_method: selectedMethod,
+      payment_reference: paymentReference || undefined,
       customer_id: document.getElementById('customer-select').value || null,
+      client_order_id: createClientOrderId(),
     };
 
     try {
       const result = await api.post('/orders', orderData);
 
-      overlay.remove();
+      closePaymentModal();
       cart = [];
       renderCart();
 
@@ -224,34 +261,14 @@ function showPaymentModal() {
       loadProducts();
 
       toast('Sale completed! ' + result.order.order_number, 'success');
+      if (result.offline) {
+        toast('Sale saved on this device and queued for sync', 'warning', 5000);
+      }
     } catch (err) {
       if (err.code === 'SUBSCRIPTION_EXPIRED') {
         toast('QuickPOS is read-only until the store renews.', 'warning', 5000);
         confirmBtn.disabled = false;
         confirmBtn.textContent = 'Confirm Payment';
-      } else if (!navigator.onLine || err.message === 'Failed to fetch' || err.message.toLowerCase().includes('network')) {
-        const queueObj = { ...orderData, temp_id: Date.now(), created_at: new Date().toISOString() };
-        const queue = JSON.parse(localStorage.getItem('quickpos_offline_orders') || '[]');
-        queue.push(queueObj);
-        localStorage.setItem('quickpos_offline_orders', JSON.stringify(queue));
-        
-        toast('Connection lost. Sale secured locally and will queue.', 'warning', 5000);
-        
-        overlay.remove();
-        
-        // Mock a receipt for the customer before syncing
-        showReceiptModal({
-          order_number: 'OFFLINE-' + queueObj.temp_id,
-          created_at: queueObj.created_at,
-          payment_method: orderData.payment_method,
-          subtotal: getCartTotal(),
-          tax_amount: 0,
-          total: getCartTotal(),
-          items: cart.map(i => ({ product_name: i.name, quantity: i.qty, total: i.price * i.qty }))
-        });
-
-        cart = [];
-        renderCart();
       } else {
         toast(err.message || 'Payment failed', 'error');
         confirmBtn.disabled = false;
@@ -262,32 +279,33 @@ function showPaymentModal() {
 }
 
 function showReceiptModal(order) {
-  const shopName = storeSettings.name || 'QuickPOS Store';
+  const shopName = escapeHTML(storeSettings.name || 'QuickPOS Store');
   const receiptHeader = storeSettings.receipt_header
-    ? `<div style="text-align:center;font-size:0.8rem;margin-bottom:1rem;color:var(--color-text-muted);white-space:pre-wrap;">${storeSettings.receipt_header}</div>`
+    ? `<div style="text-align:center;font-size:0.8rem;margin-bottom:1rem;color:var(--color-text-muted);white-space:pre-wrap;">${escapeHTML(storeSettings.receipt_header)}</div>`
     : '';
-  const receiptFooter = storeSettings.receipt_footer || 'Thank you for your business!';
+  const receiptFooter = escapeHTML(storeSettings.receipt_footer || 'Thank you for your business!');
 
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
-    <div class="modal receipt-printable" style="max-width:380px;font-family:monospace;">
+    <div class="modal receipt-printable" role="dialog" aria-modal="true" aria-labelledby="receipt-title" style="max-width:380px;font-family:monospace;">
       <div style="text-align:center;border-bottom:1px dashed var(--color-border);padding-bottom:1rem;margin-bottom:1rem;">
-        <h3 style="font-size:1.1rem;">${shopName}</h3>
+        <h3 id="receipt-title" style="font-size:1.1rem;">${shopName}</h3>
         ${receiptHeader}
         <p style="font-size:0.75rem;color:var(--color-text-muted);">Receipt</p>
       </div>
 
       <div style="font-size:0.8rem;margin-bottom:1rem;">
-        <div style="display:flex;justify-content:space-between;"><span>Order #:</span><span style="font-weight:700;">${order.order_number}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>Order #:</span><span style="font-weight:700;">${escapeHTML(order.order_number)}</span></div>
         <div style="display:flex;justify-content:space-between;"><span>Date:</span><span>${new Date(order.created_at).toLocaleString()}</span></div>
-        <div style="display:flex;justify-content:space-between;"><span>Payment:</span><span>${order.payment_method?.toUpperCase()}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>Payment:</span><span>${escapeHTML(order.payment_method?.toUpperCase())}</span></div>
+        ${order.payment_reference ? `<div style="display:flex;justify-content:space-between;gap:1rem;"><span>Reference:</span><span>${escapeHTML(order.payment_reference)}</span></div>` : ''}
       </div>
 
       <div style="border-top:1px dashed var(--color-border);border-bottom:1px dashed var(--color-border);padding:0.75rem 0;margin-bottom:0.75rem;">
         ${(order.items || []).map(item => `
           <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:0.25rem;">
-            <span>${item.product_name} × ${item.quantity}</span>
+            <span>${escapeHTML(item.product_name)} × ${Number(item.quantity)}</span>
             <span>${formatCurrency(item.total)}</span>
           </div>
         `).join('')}
@@ -304,16 +322,16 @@ function showReceiptModal(order) {
       <div style="text-align:center;font-size:0.75rem;margin-top:1.5rem;color:var(--color-text-muted);white-space:pre-wrap;">${receiptFooter}</div>
 
       <div class="no-print" style="text-align:center;margin-top:1.5rem;">
-        <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨️ Print</button>
-        <button class="btn btn-primary btn-sm" onclick="this.closest('.modal-overlay').remove()">Done</button>
+        <button class="btn btn-ghost btn-sm" id="print-receipt" type="button">🖨️ Print</button>
+        <button class="btn btn-primary btn-sm" id="close-receipt" type="button">Done</button>
       </div>
     </div>
   `;
   document.body.appendChild(overlay);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.querySelector('#print-receipt').addEventListener('click', () => window.print());
+  overlay.querySelector('#close-receipt').addEventListener('click', () => overlay.remove());
   
-  // Auto-trigger print
-  setTimeout(() => window.print(), 300);
 }
 
 async function loadProducts(search = '') {
@@ -335,15 +353,15 @@ function renderProducts() {
   }
 
   grid.innerHTML = products.map(p => `
-    <div class="product-card" data-product-id="${p.id}">
+    <button type="button" class="product-card" data-product-id="${escapeAttribute(p.id)}" aria-label="Add ${escapeAttribute(p.name)} to cart">
       ${p.image_url
-        ? `<img src="${p.image_url}" alt="${p.name}" style="width:100%;height:90px;object-fit:contain;border-radius:0.5rem;margin-bottom:0.35rem;background:rgba(255,255,255,0.05);">`
+        ? `<img src="${escapeAttribute(p.image_url)}" alt="" style="width:100%;height:90px;object-fit:contain;border-radius:0.5rem;margin-bottom:0.35rem;background:rgba(255,255,255,0.05);">`
         : `<div style="width:100%;height:90px;display:flex;align-items:center;justify-content:center;border-radius:0.5rem;margin-bottom:0.35rem;background:rgba(255,255,255,0.05);font-size:2rem;">📦</div>`
       }
-      <div class="product-name">${p.name}</div>
+      <div class="product-name">${escapeHTML(p.name)}</div>
       <div class="product-price">${formatCurrency(p.price)}</div>
       <div class="product-stock">${p.stock_quantity > 0 ? p.stock_quantity + ' in stock' : '<span style="color:var(--color-danger);">Out of stock</span>'}</div>
-    </div>
+    </button>
   `).join('');
 
   // Click handlers
@@ -433,6 +451,11 @@ export async function renderPOS() {
       handleBarcodeScan(barcode);
     }, { title: 'Scan Product Barcode' });
   });
+
+  try {
+    const { store } = await api.get('/settings/store');
+    storeSettings = { ...storeSettings, ...store };
+  } catch {}
 
   // Start USB/Bluetooth barcode scanner listener
   await loadProducts();

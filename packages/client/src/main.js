@@ -2,20 +2,6 @@ import './styles.css';
 import { registerSW } from 'virtual:pwa-register';
 import { attemptSync } from './sync.js';
 import { router } from './router.js';
-import {
-  renderForgotPasswordPage,
-  renderLoginPage,
-  renderResetPasswordPage,
-} from './pages/auth.js';
-import { renderDashboard } from './pages/dashboard.js';
-import { renderPOS } from './pages/pos.js';
-import { renderProducts } from './pages/products.js';
-import { renderOrders } from './pages/orders.js';
-import { renderInventory } from './pages/inventory.js';
-import { renderCustomers } from './pages/customers.js';
-import { renderReports } from './pages/reports.js';
-import { renderSettings } from './pages/settings.js';
-import { renderPermissionsPage } from './pages/permissions.js';
 import { checkForAppUpdate } from './updates.js';
 import { api } from './api.js';
 import { canAccessInstalledApp, renderInstallRequiredPage } from './installGate.js';
@@ -39,18 +25,20 @@ async function startApplication() {
   }
 
   // Register routes
-  router.addRoute('/login', renderLoginPage);
-  router.addRoute('/forgot-password', renderForgotPasswordPage);
-  router.addRoute('/reset-password', renderResetPasswordPage);
-  router.addRoute('/dashboard', renderDashboard);
-  router.addRoute('/pos', renderPOS);
-  router.addRoute('/products', renderProducts);
-  router.addRoute('/orders', renderOrders);
-  router.addRoute('/inventory', renderInventory);
-  router.addRoute('/customers', renderCustomers);
-  router.addRoute('/reports', renderReports);
-  router.addRoute('/settings', renderSettings);
-  router.addRoute('/permissions', renderPermissionsPage);
+  const lazyRoute = (loader, exportName) => () => loader().then((module) => module[exportName]());
+  const loadAuth = () => import('./pages/auth.js');
+  router.addRoute('/login', lazyRoute(loadAuth, 'renderLoginPage'));
+  router.addRoute('/forgot-password', lazyRoute(loadAuth, 'renderForgotPasswordPage'));
+  router.addRoute('/reset-password', lazyRoute(loadAuth, 'renderResetPasswordPage'));
+  router.addRoute('/dashboard', lazyRoute(() => import('./pages/dashboard.js'), 'renderDashboard'));
+  router.addRoute('/pos', lazyRoute(() => import('./pages/pos.js'), 'renderPOS'));
+  router.addRoute('/products', lazyRoute(() => import('./pages/products.js'), 'renderProducts'));
+  router.addRoute('/orders', lazyRoute(() => import('./pages/orders.js'), 'renderOrders'));
+  router.addRoute('/inventory', lazyRoute(() => import('./pages/inventory.js'), 'renderInventory'));
+  router.addRoute('/customers', lazyRoute(() => import('./pages/customers.js'), 'renderCustomers'));
+  router.addRoute('/reports', lazyRoute(() => import('./pages/reports.js'), 'renderReports'));
+  router.addRoute('/settings', lazyRoute(() => import('./pages/settings.js'), 'renderSettings'));
+  router.addRoute('/permissions', lazyRoute(() => import('./pages/permissions.js'), 'renderPermissionsPage'));
 
   if (localStorage.getItem('user')) {
     try {
@@ -66,7 +54,14 @@ async function startApplication() {
     connectWebSocket();
   }
 
-  window.addEventListener('online', attemptSync);
+  window.addEventListener('online', () => {
+    attemptSync();
+    connectWebSocket();
+  });
+  window.addEventListener('offline', () => {
+    clearTimeout(wsReconnectTimer);
+    activeWebSocket?.close();
+  });
   document.addEventListener('DOMContentLoaded', attemptSync);
   setTimeout(attemptSync, 2000); // Trigger a sync briefly after app load
   setTimeout(checkForAppUpdate, 2500);
@@ -82,15 +77,21 @@ function getWebSocketUrl() {
   return `${protocol}//${window.location.host}/ws`;
 }
 
+let activeWebSocket = null;
+let wsReconnectTimer = null;
+let wsReconnectAttempts = 0;
+
 function connectWebSocket() {
   const wsUrl = getWebSocketUrl();
-  if (!wsUrl) return;
+  if (!wsUrl || !navigator.onLine || !localStorage.getItem('user')) return;
+  if (activeWebSocket && [WebSocket.CONNECTING, WebSocket.OPEN].includes(activeWebSocket.readyState)) return;
 
   try {
     const ws = new WebSocket(wsUrl);
+    activeWebSocket = ws;
 
     ws.onopen = () => {
-      console.log('WebSocket connected');
+      wsReconnectAttempts = 0;
     };
 
     ws.onmessage = (event) => {
@@ -102,15 +103,19 @@ function connectWebSocket() {
     };
 
     ws.onclose = () => {
-      console.log('WebSocket disconnected, reconnecting in 5s...');
-      setTimeout(connectWebSocket, 5000);
+      activeWebSocket = null;
+      if (!navigator.onLine || !localStorage.getItem('user')) return;
+      const delay = Math.min(5000 * (2 ** wsReconnectAttempts), 60000);
+      wsReconnectAttempts += 1;
+      clearTimeout(wsReconnectTimer);
+      wsReconnectTimer = setTimeout(connectWebSocket, delay);
     };
 
     ws.onerror = () => {
       ws.close();
     };
   } catch {
-    setTimeout(connectWebSocket, 5000);
+    activeWebSocket = null;
   }
 }
 

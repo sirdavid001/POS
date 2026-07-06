@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { renderLayout } from './layout.js';
-import { formatCurrency, formatDateTime, toast, icons, downloadCSV } from '../utils.js';
+import { escapeHTML, formatCurrency, formatDateTime, toast, icons, downloadCSV } from '../utils.js';
 
 let currentLogsData = [];
 
@@ -46,10 +46,10 @@ export async function renderInventory() {
           <tbody>
             ${logsData.logs.map(l => `
               <tr>
-                <td>${l.product_name}</td>
-                <td><span class="badge badge-${l.type === 'in' ? 'success' : l.type === 'out' ? 'danger' : 'warning'}">${l.type}</span></td>
+                <td>${escapeHTML(l.product_name)}</td>
+                <td><span class="badge badge-${l.type === 'in' ? 'success' : l.type === 'out' ? 'danger' : 'warning'}">${escapeHTML(l.type)}</span></td>
                 <td style="font-weight:600;">${l.quantity}</td>
-                <td style="font-size:0.8rem;">${l.user_name || '-'}</td>
+                <td style="font-size:0.8rem;">${escapeHTML(l.user_name || '-')}</td>
                 <td style="font-size:0.8rem;color:var(--color-text-muted);">${formatDateTime(l.created_at)}</td>
               </tr>
             `).join('')}
@@ -69,8 +69,8 @@ export async function renderInventory() {
     } else {
       suppDiv.innerHTML = suppData.suppliers.map(s => `
         <div style="padding:0.75rem;border-bottom:1px solid var(--color-border);font-size:0.85rem;">
-          <div style="font-weight:600;">${s.name}</div>
-          <div style="color:var(--color-text-muted);font-size:0.8rem;">${s.contact_name || ''} · ${s.phone || ''}</div>
+          <div style="font-weight:600;">${escapeHTML(s.name)}</div>
+          <div style="color:var(--color-text-muted);font-size:0.8rem;">${escapeHTML(s.contact_name || '')} · ${escapeHTML(s.phone || '')}</div>
         </div>
       `).join('');
     }
@@ -107,7 +107,7 @@ export async function renderInventory() {
             <input class="input" name="reason" placeholder="e.g. Restock from supplier">
           </div>
           <div style="display:flex;gap:0.5rem;margin-top:1.25rem;">
-            <button type="button" class="btn btn-ghost" style="flex:1;" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+            <button type="button" class="btn btn-ghost cancel-inventory-modal" style="flex:1;">Cancel</button>
             <button type="submit" class="btn btn-primary" style="flex:2;">Adjust Stock</button>
           </div>
         </form>
@@ -115,6 +115,7 @@ export async function renderInventory() {
     `;
     document.body.appendChild(overlay);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    overlay.querySelector('.cancel-inventory-modal').addEventListener('click', () => overlay.remove());
 
     // Load products into select
     api.get('/products?limit=200').then(data => {
@@ -170,7 +171,7 @@ export async function renderInventory() {
           <div class="form-group"><label class="label">Phone</label><input class="input" name="phone"></div>
           <div class="form-group"><label class="label">Email</label><input class="input" type="email" name="email"></div>
           <div style="display:flex;gap:0.5rem;margin-top:1.25rem;">
-            <button type="button" class="btn btn-ghost" style="flex:1;" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+            <button type="button" class="btn btn-ghost cancel-inventory-modal" style="flex:1;">Cancel</button>
             <button type="submit" class="btn btn-primary" style="flex:2;">Add Supplier</button>
           </div>
         </form>
@@ -178,6 +179,7 @@ export async function renderInventory() {
     `;
     document.body.appendChild(overlay);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    overlay.querySelector('.cancel-inventory-modal').addEventListener('click', () => overlay.remove());
 
     document.getElementById('supplier-form').addEventListener('submit', async (e) => {
       e.preventDefault();
