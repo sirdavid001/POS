@@ -2231,6 +2231,12 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
   color: var(--muted);
   font-size: 12px;
 }
+.billing-history-heading p {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
 .account-plan-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2415,13 +2421,80 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
   border-radius: 14px;
   background: var(--color-surface-2);
 }
-.billing-history-panel .account-muted {
+.payment-history-table { min-width: 850px; }
+.payment-history-table td { vertical-align: middle; }
+.payment-cell-stack {
+  display: grid;
+  gap: 4px;
+  min-width: 130px;
+}
+.payment-cell-stack strong { color: var(--color-text); font-size: 12px; }
+.payment-cell-stack span { color: var(--muted); font-size: 11px; }
+.payment-provider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.payment-provider > span {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  color: #fff;
+  background: var(--color-primary);
+  font-size: 11px;
+  font-weight: 900;
+}
+.payment-provider strong { font-size: 12px; }
+.payment-history-table code {
+  display: inline-block;
+  max-width: 170px;
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.payment-amount { font-size: 13px; white-space: nowrap; }
+.payment-status-paid {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 9px;
+  border: 1px solid oklch(0.65 0.2 145 / 0.28);
+  border-radius: 999px;
+  color: var(--color-accent);
+  background: oklch(0.65 0.2 145 / 0.09);
+  font-size: 10px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+.payment-status-paid i { font-style: normal; }
+.payment-empty-state {
+  display: flex;
+  align-items: center;
+  gap: 13px;
   margin: 18px 0 0;
   padding: 22px;
   border: 1px dashed var(--line);
   border-radius: 14px;
-  text-align: center;
+  background: var(--color-surface-2);
 }
+.payment-empty-state > span {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  color: var(--color-accent);
+  background: oklch(0.65 0.2 145 / 0.1);
+  font-weight: 900;
+}
+.payment-empty-state strong { display: block; margin-bottom: 4px; }
+.payment-empty-state p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
 .account-form .button:disabled {
   opacity: 0.55;
   cursor: wait;
@@ -2575,6 +2648,26 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
   .billing-checkout-panel,
   .billing-history-panel { padding: 18px; }
   .billing-secure-badge { align-self: flex-start; }
+  .billing-history-panel .account-table-wrap { overflow: visible; border: 0; background: transparent; }
+  .payment-history-table,
+  .payment-history-table tbody,
+  .payment-history-table tr,
+  .payment-history-table td { display: block; width: 100%; min-width: 0; }
+  .payment-history-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .payment-history-table tbody { display: grid; gap: 12px; }
+  .payment-history-table tr { padding: 8px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--color-surface-2); }
+  .payment-history-table td {
+    display: grid;
+    grid-template-columns: minmax(94px, 0.42fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .payment-history-table td::before { content: attr(data-label); color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+  .payment-history-table td:last-child { border-bottom: 0; }
+  .payment-history-table code { max-width: 100%; }
+  .payment-status-paid { justify-self: start; }
   .account-currency-row { grid-template-columns: 1fr; }
   .account-form-grid,
   .account-plan-grid,

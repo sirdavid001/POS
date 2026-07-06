@@ -784,7 +784,8 @@ router.get('/transactions', authorize('admin'), async (req, res, next) => {
       `SELECT id, provider, provider_reference, provider_transaction_id, plan_code,
               amount_ngn, currency, status, paid_at, created_at
        FROM billing_transactions
-       WHERE store_id = $1 ORDER BY created_at DESC LIMIT 100`,
+       WHERE store_id = $1 AND status = 'success'
+       ORDER BY COALESCE(paid_at, created_at) DESC LIMIT 100`,
       [req.user.store_id]
     );
     res.json({ transactions: result.rows });

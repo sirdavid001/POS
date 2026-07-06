@@ -261,6 +261,31 @@ function formatDate(value) {
   }).format(new Date(value));
 }
 
+function formatPaymentTime(value) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('en-NG', {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function paymentPlanName(code = '') {
+  const names = {
+    activation_5m: 'Initial activation · 5 months',
+    monthly: 'Monthly subscription',
+    quarterly: 'Quarterly subscription',
+    yearly: 'Yearly subscription',
+  };
+  return names[code] || String(code || 'QuickPOS subscription')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function paymentProviderName(provider = '') {
+  const names = { paystack: 'Paystack', flutterwave: 'Flutterwave' };
+  return names[String(provider).toLowerCase()] || 'Secure payment';
+}
+
 function renderStaffDirectory(staff, currentUserId) {
   if (!staff.length) {
     return `
@@ -732,24 +757,36 @@ function openPortalSection(section, { updateHistory = true, focus = true } = {})
 }
 
 function renderTransactions(transactions = []) {
-  if (!transactions.length) {
-    return '<p class="account-muted">No subscription payments yet.</p>';
+  const confirmed = transactions.filter((transaction) => transaction.status === 'success');
+  if (!confirmed.length) {
+    return `
+      <div class="payment-empty-state">
+        <span aria-hidden="true">✓</span>
+        <div>
+          <strong>No confirmed payments yet</strong>
+          <p>Completed payments will appear here after they are verified by Paystack or Flutterwave.</p>
+        </div>
+      </div>
+    `;
   }
   return `
     <div class="account-table-wrap">
-      <table class="account-table">
-        <thead><tr><th>Date</th><th>Plan</th><th>Provider</th><th>Reference</th><th>Amount</th><th>Status</th></tr></thead>
+      <table class="account-table payment-history-table">
+        <thead><tr><th>Payment date</th><th>Description</th><th>Payment method</th><th>Receipt reference</th><th>Amount</th><th>Status</th></tr></thead>
         <tbody>
-          ${transactions.map((transaction) => `
+          ${confirmed.map((transaction) => {
+            const paidAt = transaction.paid_at || transaction.created_at;
+            return `
             <tr>
-              <td>${formatDate(transaction.paid_at || transaction.created_at)}</td>
-              <td>${escapeHtml(transaction.plan_code || '')}</td>
-              <td>${escapeHtml(transaction.provider || '')}</td>
-              <td><code>${escapeHtml(transaction.provider_reference || '')}</code></td>
-              <td>${formatCurrency(transaction.amount_ngn, transaction.currency || 'NGN')}</td>
-              <td><span class="account-badge ${transaction.status === 'success' ? 'success' : 'warning'}">${escapeHtml(transaction.status || '')}</span></td>
+              <td data-label="Payment date"><div class="payment-cell-stack"><strong>${escapeHtml(formatDate(paidAt))}</strong><span>${escapeHtml(formatPaymentTime(paidAt))}</span></div></td>
+              <td data-label="Description"><div class="payment-cell-stack"><strong>${escapeHtml(paymentPlanName(transaction.plan_code))}</strong><span>QuickPOS account access</span></div></td>
+              <td data-label="Payment method"><div class="payment-provider"><span>${escapeHtml(paymentProviderName(transaction.provider).charAt(0))}</span><strong>${escapeHtml(paymentProviderName(transaction.provider))}</strong></div></td>
+              <td data-label="Receipt reference"><code>${escapeHtml(transaction.provider_reference || transaction.provider_transaction_id || 'Unavailable')}</code></td>
+              <td data-label="Amount"><strong class="payment-amount">${formatCurrency(transaction.amount_ngn, transaction.currency || 'NGN')}</strong></td>
+              <td data-label="Status"><span class="payment-status-paid"><i aria-hidden="true">✓</i> Paid</span></td>
             </tr>
-          `).join('')}
+          `;
+          }).join('')}
         </tbody>
       </table>
     </div>
@@ -899,6 +936,7 @@ function renderPortal({ overview, plans, providers, transactions, staff = [] }, 
   const subscription = overview.subscription;
   const unlocked = downloadsUnlocked(subscription);
   const activeSection = portalSectionFromRoute();
+  const confirmedTransactions = transactions.filter((transaction) => transaction.status === 'success');
 
   root.innerHTML = `
     <section class="page-hero account-hero">
@@ -1151,10 +1189,11 @@ function renderPortal({ overview, plans, providers, transactions, staff = [] }, 
                 <div>
                   <span class="section-kicker">Transactions</span>
                   <h3>Payment history</h3>
+                  <p>Only payments confirmed by your payment provider are shown here.</p>
                 </div>
-                <span>${transactions.length} ${transactions.length === 1 ? 'payment' : 'payments'}</span>
+                <span>${confirmedTransactions.length} confirmed ${confirmedTransactions.length === 1 ? 'payment' : 'payments'}</span>
               </div>
-              ${renderTransactions(transactions)}
+              ${renderTransactions(confirmedTransactions)}
             </div>
           </section>
 
