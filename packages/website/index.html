@@ -28,16 +28,46 @@
             <span>No hidden charges</span>
           </div>
         </div>
-        <div class="pos-window" aria-label="QuickPOS product preview">
-          <div class="window-bar"><i></i><i></i><i></i></div>
-          <div class="pos-screen">
-            <div class="screen-top"><strong>New sale</strong><span class="screen-pill"></span></div>
-            <div class="screen-total">₦18,450</div>
-            <div class="product-tiles">
-              <div class="product-tile"></div><div class="product-tile"></div><div class="product-tile"></div>
-              <div class="product-tile"></div><div class="product-tile"></div><div class="product-tile"></div>
+        <div class="pos-window" role="img" aria-label="QuickPOS checkout screen showing products, a customer cart, payment options, and an 18,450 naira total">
+          <div class="window-bar" aria-hidden="true"><i></i><i></i><i></i><span>QuickPOS · Main Store</span></div>
+          <div class="pos-screen" aria-hidden="true">
+            <div class="pos-app-bar">
+              <div class="pos-brand"><b>Q</b><strong>QuickPOS</strong></div>
+              <div class="pos-nav"><span>Dashboard</span><span class="active">POS Terminal</span><span>Inventory</span></div>
+              <div class="pos-online"><i></i> Online</div>
             </div>
-            <div class="checkout-bar"></div>
+            <div class="pos-workspace">
+              <section class="pos-catalog">
+                <div class="pos-heading">
+                  <div><small>Monday, 6 July</small><strong>New sale</strong></div>
+                  <span>All products</span>
+                </div>
+                <div class="pos-search"><span>⌕</span> Search products or scan barcode</div>
+                <div class="product-tiles">
+                  <div class="product-tile"><i class="product-art drink">C</i><strong>Coca-Cola 50cl</strong><span>₦350</span><small>24 in stock</small></div>
+                  <div class="product-tile"><i class="product-art rice">R</i><strong>Premium Rice 5kg</strong><span>₦8,500</span><small>12 in stock</small></div>
+                  <div class="product-tile"><i class="product-art oil">O</i><strong>Cooking Oil 1L</strong><span>₦3,200</span><small>18 in stock</small></div>
+                  <div class="product-tile"><i class="product-art snack">S</i><strong>Plantain Chips</strong><span>₦400</span><small>30 in stock</small></div>
+                </div>
+              </section>
+              <aside class="pos-cart">
+                <div class="cart-heading"><div><strong>Current cart</strong><small>6 items</small></div><span>Clear</span></div>
+                <div class="cart-items">
+                  <div class="cart-item"><i class="product-art rice">R</i><div><strong>Premium Rice</strong><small>1 × ₦8,500</small></div><b>₦8,500</b></div>
+                  <div class="cart-item"><i class="product-art oil">O</i><div><strong>Cooking Oil</strong><small>2 × ₦3,200</small></div><b>₦6,400</b></div>
+                  <div class="cart-item"><i class="product-art drink">C</i><div><strong>Coca-Cola</strong><small>4 × ₦350</small></div><b>₦1,400</b></div>
+                </div>
+                <div class="cart-more">+ 3 more items in cart</div>
+                <div class="cart-summary">
+                  <span>Subtotal <b>₦18,000</b></span>
+                  <span>Tax <b>₦1,350</b></span>
+                  <span class="discount">Discount <b>−₦900</b></span>
+                  <strong>Total <b>₦18,450</b></strong>
+                </div>
+                <div class="payment-methods"><span class="active">Cash</span><span>Card</span><span>Transfer</span></div>
+                <div class="checkout-bar"><span>Complete sale</span><strong>₦18,450</strong></div>
+              </aside>
+            </div>
           </div>
         </div>
       </div>
