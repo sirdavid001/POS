@@ -887,6 +887,13 @@ h3 { letter-spacing: -0.025em; }
     radial-gradient(circle at 100% 0, oklch(0.55 0.2 260 / 0.2), transparent 38%),
     oklch(0.16 0.012 260 / 0.9);
   box-shadow: 0 30px 90px oklch(0 0 0 / 0.28);
+  color: #fff;
+}
+.download-access-card .section-kicker { color: oklch(0.8 0.12 260); }
+.download-access-card .release-status {
+  border-color: oklch(0.8 0.12 260 / 0.22);
+  color: oklch(0.94 0.015 260);
+  background: oklch(1 0 0 / 0.06);
 }
 .download-access-heading {
   display: flex;
@@ -916,17 +923,20 @@ h3 { letter-spacing: -0.025em; }
   border-radius: 14px;
   transition: background 160ms ease;
 }
-.download-access-platforms > div:hover { background: var(--color-surface-3); }
+.download-access-platforms > div:hover { background: oklch(1 0 0 / 0.055); }
 .download-access-platforms .platform-icon {
   width: 42px;
   height: 42px;
   border-radius: 12px;
+  border-color: oklch(1 0 0 / 0.12);
+  color: #fff;
+  background: oklch(1 0 0 / 0.06);
 }
 .download-access-platforms p { display: grid; gap: 3px; margin: 0; }
-.download-access-platforms p strong { font-size: 14px; }
-.download-access-platforms p small { color: var(--muted); font-size: 11px; }
+.download-access-platforms p strong { color: #fff; font-size: 14px; }
+.download-access-platforms p small { color: oklch(0.82 0.015 260); font-size: 11px; }
 .download-access-platforms b {
-  color: var(--muted);
+  color: oklch(0.82 0.015 260);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.05em;
@@ -938,11 +948,11 @@ h3 { letter-spacing: -0.025em; }
   padding: 18px;
   border-top: 1px solid var(--line);
   border-radius: 16px;
-  background: var(--color-surface-2);
+  background: oklch(1 0 0 / 0.055);
 }
 .download-access-footer > span { display: grid; gap: 3px; }
-.download-access-footer > span > span { font-size: 12px; font-weight: 800; }
-.download-access-footer small { color: var(--muted); font-size: 10px; }
+.download-access-footer > span > span { color: #fff; font-size: 12px; font-weight: 800; }
+.download-access-footer small { color: oklch(0.8 0.015 260); font-size: 10px; }
 .download-access-footer a {
   display: flex;
   align-items: center;
