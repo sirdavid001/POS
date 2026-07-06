@@ -3,125 +3,170 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="QuickPOS app downloads are available inside the owner account portal after store activation.">
+  <meta name="description" content="Get the official QuickPOS installer for Windows, Android, macOS, or Linux from your secure account portal.">
   <link rel="icon" href="/favicon.ico">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <meta name="theme-color" content="#15161b">
-  <title>Downloads | QuickPOS</title>
+  <title>Download QuickPOS | Official installers</title>
 </head>
 <body data-page="downloads">
   <header class="site-header" data-site-header></header>
   <main>
     <section class="page-hero download-hero">
       <div class="site-shell download-hero-grid">
-        <div class="page-intro">
-          <span class="eyebrow">Installer center</span>
-          <h1>Download QuickPOS from your account portal.</h1>
-          <p>QuickPOS installers are released through the owner account portal after store activation. The website keeps billing, device downloads, and setup separate from the installed POS app.</p>
+        <div class="page-intro download-hero-copy">
+          <span class="eyebrow">Official installer centre</span>
+          <h1>QuickPOS for every device that runs your store.</h1>
+          <p>Install the complete point-of-sale app on your counter, tablet, or office computer. Active store owners get the correct installer, version details, and setup guidance in one secure place.</p>
           <div class="hero-actions">
-            <a class="button" href="/account">Open account portal</a>
-            <a class="button button-secondary" href="/account#create">Create store account</a>
+            <a class="button" href="/account#downloads">Open download portal</a>
+            <a class="button button-secondary" href="#device-options">Choose a device</a>
           </div>
-          <div class="trust-row">
-            <span>Admin-only access</span>
-            <span>Activation-gated downloads</span>
-            <span>Device-specific installers</span>
+          <div class="download-trust-list" aria-label="Download assurances">
+            <span><i></i> Official QuickPOS builds</span>
+            <span><i></i> Versioned releases</span>
+            <span><i></i> Protected account access</span>
           </div>
         </div>
-        <aside class="download-command-card" aria-label="QuickPOS download access summary">
-          <div class="download-command-top">
-            <img src="/brand/quickpos-mark.svg" alt="" width="58" height="58">
-            <span class="release-status"><i></i> Portal controlled</span>
+
+        <aside class="download-access-card" aria-label="Current QuickPOS release">
+          <div class="download-access-heading">
+            <div>
+              <span class="section-kicker">Current release</span>
+              <strong>QuickPOS <span data-release-version>latest</span></strong>
+            </div>
+            <span class="release-status"><i></i> Available</span>
           </div>
-          <h2>Secure installer access</h2>
-          <p>Sign in as an owner/admin, confirm activation, then select the correct build for each store device.</p>
-          <div class="download-command-list">
-            <span><strong>1</strong> Account</span>
-            <span><strong>2</strong> Activation</span>
-            <span><strong>3</strong> Device install</span>
+          <div class="download-access-platforms">
+            <div><span class="platform-icon" data-platform-icon="windows"></span><p><strong>Windows</strong><small>64-bit setup</small></p><b>.exe</b></div>
+            <div><span class="platform-icon" data-platform-icon="android"></span><p><strong>Android</strong><small>Signed mobile app</small></p><b>.apk</b></div>
+            <div><span class="platform-icon" data-platform-icon="macos"></span><p><strong>macOS</strong><small>Intel &amp; Apple silicon</small></p><b>.dmg</b></div>
+            <div><span class="platform-icon" data-platform-icon="linux"></span><p><strong>Linux</strong><small>AppImage &amp; Debian</small></p><b>2 formats</b></div>
           </div>
-          <a href="/pricing">View activation pricing</a>
+          <div class="download-access-footer">
+            <span><span data-release-date>Latest verified release</span><small>Checksums included where available</small></span>
+            <a href="/account#downloads">Sign in to download <span aria-hidden="true">→</span></a>
+          </div>
         </aside>
       </div>
     </section>
 
-    <section class="section device-install-section">
+    <section class="section download-device-section" id="device-options">
       <div class="site-shell">
         <div class="download-section-heading">
           <div>
-            <span class="section-kicker">Supported devices</span>
-            <h2>One installer flow for every store device.</h2>
+            <span class="section-kicker">Choose your device</span>
+            <h2>Get the right build the first time.</h2>
+            <p>Pick the system you want to set up. We will take you to the protected download area for the latest compatible installer.</p>
           </div>
-          <span class="release-status"><i></i> Available after activation</span>
+          <div class="latest-release-chip">
+            <span>Latest</span>
+            <strong>v<span data-release-version>—</span></strong>
+          </div>
         </div>
-        <div class="device-install-grid">
-          <article>
-            <span class="device-platform-label">Counter terminals</span>
-            <strong>Windows</strong>
-            <p>Desktop setup file for checkout counters and back-office computers.</p>
+
+        <div class="download-platform-grid">
+          <article class="download-platform-card" data-platform-card="windows">
+            <div class="download-platform-top">
+              <span class="platform-icon platform-icon-large" data-platform-icon="windows"></span>
+              <span class="device-fit-badge" data-device-fit>Counter &amp; office</span>
+            </div>
+            <div>
+              <h3>Windows</h3>
+              <p>For checkout counters, back-office PCs, and everyday store operations.</p>
+            </div>
+            <ul>
+              <li>Windows 10 or later</li>
+              <li>64-bit installer</li>
+              <li>Desktop &amp; Start menu shortcuts</li>
+            </ul>
+            <div class="download-format-row"><span>Installer</span><strong>EXE</strong></div>
+            <a href="/account#downloads" aria-label="Get QuickPOS for Windows">Get Windows installer <span aria-hidden="true">→</span></a>
           </article>
-          <article>
-            <span class="device-platform-label">Mobile sales</span>
-            <strong>Android</strong>
-            <p>APK build for handheld sales, barcode scanning, and shop-floor use.</p>
+
+          <article class="download-platform-card" data-platform-card="android">
+            <div class="download-platform-top">
+              <span class="platform-icon platform-icon-large" data-platform-icon="android"></span>
+              <span class="device-fit-badge" data-device-fit>Mobile selling</span>
+            </div>
+            <div>
+              <h3>Android</h3>
+              <p>For tablets and phones used for mobile checkout, stock work, and scanning.</p>
+            </div>
+            <ul>
+              <li>Android 8 or later</li>
+              <li>Signed release package</li>
+              <li>Camera barcode scanning</li>
+            </ul>
+            <div class="download-format-row"><span>Mobile app</span><strong>APK</strong></div>
+            <a href="/account#downloads" aria-label="Get QuickPOS for Android">Get Android app <span aria-hidden="true">→</span></a>
           </article>
-          <article>
-            <span class="device-platform-label">Mac computers</span>
-            <strong>macOS</strong>
-            <p>Mac desktop builds for supported Intel and Apple silicon computers.</p>
+
+          <article class="download-platform-card" data-platform-card="macos">
+            <div class="download-platform-top">
+              <span class="platform-icon platform-icon-large" data-platform-icon="macos"></span>
+              <span class="device-fit-badge" data-device-fit>Mac computers</span>
+            </div>
+            <div>
+              <h3>macOS</h3>
+              <p>Desktop builds for Mac workstations used for selling and administration.</p>
+            </div>
+            <ul>
+              <li>Intel and Apple silicon</li>
+              <li>Separate architecture builds</li>
+              <li>Manual approval may be required</li>
+            </ul>
+            <div class="download-format-row"><span>Disk image</span><strong>DMG</strong></div>
+            <a href="/account#downloads" aria-label="Get QuickPOS for macOS">Choose a Mac build <span aria-hidden="true">→</span></a>
           </article>
-          <article>
-            <span class="device-platform-label">Office systems</span>
-            <strong>Linux</strong>
-            <p>Desktop package options for compatible Linux workstations.</p>
+
+          <article class="download-platform-card" data-platform-card="linux">
+            <div class="download-platform-top">
+              <span class="platform-icon platform-icon-large" data-platform-icon="linux"></span>
+              <span class="device-fit-badge" data-device-fit>Linux systems</span>
+            </div>
+            <div>
+              <h3>Linux</h3>
+              <p>Flexible desktop packages for compatible Linux registers and office systems.</p>
+            </div>
+            <ul>
+              <li>64-bit Linux systems</li>
+              <li>Portable AppImage</li>
+              <li>Debian package available</li>
+            </ul>
+            <div class="download-format-row"><span>Packages</span><strong>AppImage · DEB</strong></div>
+            <a href="/account#downloads" aria-label="Get QuickPOS for Linux">Choose a Linux package <span aria-hidden="true">→</span></a>
           </article>
         </div>
       </div>
     </section>
 
-    <section class="section download-flow-section">
-      <div class="site-shell">
-        <div class="section-heading">
-          <span class="section-kicker">Install process</span>
-          <h2>Keep setup clean before the app is opened.</h2>
-          <p>The website handles account setup, payment, staff administration, and installer access. The POS interface only runs inside the installed QuickPOS app.</p>
+    <section class="section download-access-section">
+      <div class="site-shell download-access-layout">
+        <div class="download-access-copy">
+          <span class="section-kicker">Secure access</span>
+          <h2>From account to checkout in three clear steps.</h2>
+          <p>Installer access stays connected to your store account, so owners always see the current release and staff receive the right setup.</p>
+          <a class="button" href="/account#create">Create your store account</a>
         </div>
-        <div class="download-flow-grid">
-          <article>
-            <span>01</span>
-            <h3>Create or sign in</h3>
-            <p>Use the website account portal with an owner/admin login. Manager and cashier accounts use the installed app.</p>
-          </article>
-          <article>
-            <span>02</span>
-            <h3>Activate the store</h3>
-            <p>Complete activation in the Account Portal before installer links and device builds become available.</p>
-          </article>
-          <article>
-            <span>03</span>
-            <h3>Select a device build</h3>
-            <p>Choose the installer that matches the device: Windows, Android, macOS, or Linux.</p>
-          </article>
-          <article>
-            <span>04</span>
-            <h3>Install and sign in</h3>
-            <p>Open QuickPOS from the installed app and sign in with the same store account to start daily operations.</p>
-          </article>
-        </div>
+        <ol class="download-step-list">
+          <li><span>01</span><div><strong>Sign in as the store owner</strong><p>Use the website account portal to manage activation and device downloads.</p></div></li>
+          <li><span>02</span><div><strong>Activate your QuickPOS store</strong><p>Complete the store plan once, then unlock official installers for your devices.</p></div></li>
+          <li><span>03</span><div><strong>Install and start selling</strong><p>Choose the matching build, install QuickPOS, and sign in with your store account.</p></div></li>
+        </ol>
       </div>
     </section>
 
-    <section class="section section-tint release-safety">
-      <div class="site-shell">
-        <div class="section-heading">
-          <span class="section-kicker">Release controls</span>
-          <h2>Downloads are protected by account status.</h2>
-          <p>The public website explains the setup process. Actual installer links stay inside the authenticated account portal.</p>
+    <section class="section download-help-section">
+      <div class="site-shell download-help-card">
+        <div>
+          <span class="section-kicker">Installation support</span>
+          <h2>Not sure which installer you need?</h2>
+          <p>Tell us your device and operating system. We will point you to the correct official build.</p>
         </div>
-        <div class="assurance-grid">
-          <article class="assurance-card"><span class="assurance-icon" data-icon="shield"></span><h3>Admin-gated access</h3><p>Managers and cashiers use the installed app. The website portal is reserved for owner/admin account work.</p></article>
-          <article class="assurance-card"><span class="assurance-icon" data-icon="hash"></span><h3>Verified releases</h3><p>Published builds include version details and checksums where available.</p></article>
-          <article class="assurance-card"><span class="assurance-icon" data-icon="update"></span><h3>Clear update path</h3><p>Installed apps can check for supported releases and show update guidance when a new version is ready.</p></article>
+        <div class="download-help-actions">
+          <a class="button button-secondary" href="/support">Visit support</a>
+          <a href="mailto:support@quickpos.com.ng">support@quickpos.com.ng</a>
         </div>
       </div>
     </section>

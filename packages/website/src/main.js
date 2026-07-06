@@ -222,6 +222,81 @@ function releaseVariantLabel(platform, release) {
   return release.file_type || release.architecture || 'Download';
 }
 
+async function fetchReleaseManifest() {
+  const manifestUrls = [
+    import.meta.env.VITE_RELEASE_MANIFEST_URL,
+  ].filter(Boolean);
+
+  for (const manifestUrl of manifestUrls) {
+    try {
+      const response = await fetch(manifestUrl, { cache: 'no-store' });
+      if (response.ok) return response.json();
+    } catch {
+      // Try the next official release source.
+    }
+  }
+
+  try {
+    const response = await fetch(
+      'https://api.github.com/repos/sirdavid001/POS/releases/latest',
+      { cache: 'no-store' },
+    );
+    if (response.ok) {
+      const manifest = manifestFromGitHubRelease(await response.json());
+      if (manifest) return manifest;
+    }
+  } catch {
+    // Fall through to the hosted release manifest.
+  }
+
+  const response = await fetch('https://downloads.quickpos.com.ng/latest.json', {
+    cache: 'no-store',
+  });
+  if (!response.ok) throw new Error('Release manifest unavailable');
+  return response.json();
+}
+
+async function preparePublicDownloadPage() {
+  const cards = document.querySelectorAll('[data-platform-card]');
+  if (!cards.length) return;
+
+  const detected = detectPlatform();
+  document.querySelectorAll('[data-platform-icon]').forEach((element) => {
+    element.innerHTML = platformDetails[element.dataset.platformIcon]?.icon || '';
+  });
+
+  const detectedCard = detected
+    ? document.querySelector(`[data-platform-card="${detected}"]`)
+    : null;
+  if (detectedCard) {
+    detectedCard.classList.add('is-recommended');
+    const badge = detectedCard.querySelector('[data-device-fit]');
+    if (badge) badge.textContent = 'Recommended for this device';
+  }
+
+  try {
+    const manifest = await fetchReleaseManifest();
+    document.querySelectorAll('[data-release-version]').forEach((element) => {
+      element.textContent = manifest.version || 'latest';
+    });
+
+    const releaseDate = manifest.published_at ? new Date(manifest.published_at) : null;
+    if (releaseDate && !Number.isNaN(releaseDate.getTime())) {
+      document.querySelectorAll('[data-release-date]').forEach((element) => {
+        element.textContent = `Released ${new Intl.DateTimeFormat('en', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        }).format(releaseDate)}`;
+      });
+    }
+  } catch {
+    document.querySelectorAll('[data-release-version]').forEach((element) => {
+      element.textContent = 'latest';
+    });
+  }
+}
+
 async function loadDownloads() {
   const target = document.querySelector('[data-download-grid]');
   if (!target) return;
@@ -229,35 +304,7 @@ async function loadDownloads() {
   const platforms = ['windows', 'android', 'macos', 'linux'];
 
   try {
-    const manifestUrls = [
-      import.meta.env.VITE_RELEASE_MANIFEST_URL,
-      'https://downloads.quickpos.com.ng/latest.json',
-    ].filter(Boolean);
-    let manifest = null;
-
-    for (const manifestUrl of manifestUrls) {
-      try {
-        const response = await fetch(manifestUrl, { cache: 'no-store' });
-        if (!response.ok) continue;
-        manifest = await response.json();
-        break;
-      } catch {
-        // Try the next release host.
-      }
-    }
-
-    if (!manifest) {
-      const response = await fetch(
-        'https://api.github.com/repos/sirdavid001/POS/releases/latest',
-        { cache: 'no-store' },
-      );
-      if (response.ok) {
-        const release = await response.json();
-        manifest = manifestFromGitHubRelease(release);
-      }
-    }
-
-    if (!manifest) throw new Error('Release manifest unavailable');
+    const manifest = await fetchReleaseManifest();
 
     const releaseGroups = new Map();
     (manifest.releases || []).forEach((release) => {
@@ -399,6 +446,7 @@ async function loadDownloads() {
 }
 
 loadDownloads();
+preparePublicDownloadPage();
 
 document.querySelectorAll('[data-icon]').forEach((element) => {
   element.innerHTML = utilityIcons[element.dataset.icon] || '';
