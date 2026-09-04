@@ -17,12 +17,20 @@ export const validate = (schema) => {
       }
 
       // Replace request data with parsed/sanitized values
-      req.body = result.data.body ?? req.body;
-      req.query = result.data.query ?? req.query;
-      req.params = result.data.params ?? req.params;
+      if (result.data.body !== undefined) req.body = result.data.body;
+      if (result.data.params !== undefined) req.params = result.data.params;
+      if (result.data.query !== undefined) {
+        // Express 5 exposes req.query through a getter. Define a request-local
+        // value instead of assigning to the read-only prototype property.
+        Object.defineProperty(req, 'query', {
+          configurable: true,
+          enumerable: true,
+          value: result.data.query,
+        });
+      }
 
       next();
-    } catch (err) {
+    } catch {
       return res.status(400).json({ error: 'Invalid request data' });
     }
   };

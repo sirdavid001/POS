@@ -118,7 +118,7 @@ export async function renderSettings() {
       document.getElementById('s-currency').value = store.currency || 'NGN';
       document.getElementById('s-rh').value = store.receipt_header || '';
       document.getElementById('s-rf').value = store.receipt_footer || '';
-    } catch (err) { toast('Failed to load settings', 'error'); }
+    } catch { toast('Failed to load settings', 'error'); }
 
     document.getElementById('store-form').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -242,7 +242,7 @@ export async function renderSettings() {
         });
       });
 
-    } catch (err) { toast('Failed to load staff', 'error'); }
+    } catch { toast('Failed to load staff', 'error'); }
   }
 
   // Edit staff credentials modal

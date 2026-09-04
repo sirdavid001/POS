@@ -18,7 +18,7 @@ export const createOrderSchema = z.object({
   }).superRefine((order, context) => {
     if (order.payment_method !== 'cash' && !order.payment_reference) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['payment_reference'],
         message: 'Payment reference is required for card and transfer sales',
       });

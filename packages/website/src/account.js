@@ -19,12 +19,10 @@ class SiteApi {
   constructor() {
     const session = readSiteSession();
     this.accessToken = session.accessToken;
-    this.refreshToken = session.refreshToken;
   }
 
   setSession(data) {
     this.accessToken = data.accessToken;
-    this.refreshToken = data.refreshToken;
     storeSiteSession(data);
   }
 
@@ -34,17 +32,19 @@ class SiteApi {
 
   clearSession() {
     this.accessToken = null;
-    this.refreshToken = null;
     clearStoredSiteSession();
   }
 
   async refreshAccessToken() {
-    if (!this.refreshToken) return false;
     try {
       const response = await fetch(`${API_BASE}/auth/refresh`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken: this.refreshToken }),
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-QuickPOS-Client': 'website',
+        },
+        body: JSON.stringify({}),
       });
       if (!response.ok) return false;
       const data = await response.json();
@@ -52,7 +52,6 @@ class SiteApi {
       const session = readSiteSession();
       storeSiteSession({
         accessToken: data.accessToken,
-        refreshToken: this.refreshToken,
         user: session.user,
       });
       return true;
@@ -64,7 +63,11 @@ class SiteApi {
   async request(method, path, data = null) {
     const config = {
       method,
-      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-QuickPOS-Client': 'website',
+      },
     };
     if (this.accessToken) {
       config.headers.Authorization = `Bearer ${this.accessToken}`;
@@ -74,7 +77,7 @@ class SiteApi {
     }
 
     let response = await fetch(`${API_BASE}${path}`, config);
-    if (response.status === 401 && this.refreshToken) {
+    if (response.status === 401 && this.accessToken) {
       const refreshed = await this.refreshAccessToken();
       if (refreshed) {
         config.headers.Authorization = `Bearer ${this.accessToken}`;
@@ -88,7 +91,7 @@ class SiteApi {
     try {
       json = await response.json();
     } catch {
-      json = {};
+      // Keep the empty fallback for responses without a JSON body.
     }
 
     if (!response.ok) {
@@ -509,7 +512,7 @@ function renderSignIn() {
       });
       if (data.user?.role !== 'admin') {
         try {
-          await siteApi.post('/auth/logout', { refreshToken: data.refreshToken });
+          await siteApi.post('/auth/logout', {});
         } catch {
           // The website session is still cleared locally below.
         }
@@ -840,9 +843,6 @@ function priceForPlan(plan, selectedCurrency) {
 
 function visiblePlansForSubscription(plans = [], subscription = {}) {
   const needsActivation = Boolean(subscription.activation_required);
-  const activationPeriodActive =
-    subscription.plan_code === 'activation_5m' &&
-    subscription.can_write;
   return plans.filter((plan) =>
     needsActivation ? plan.code === 'activation_5m' : plan.code !== 'activation_5m'
   );
@@ -1277,9 +1277,8 @@ function attachPortalHandlers() {
   });
 
   document.getElementById('account-logout')?.addEventListener('click', async () => {
-    const refreshToken = siteApi.refreshToken;
     try {
-      if (refreshToken) await siteApi.post('/auth/logout', { refreshToken });
+      await siteApi.post('/auth/logout', {});
     } catch {
       // Local sign-out should still complete.
     }

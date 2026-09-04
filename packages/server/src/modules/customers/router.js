@@ -2,6 +2,9 @@ import { Router } from 'express';
 import { query } from '../../config/database.js';
 import { authenticate, authorize } from '../../middleware/auth.js';
 import { requireActiveSubscription } from '../../middleware/subscription.js';
+import { validate } from '../../middleware/validate.js';
+import { createCustomerSchema, updateCustomerSchema } from './schema.js';
+import { pagination } from '../../utils/pagination.js';
 
 const router = Router();
 router.use(authenticate);
@@ -10,8 +13,8 @@ router.use(requireActiveSubscription());
 // GET all customers
 router.get('/', async (req, res, next) => {
   try {
-    const { page = 1, limit = 50, search } = req.query;
-    const offset = (page - 1) * limit;
+    const { search } = req.query;
+    const { limit, offset } = pagination(req.query);
 
     let sql = 'SELECT * FROM customers WHERE store_id = $1';
     const params = [req.user.store_id];
@@ -26,7 +29,13 @@ router.get('/', async (req, res, next) => {
     params.push(limit, offset);
 
     const result = await query(sql, params);
-    const countResult = await query('SELECT COUNT(*) FROM customers WHERE store_id = $1', [req.user.store_id]);
+    let countSql = 'SELECT COUNT(*) FROM customers WHERE store_id = $1';
+    const countParams = [req.user.store_id];
+    if (search) {
+      countSql += ' AND (name ILIKE $2 OR email ILIKE $2 OR phone ILIKE $2)';
+      countParams.push(`%${search}%`);
+    }
+    const countResult = await query(countSql, countParams);
 
     res.json({ customers: result.rows, total: parseInt(countResult.rows[0].count) });
   } catch (err) { next(err); }
@@ -39,8 +48,8 @@ router.get('/:id', async (req, res, next) => {
     if (custResult.rows.length === 0) return res.status(404).json({ error: 'Customer not found' });
 
     const ordersResult = await query(
-      'SELECT * FROM orders WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 20',
-      [req.params.id]
+      'SELECT * FROM orders WHERE customer_id = $1 AND store_id = $2 ORDER BY created_at DESC LIMIT 20',
+      [req.params.id, req.user.store_id]
     );
 
     res.json({ customer: custResult.rows[0], orders: ordersResult.rows });
@@ -48,7 +57,7 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // POST create customer
-router.post('/', async (req, res, next) => {
+router.post('/', validate(createCustomerSchema), async (req, res, next) => {
   try {
     const { name, email, phone, address, notes } = req.body;
     const result = await query(
@@ -60,7 +69,7 @@ router.post('/', async (req, res, next) => {
 });
 
 // PATCH update customer
-router.patch('/:id', authorize('admin', 'manager'), async (req, res, next) => {
+router.patch('/:id', authorize('admin', 'manager'), validate(updateCustomerSchema), async (req, res, next) => {
   try {
     const { name, email, phone, address, notes, loyalty_points } = req.body;
     const result = await query(

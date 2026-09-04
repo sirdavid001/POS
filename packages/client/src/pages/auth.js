@@ -58,8 +58,8 @@ export function renderLoginPage() {
 
     try {
       const data = await api.post('/auth/login', { email, password });
-      api.setTokens(data.accessToken, data.refreshToken);
       localStorage.setItem('user', JSON.stringify(data.user));
+      api.setTokens(data.accessToken, data.refreshToken);
       saveSubscription(data.subscription);
       await attemptSync();
       toast('Welcome back, ' + data.user.name + '!', 'success');

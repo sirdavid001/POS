@@ -77,7 +77,7 @@ export async function renderOrders() {
           } catch (err) { toast(err.message, 'error'); }
         });
       });
-    } catch (err) { toast('Failed to load orders', 'error'); }
+    } catch { toast('Failed to load orders', 'error'); }
   }
 
   document.getElementById('order-status-filter').addEventListener('change', loadOrders);

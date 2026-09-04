@@ -107,7 +107,7 @@ export async function renderProducts() {
           } catch (err) { toast(err.message, 'error'); }
         });
       });
-    } catch (err) {
+    } catch {
       toast('Failed to load products', 'error');
     }
   }
@@ -242,6 +242,36 @@ function showProductModal(product, onSave) {
     preview.appendChild(image);
   }
 
+  async function optimizeProductImage(file) {
+    if (!file.type.startsWith('image/')) throw new Error('Choose a valid image file');
+    if (file.size > 5 * 1024 * 1024) throw new Error('Image must be 5 MB or smaller');
+
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      const image = new Image();
+      image.src = objectUrl;
+      await image.decode();
+
+      const scale = Math.min(1, 480 / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('This device could not process the image');
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+      if (dataUrl.length > 250_000) {
+        throw new Error('Image is still too large after optimization. Choose a simpler image.');
+      }
+      return dataUrl;
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+
   // Barcode lookup function — queries online databases
   async function lookupBarcode(barcode) {
     if (!barcode || barcode.length < 4) {
@@ -338,17 +368,18 @@ function showProductModal(product, onSave) {
   });
 
   // Image upload handler
-  document.getElementById('image-upload-input').addEventListener('change', (e) => {
+  document.getElementById('image-upload-input').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target.result;
+    try {
+      const dataUrl = await optimizeProductImage(file);
       document.getElementById('image-url-input').value = dataUrl;
       renderImagePreview(dataUrl);
-      toast('Image uploaded', 'success');
-    };
-    reader.readAsDataURL(file);
+      toast('Image optimized and uploaded', 'success');
+    } catch (error) {
+      e.target.value = '';
+      toast(error.message, 'error');
+    }
   });
 
   // Image URL preview on manual input
@@ -364,7 +395,7 @@ function showProductModal(product, onSave) {
       name: form.get('name'),
       sku: form.get('sku') || undefined,
       barcode: form.get('barcode') || undefined,
-      image_url: form.get('image_url') || undefined,
+      image_url: form.get('image_url') || (isEdit ? null : undefined),
       price: parseFloat(form.get('price')),
       cost_price: parseFloat(form.get('cost_price')) || 0,
       stock_quantity: parseInt(form.get('stock_quantity')) || 0,
@@ -374,6 +405,7 @@ function showProductModal(product, onSave) {
         : null,
       description: form.get('description') || undefined,
     };
+    if (isEdit && data.image_url === product.image_url) delete data.image_url;
 
     try {
       if (isEdit) {

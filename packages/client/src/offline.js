@@ -64,7 +64,7 @@ function storageSet(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
     return true;
-  } catch (error) {
+  } catch {
     window.dispatchEvent(new CustomEvent('offline-storage-error', {
       detail: { message: 'Device storage is full. Sync or free storage before making more offline changes.' },
     }));
@@ -365,6 +365,12 @@ function deleteOfflineEntity(resource, id, pathPrefix = `/${resource}`) {
 
 function createOfflineInventoryAdjustment(data) {
   const product = getBestCachedProducts().find((item) => String(item.id) === String(data.product_id));
+  const quantity = Number(data.quantity);
+  if (!product) throw new Error('This product is not available in the offline store snapshot.');
+  if (!Number.isInteger(quantity) || quantity < 1) throw new Error('Inventory quantity must be a positive whole number.');
+  if (data.type === 'out' && quantity > Number(product.stock_quantity || 0)) {
+    throw new Error(`Insufficient offline stock for ${product.name}.`);
+  }
   const log = {
     ...data,
     id: tempId(),
@@ -372,11 +378,11 @@ function createOfflineInventoryAdjustment(data) {
     product_name: product?.name || `Product ${data.product_id}`,
     created_at: nowIso(),
   };
-  const modifier = data.type === 'out' ? -Number(data.quantity || 0) : Number(data.quantity || 0);
+  const modifier = data.type === 'out' ? -quantity : quantity;
 
   mutateSnapshotList('products', (products) => products.map((item) => (
     String(item.id) === String(data.product_id)
-      ? { ...item, stock_quantity: Math.max(0, Number(item.stock_quantity || 0) + modifier), offline: true }
+      ? { ...item, stock_quantity: Number(item.stock_quantity || 0) + modifier, offline: true }
       : item
   )));
   mutateSnapshotList('logs', (logs) => [log, ...logs]);

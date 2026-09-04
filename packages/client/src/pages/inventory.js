@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { renderLayout } from './layout.js';
-import { escapeHTML, formatCurrency, formatDateTime, toast, icons, downloadCSV } from '../utils.js';
+import { escapeHTML, formatDateTime, toast, icons, downloadCSV } from '../utils.js';
 
 let currentLogsData = [];
 
@@ -57,7 +57,7 @@ export async function renderInventory() {
         </table>
       `;
     }
-  } catch (err) { document.getElementById('inventory-logs').innerHTML = '<p style="color:var(--color-danger);">Failed to load</p>'; }
+  } catch { document.getElementById('inventory-logs').innerHTML = '<p style="color:var(--color-danger);">Failed to load</p>'; }
 
   // Load suppliers
   try {

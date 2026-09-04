@@ -43,7 +43,7 @@ router.get('/users', authorize('admin', 'manager'), async (req, res, next) => {
               r.name as role, creator.name AS created_by
        FROM users u
        JOIN roles r ON u.role_id = r.id
-       LEFT JOIN users creator ON creator.id = u.created_by_user_id
+       LEFT JOIN users creator ON creator.id = u.created_by_user_id AND creator.store_id = u.store_id
        WHERE u.store_id = $1${roleFilter} ORDER BY u.created_at DESC`,
       params
     );

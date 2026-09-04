@@ -105,13 +105,15 @@ function renderSiteHeader() {
     button.disabled = true;
     button.textContent = 'Signing out…';
     try {
-      if (session.refreshToken) {
-        await fetch(`${API_BASE}/auth/logout`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken: session.refreshToken }),
-        });
-      }
+      await fetch(`${API_BASE}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-QuickPOS-Client': 'website',
+        },
+        body: JSON.stringify({}),
+      });
     } catch {
       // A local sign-out must still succeed if the network is unavailable.
     }
@@ -140,7 +142,7 @@ if (footer) {
       <div>
         <a class="brand" href="/"><img class="brand-mark" src="/brand/quickpos-mark.svg" alt=""><span>QuickPOS</span></a>
         <p>Simple point of sale software built for growing stores.</p>
-        <p>Operated by <strong>SIRDAVID MULTI-TRADE LTD</strong><br>RC 9387137 · Asaba, Delta State, Nigeria</p>
+        <p>Operated by <strong>SIRDAVID MULTI-TRADE LTD</strong><br>RC 9387137</p>
       </div>
       <div>
         <strong>Product</strong>

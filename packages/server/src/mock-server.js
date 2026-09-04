@@ -19,12 +19,6 @@ app.use(express.json());
 // ===== In-memory data =====
 const store = { id: 1, name: 'QuickPOS Demo Store', address: '123 Main Street, Lagos', phone: '+234 800 000 0000', email: 'store@posapp.com', tax_rate: '7.50', currency: 'NGN', receipt_header: 'Thank you for shopping!', receipt_footer: 'Visit again soon!' };
 
-const roles = [
-  { id: 1, name: 'admin' },
-  { id: 2, name: 'manager' },
-  { id: 3, name: 'cashier' },
-];
-
 const users = [];
 if (process.env.SEED_ADMIN_EMAIL && process.env.SEED_ADMIN_PASSWORD) {
   users.push({
@@ -565,7 +559,7 @@ app.get('/api/v1/sync/bootstrap', auth, (req, res) => {
       orders: canManage ? orders.slice(0, 500) : [],
       logs: canManage ? inventoryLogs.slice(0, 500) : [],
       users: canManage
-        ? users.map(({ password, ...user }) => user)
+        ? users.map(({ password: _password, ...user }) => user)
         : [],
     },
     synced_at: new Date().toISOString(),

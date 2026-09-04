@@ -9,6 +9,11 @@
   "homepage": "https://quickpos.com.ng",
   "desktopName": "QuickPOS",
   "private": true,
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=11.0.0"
+  },
+  "packageManager": "npm@11.6.2",
   "main": "desktop/main.cjs",
   "workspaces": [
     "packages/shared",
@@ -19,7 +24,7 @@
   "scripts": {
     "dev": "concurrently \"npm run dev -w packages/server\" \"npm run dev -w packages/client\"",
     "build": "npm run build --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present",
+    "lint": "eslint .",
     "test": "npm run test --workspaces --if-present",
     "db:migrate": "npm run db:migrate -w packages/server",
     "db:seed": "npm run db:seed -w packages/server",
@@ -38,16 +43,19 @@
     "website:build": "npm run build -w packages/website"
   },
   "devDependencies": {
-    "concurrently": "^10.0.3",
-    "electron": "^42.4.0",
-    "electron-builder": "^26.15.2"
+    "@capacitor/cli": "^8.5.1",
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^10.0.5",
+    "electron": "^44.2.0",
+    "electron-builder": "^26.15.3",
+    "eslint": "^10.9.1",
+    "globals": "^17.12.0"
   },
   "dependencies": {
-    "@capacitor/android": "^8.4.0",
-    "@capacitor/cli": "^8.4.0",
-    "@capacitor/core": "^8.4.0",
-    "@capacitor/ios": "^8.4.0",
-    "electron-updater": "^6.6.2"
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/core": "^8.5.1",
+    "@capacitor/ios": "^8.5.1",
+    "electron-updater": "^6.8.9"
   },
   "build": {
     "appId": "app.quickpos.desktop",

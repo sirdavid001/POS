@@ -125,8 +125,8 @@ export async function getStoreStatement(storeId, filters = {}, queryFn = query) 
       u.name AS cashier_name,
       COALESCE(SUM(oi.quantity), 0)::int AS item_count
     FROM orders o
-    LEFT JOIN users u ON o.user_id = u.id
-    LEFT JOIN order_items oi ON oi.order_id = o.id
+    LEFT JOIN users u ON o.user_id = u.id AND u.store_id = o.store_id
+    LEFT JOIN order_items oi ON oi.order_id = o.id AND oi.store_id = o.store_id
     WHERE o.store_id = $1
   `;
 

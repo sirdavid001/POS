@@ -1,15 +1,25 @@
 import { query } from '../../config/database.js';
+import { pagination } from '../../utils/pagination.js';
+
+async function categoryBelongsToStore(categoryId, storeId) {
+  if (!categoryId) return true;
+  const result = await query(
+    'SELECT id FROM categories WHERE id = $1 AND store_id = $2',
+    [categoryId, storeId]
+  );
+  return Boolean(result.rows[0]);
+}
 
 export const getProducts = async (req, res, next) => {
   try {
-    const { page = 1, limit = 50, search, category_id, sort = 'name', order = 'asc' } = req.query;
-    const offset = (page - 1) * limit;
+    const { search, category_id, sort = 'name', order = 'asc' } = req.query;
+    const { page, limit, offset } = pagination(req.query);
     const storeId = req.user.store_id;
 
     let sql = `
       SELECT p.*, c.name as category_name
       FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN categories c ON p.category_id = c.id AND c.store_id = p.store_id
       WHERE p.store_id = $1
     `;
     const params = [storeId];
@@ -43,13 +53,17 @@ export const getProducts = async (req, res, next) => {
       countSql += ` AND (name ILIKE $2 OR sku ILIKE $2 OR barcode ILIKE $2)`;
       countParams.push(`%${search}%`);
     }
+    if (category_id) {
+      countSql += ` AND category_id = $${countParams.length + 1}`;
+      countParams.push(category_id);
+    }
     const countResult = await query(countSql, countParams);
 
     res.json({
       products: result.rows,
       total: parseInt(countResult.rows[0].count),
-      page: parseInt(page),
-      limit: parseInt(limit),
+      page,
+      limit,
     });
   } catch (err) {
     next(err);
@@ -60,7 +74,7 @@ export const getProduct = async (req, res, next) => {
   try {
     const result = await query(
       `SELECT p.*, c.name as category_name FROM products p
-       LEFT JOIN categories c ON p.category_id = c.id
+       LEFT JOIN categories c ON p.category_id = c.id AND c.store_id = p.store_id
        WHERE p.id = $1 AND p.store_id = $2`,
       [req.params.id, req.user.store_id]
     );
@@ -74,6 +88,9 @@ export const getProduct = async (req, res, next) => {
 export const createProduct = async (req, res, next) => {
   try {
     const { name, description, category_id, sku, barcode, image_url, price, cost_price, stock_quantity, low_stock_threshold } = req.body;
+    if (!(await categoryBelongsToStore(category_id, req.user.store_id))) {
+      return res.status(400).json({ error: 'Category does not belong to this store' });
+    }
     const result = await query(
       `INSERT INTO products (store_id, category_id, name, description, sku, barcode, image_url, price, cost_price, stock_quantity, low_stock_threshold)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
@@ -88,6 +105,13 @@ export const createProduct = async (req, res, next) => {
 export const updateProduct = async (req, res, next) => {
   try {
     const fields = req.body;
+    if (
+      Object.hasOwn(fields, 'category_id') &&
+      fields.category_id !== null &&
+      !(await categoryBelongsToStore(fields.category_id, req.user.store_id))
+    ) {
+      return res.status(400).json({ error: 'Category does not belong to this store' });
+    }
     const sets = [];
     const params = [];
     let i = 1;
@@ -131,7 +155,7 @@ export const getLowStock = async (req, res, next) => {
   try {
     const result = await query(
       `SELECT p.*, c.name as category_name FROM products p
-       LEFT JOIN categories c ON p.category_id = c.id
+       LEFT JOIN categories c ON p.category_id = c.id AND c.store_id = p.store_id
        WHERE p.store_id = $1 AND p.stock_quantity <= p.low_stock_threshold AND p.is_active = true
        ORDER BY p.stock_quantity ASC`,
       [req.user.store_id]

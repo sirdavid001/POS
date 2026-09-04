@@ -11,8 +11,8 @@ QuickPOS is a full-stack point-of-sale application built as an npm workspace mon
 - Sales reporting with dashboard metrics and Chart.js visualizations
 - Barcode support through camera scanning and USB/Bluetooth scanners
 - Offline-first frontend with per-user store snapshots, queued sales and management changes, local reporting, and automatic reconnect sync
-- Real-time order updates via WebSockets
-- Paystack payment initialization and verification endpoints
+- Authenticated, store-scoped order updates via WebSockets, with periodic sync fallback
+- Hosted Paystack and Flutterwave subscription checkout with verified webhooks
 - Dockerized local environment for PostgreSQL, API, and frontend
 
 ## Monorepo Layout
@@ -36,8 +36,8 @@ QuickPOS is a full-stack point-of-sale application built as an npm workspace mon
 
 ## Requirements
 
-- Node.js 20+
-- npm 10+
+- Node.js 24+
+- npm 11+
 - PostgreSQL 16+ for local development
 - Docker Desktop or Docker Engine if you want the containerized setup
 
@@ -60,7 +60,8 @@ cp .env.example .env
 Important values:
 
 - `DATABASE_URL` should point to your PostgreSQL instance
-- `JWT_SECRET` and `JWT_REFRESH_SECRET` should be replaced before production use
+- `JWT_SECRET` should be replaced before production use
+- `CORS_ORIGIN` is a comma-separated allowlist of exact browser and installed-app origins
 - `VITE_API_URL` defaults to `http://localhost:3001/api/v1`
 - `VITE_WS_URL` defaults to `ws://localhost:3001`
 - `PAYSTACK_*` keys are required only if you want Paystack enabled
@@ -161,7 +162,8 @@ The backend exposes versioned routes under `/api/v1`.
 - `/products`, `/categories`, `/customers`, `/orders` for core POS data
 - `/reports/statement` for store sales statements, downloads, and owner email delivery
 - `/inventory` for stock adjustments, logs, suppliers, and purchase orders
-- `/payments` for payment recording and Paystack flows
+- `/payments` for authenticated manual payment recording
+- `/billing` for hosted Paystack and Flutterwave subscription flows
 - `/reports` for revenue, sales, top products, and recent order summaries
 - `/settings` for store settings and staff management
 - `/sync/bootstrap` for the authenticated device snapshot used by offline mode
@@ -174,18 +176,19 @@ Health checks are available at:
 
 ## Notes
 
-- The frontend stores auth tokens, store-scoped offline snapshots, and per-user sync queues in device `localStorage`
+- Installed clients store auth tokens, store-scoped offline snapshots, and per-user sync queues in device `localStorage`; the website keeps its rotating refresh token in an HttpOnly cookie
 - Sales, products, categories, customers, stock adjustments, suppliers, store settings, order history, and cached reports remain available after the device has completed an online sync
 - Security-sensitive actions such as staff credential changes, password resets, and statement email delivery still require an internet connection
-- Dashboard updates can refresh in real time when new orders are created
+- Dashboard updates use authenticated WebSockets on a persistent API host and fall back to automatic periodic sync when WebSockets are unavailable
 - The backend can use `DATABASE_URL` directly or derive a connection string from `POSTGRES_*` or `PG*` variables
-- Paystack is wired in; Stripe keys exist in config but Stripe flows are not implemented in this repo yet
+- Paystack and Flutterwave are wired for subscription billing; POS card/transfer sales record externally confirmed references and never trust browser-supplied provider callbacks
 - Statement emails use Resend and attach either a generated PDF or Excel workbook
 
 ## Production Considerations
 
 - Replace all default secrets before deployment
-- Restrict CORS with a real `CORS_ORIGIN`
+- Set `CORS_ORIGIN` to only the exact production website and installed-app origins you support
+- Run `npm run db:migrate` before serving upgraded application instances
 - Use managed PostgreSQL and SSL-enabled connection strings in production
 - Rotate seeded credentials or remove them entirely after initial setup
 - Verify the sender domain used by `EMAIL_FROM` before enabling statement email in production

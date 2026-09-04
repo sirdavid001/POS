@@ -60,7 +60,7 @@ async function startServer() {
   app.get('/release-source', (req, res) => res.json(manifest));
   app.use('/account', accountRouter);
   app.use('/downloads', downloadsRouter);
-  app.use((err, req, res, next) => {
+  app.use((err, req, res, _next) => {
     res.status(500).json({ error: err.message });
   });
 

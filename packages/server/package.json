@@ -13,25 +13,24 @@
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --passWithNoTests"
   },
   "dependencies": {
-    "axios": "^1.17.0",
+    "axios": "^1.20.0",
     "bcryptjs": "^3.0.3",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^4.22.2",
-    "express-rate-limit": "^7.4.0",
-    "helmet": "^8.0.0",
-    "jsonwebtoken": "^9.0.2",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
     "jszip": "^3.10.1",
-    "multer": "^2.1.1",
-    "pdfkit": "^0.19.0",
-    "pg": "^8.13.0",
-    "resend": "^6.12.4",
-    "winston": "^3.17.0",
-    "ws": "^8.21.0",
-    "zod": "^3.24.0"
+    "pdfkit": "^0.20.2",
+    "pg": "^8.23.0",
+    "resend": "^6.26.0",
+    "winston": "^3.19.0",
+    "ws": "^8.21.3",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
-    "jest": "^29.7.0",
-    "nodemon": "^3.1.0"
+    "jest": "^30.5.1",
+    "nodemon": "^3.1.14"
   }
 }

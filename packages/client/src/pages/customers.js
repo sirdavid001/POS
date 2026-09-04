@@ -73,7 +73,7 @@ export async function renderCustomers() {
           } catch (err) { toast(err.message || 'Could not load customer', 'error'); }
         });
       });
-    } catch (err) { toast('Failed to load customers', 'error'); }
+    } catch { toast('Failed to load customers', 'error'); }
   }
 
   document.getElementById('customer-search').addEventListener('input', () => setTimeout(loadCustomers, 300));

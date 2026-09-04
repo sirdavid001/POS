@@ -38,6 +38,7 @@ class ApiClient {
     this.refreshToken = refreshToken;
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
+    window.dispatchEvent(new Event('quickpos-auth-changed'));
   }
 
   clearTokens() {
@@ -47,6 +48,7 @@ class ApiClient {
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
     clearSubscription();
+    window.dispatchEvent(new Event('quickpos-auth-changed'));
   }
 
   async request(method, path, data = null, options = {}) {
@@ -164,6 +166,10 @@ class ApiClient {
       const data = await res.json();
       this.accessToken = data.accessToken;
       localStorage.setItem('accessToken', data.accessToken);
+      if (data.refreshToken) {
+        this.refreshToken = data.refreshToken;
+        localStorage.setItem('refreshToken', data.refreshToken);
+      }
       if (data.subscription) saveSubscription(data.subscription);
       return true;
     } catch {

@@ -1,6 +1,5 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
 import { getClient, query } from '../../config/database.js';
 import config from '../../config/index.js';
 import logger from '../../config/logger.js';
@@ -12,6 +11,16 @@ import {
   createPasswordResetToken,
   hashPasswordResetToken,
 } from './password-reset.js';
+import {
+  clearRefreshCookie,
+  createRefreshToken,
+  hashRefreshToken,
+  isWebsiteClient,
+  refreshExpiryMilliseconds,
+  refreshTokenCandidates,
+  refreshTokenFromRequest,
+  setRefreshCookie,
+} from './refresh-token.js';
 import { recordLegalAcceptances } from '../legal.js';
 
 const PASSWORD_RESET_RESPONSE =
@@ -122,21 +131,24 @@ export const login = async (req, res, next) => {
       { expiresIn: config.jwt.expiry }
     );
 
-    const refreshToken = crypto.randomBytes(64).toString('hex');
-    const refreshExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    const refreshToken = createRefreshToken();
+    const refreshExpiry = new Date(Date.now() + refreshExpiryMilliseconds(config.jwt.refreshExpiry));
 
     await query(
       'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
-      [user.id, refreshToken, refreshExpiry]
+      [user.id, hashRefreshToken(refreshToken), refreshExpiry]
     );
 
     // Update last login
     await query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
     const subscription = await getStoreSubscription(user.store_id);
 
+    const websiteClient = isWebsiteClient(req);
+    if (websiteClient) setRefreshCookie(res, refreshToken, config);
+
     res.json({
       accessToken,
-      refreshToken,
+      ...(websiteClient ? {} : { refreshToken }),
       user: {
         id: user.id,
         email: user.email,
@@ -152,24 +164,45 @@ export const login = async (req, res, next) => {
 };
 
 export const refreshAccessToken = async (req, res, next) => {
+  let client;
+  let transactionOpen = false;
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = refreshTokenFromRequest(req);
+    if (!refreshToken) {
+      return res.status(401).json({ error: 'Refresh token required' });
+    }
 
-    const result = await query(
+    client = await getClient();
+    await client.query('BEGIN');
+    transactionOpen = true;
+
+    const result = await client.query(
       `SELECT rt.*, u.id as user_id, u.store_id, r.name as role
        FROM refresh_tokens rt
        JOIN users u ON rt.user_id = u.id
        JOIN roles r ON u.role_id = r.id
-       WHERE rt.token = $1 AND rt.expires_at > NOW()`,
-      [refreshToken]
+       WHERE rt.token = ANY($1::text[])
+         AND rt.expires_at > NOW()
+         AND u.is_active = true
+       FOR UPDATE`,
+      [refreshTokenCandidates(refreshToken)]
     );
 
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      transactionOpen = false;
       return res.status(401).json({ error: 'Invalid or expired refresh token' });
     }
 
     const tokenData = result.rows[0];
+    const nextRefreshToken = createRefreshToken();
+    const refreshExpiry = new Date(Date.now() + refreshExpiryMilliseconds(config.jwt.refreshExpiry));
 
+    await client.query('DELETE FROM refresh_tokens WHERE id = $1', [tokenData.id]);
+    await client.query(
+      'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+      [tokenData.user_id, hashRefreshToken(nextRefreshToken), refreshExpiry]
+    );
     // Generate new access token
     const accessToken = jwt.sign(
       { userId: tokenData.user_id, role: tokenData.role, storeId: tokenData.store_id },
@@ -178,18 +211,30 @@ export const refreshAccessToken = async (req, res, next) => {
     );
 
     const subscription = await getStoreSubscription(tokenData.store_id);
-    res.json({ accessToken, subscription });
+    await client.query('COMMIT');
+    transactionOpen = false;
+    const websiteClient = isWebsiteClient(req);
+    if (websiteClient) setRefreshCookie(res, nextRefreshToken, config);
+    res.json({
+      accessToken,
+      ...(websiteClient ? {} : { refreshToken: nextRefreshToken }),
+      subscription,
+    });
   } catch (err) {
+    if (transactionOpen) await client.query('ROLLBACK');
     next(err);
+  } finally {
+    client?.release();
   }
 };
 
 export const logout = async (req, res, next) => {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = refreshTokenFromRequest(req);
     if (refreshToken) {
-      await query('DELETE FROM refresh_tokens WHERE token = $1', [refreshToken]);
+      await query('DELETE FROM refresh_tokens WHERE token = ANY($1::text[])', [refreshTokenCandidates(refreshToken)]);
     }
+    clearRefreshCookie(res, config);
     res.json({ message: 'Logged out successfully' });
   } catch (err) {
     next(err);

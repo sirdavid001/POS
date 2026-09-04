@@ -65,16 +65,42 @@ function buildDatabaseConfig() {
 }
 
 const db = buildDatabaseConfig();
+const nodeEnv = process.env.NODE_ENV || 'development';
+
+function requiredProductionSecret(value, name, developmentFallback) {
+  if (value) return value;
+  if (nodeEnv === 'production') {
+    throw new Error(`${name} is required when NODE_ENV=production`);
+  }
+  return developmentFallback;
+}
+
+function parseOrigins(value) {
+  return String(value || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
+const corsOrigins = parseOrigins(
+  process.env.CORS_ORIGIN ||
+  (nodeEnv === 'production'
+    ? ''
+    : 'http://localhost:5173,http://localhost,https://localhost,capacitor://localhost,null')
+);
 
 const config = {
   port: process.env.PORT || 3001,
-  nodeEnv: process.env.NODE_ENV || 'development',
-  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  nodeEnv,
+  corsOrigins,
   db,
 
   jwt: {
-    secret: process.env.JWT_SECRET || 'dev-secret-change-me',
-    refreshSecret: process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret-change-me',
+    secret: requiredProductionSecret(
+      process.env.JWT_SECRET,
+      'JWT_SECRET',
+      'dev-secret-change-me'
+    ),
     expiry: process.env.JWT_EXPIRY || '15m',
     refreshExpiry: process.env.JWT_REFRESH_EXPIRY || '7d',
   },

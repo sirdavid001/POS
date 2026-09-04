@@ -10,10 +10,10 @@ export const registerSchema = z.object({
     store_name: z.string().trim().min(2, 'Store name is required').max(255),
     phone: z.string().optional(),
     terms_accepted: z.literal(true, {
-      errorMap: () => ({ message: 'Accept the Terms of Service to create an account' }),
+      error: 'Accept the Terms of Service to create an account',
     }),
     privacy_acknowledged: z.literal(true, {
-      errorMap: () => ({ message: 'Acknowledge the Privacy Policy to create an account' }),
+      error: 'Acknowledge the Privacy Policy to create an account',
     }),
   }),
 });
@@ -27,7 +27,7 @@ export const loginSchema = z.object({
 
 export const refreshSchema = z.object({
   body: z.object({
-    refreshToken: z.string().min(1, 'Refresh token is required'),
+    refreshToken: z.string().min(1, 'Refresh token is required').optional(),
   }),
 });
 

@@ -9,6 +9,7 @@ import {
   getStoreStatement,
   sendStatementEmail,
 } from './statement.js';
+import { positiveInteger } from '../../utils/pagination.js';
 
 const router = Router();
 router.use(authenticate);
@@ -176,12 +177,12 @@ router.get('/revenue', async (req, res, next) => {
 // Top selling products
 router.get('/top-products', async (req, res, next) => {
   try {
-    const { limit = 10 } = req.query;
+    const limit = positiveInteger(req.query.limit, 10, 100);
     const result = await query(
       `SELECT oi.product_name, SUM(oi.quantity) as total_quantity, SUM(oi.total) as total_revenue
        FROM order_items oi
-       JOIN orders o ON oi.order_id = o.id
-       WHERE o.store_id = $1 AND o.status = 'completed'
+       JOIN orders o ON oi.order_id = o.id AND oi.store_id = o.store_id
+       WHERE oi.store_id = $1 AND o.status = 'completed'
        GROUP BY oi.product_name
        ORDER BY total_quantity DESC LIMIT $2`,
       [req.user.store_id, limit]
@@ -195,7 +196,7 @@ router.get('/recent-orders', async (req, res, next) => {
   try {
     const result = await query(
       `SELECT o.id, o.order_number, o.total, o.payment_method, o.created_at, u.name as cashier
-       FROM orders o LEFT JOIN users u ON o.user_id = u.id
+       FROM orders o LEFT JOIN users u ON o.user_id = u.id AND u.store_id = o.store_id
        WHERE o.store_id = $1 ORDER BY o.created_at DESC LIMIT 10`,
       [req.user.store_id]
     );

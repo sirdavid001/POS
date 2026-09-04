@@ -78,7 +78,7 @@ async function submitSupportRequest(payload) {
   try {
     data = await response.json();
   } catch {
-    data = {};
+    // Keep the empty fallback for responses without a JSON body.
   }
   if (!response.ok) {
     const details = Array.isArray(data.details)

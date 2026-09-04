@@ -68,7 +68,7 @@ export function serializeSubscription(row, now = new Date()) {
     launch_offer_redeemed: row.launch_offer_redeemed,
     activation_fee_paid: Boolean(row.activation_fee_paid),
     activation_required:
-      row.status !== 'grandfathered' && !Boolean(row.activation_fee_paid),
+      row.status !== 'grandfathered' && !row.activation_fee_paid,
     last_verified_at: row.last_verified_at,
     can_write: canWrite,
     entitlement_ends_at: knownEntitlementEnd?.toISOString() || null,

@@ -1,50 +1,89 @@
 import { Router } from 'express';
-import { query } from '../../config/database.js';
+import { getClient, query } from '../../config/database.js';
 import { authenticate, authorize } from '../../middleware/auth.js';
 import { requireActiveSubscription } from '../../middleware/subscription.js';
+import { validate } from '../../middleware/validate.js';
+import {
+  adjustStockSchema,
+  createPurchaseOrderSchema,
+  createSupplierSchema,
+  updateSupplierSchema,
+} from './schema.js';
+import { pagination } from '../../utils/pagination.js';
 
 const router = Router();
 router.use(authenticate);
 router.use(requireActiveSubscription());
 
 // POST adjust stock
-router.post('/adjust', authorize('admin', 'manager'), async (req, res, next) => {
+router.post('/adjust', authorize('admin', 'manager'), validate(adjustStockSchema), async (req, res, next) => {
+  let client;
   try {
     const { product_id, type, quantity, reason, supplier_id } = req.body;
+    const modifier = type === 'out' ? -quantity : quantity;
+    client = await getClient();
+    await client.query('BEGIN');
 
-    if (!['in', 'out', 'adjustment'].includes(type)) {
-      return res.status(400).json({ error: 'Type must be in, out, or adjustment' });
+    const productResult = await client.query(
+      'SELECT id, stock_quantity FROM products WHERE id = $1 AND store_id = $2 FOR UPDATE',
+      [product_id, req.user.store_id]
+    );
+    if (!productResult.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Product not found' });
     }
 
-    const modifier = type === 'out' ? -quantity : quantity;
+    if (supplier_id) {
+      const supplier = await client.query(
+        'SELECT id FROM suppliers WHERE id = $1 AND store_id = $2',
+        [supplier_id, req.user.store_id]
+      );
+      if (!supplier.rows[0]) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Supplier does not belong to this store' });
+      }
+    }
 
-    await query(
-      'UPDATE products SET stock_quantity = stock_quantity + $1, updated_at = NOW() WHERE id = $2 AND store_id = $3',
-      [modifier, product_id, req.user.store_id]
+    const nextStock = Number(productResult.rows[0].stock_quantity) + modifier;
+    if (nextStock < 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Stock adjustment cannot make inventory negative' });
+    }
+
+    await client.query(
+      'UPDATE products SET stock_quantity = $1, updated_at = NOW() WHERE id = $2 AND store_id = $3',
+      [nextStock, product_id, req.user.store_id]
     );
 
-    const logResult = await query(
+    const logResult = await client.query(
       `INSERT INTO inventory_logs (product_id, store_id, user_id, type, quantity, reason, supplier_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
       [product_id, req.user.store_id, req.user.id, type, quantity, reason || null, supplier_id || null]
     );
+    await client.query('COMMIT');
 
     res.status(201).json({ log: logResult.rows[0] });
-  } catch (err) { next(err); }
+  } catch (err) {
+    if (client) await client.query('ROLLBACK');
+    next(err);
+  } finally {
+    client?.release();
+  }
 });
 
 // GET inventory logs
 router.get('/logs', async (req, res, next) => {
   try {
-    const { page = 1, limit = 50, product_id } = req.query;
-    const offset = (page - 1) * limit;
+    const { product_id } = req.query;
+    const { limit, offset } = pagination(req.query);
 
     let sql = `
-      SELECT il.*, p.name as product_name, u.name as user_name, s.name as supplier_name
+      SELECT il.*, COALESCE(p.name, 'Deleted product') as product_name,
+             u.name as user_name, s.name as supplier_name
       FROM inventory_logs il
-      JOIN products p ON il.product_id = p.id
-      LEFT JOIN users u ON il.user_id = u.id
-      LEFT JOIN suppliers s ON il.supplier_id = s.id
+      LEFT JOIN products p ON il.product_id = p.id AND p.store_id = il.store_id
+      LEFT JOIN users u ON il.user_id = u.id AND u.store_id = il.store_id
+      LEFT JOIN suppliers s ON il.supplier_id = s.id AND s.store_id = il.store_id
       WHERE il.store_id = $1
     `;
     const params = [req.user.store_id];
@@ -67,7 +106,7 @@ router.get('/suppliers', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/suppliers', authorize('admin', 'manager'), async (req, res, next) => {
+router.post('/suppliers', authorize('admin', 'manager'), validate(createSupplierSchema), async (req, res, next) => {
   try {
     const { name, contact_name, email, phone, address } = req.body;
     const result = await query(
@@ -78,7 +117,7 @@ router.post('/suppliers', authorize('admin', 'manager'), async (req, res, next) 
   } catch (err) { next(err); }
 });
 
-router.patch('/suppliers/:id', authorize('admin', 'manager'), async (req, res, next) => {
+router.patch('/suppliers/:id', authorize('admin', 'manager'), validate(updateSupplierSchema), async (req, res, next) => {
   try {
     const { name, contact_name, email, phone, address } = req.body;
     const result = await query(
@@ -109,8 +148,8 @@ router.get('/purchase-orders', authorize('admin', 'manager'), async (req, res, n
     const result = await query(
       `SELECT po.*, s.name as supplier_name, u.name as created_by
        FROM purchase_orders po
-       LEFT JOIN suppliers s ON po.supplier_id = s.id
-       LEFT JOIN users u ON po.user_id = u.id
+       LEFT JOIN suppliers s ON po.supplier_id = s.id AND s.store_id = po.store_id
+       LEFT JOIN users u ON po.user_id = u.id AND u.store_id = po.store_id
        WHERE po.store_id = $1 ORDER BY po.created_at DESC`,
       [req.user.store_id]
     );
@@ -118,29 +157,57 @@ router.get('/purchase-orders', authorize('admin', 'manager'), async (req, res, n
   } catch (err) { next(err); }
 });
 
-router.post('/purchase-orders', authorize('admin', 'manager'), async (req, res, next) => {
+router.post('/purchase-orders', authorize('admin', 'manager'), validate(createPurchaseOrderSchema), async (req, res, next) => {
+  let client;
   try {
     const { supplier_id, items, notes } = req.body;
-    let total = 0;
-    if (items) items.forEach(i => { total += i.quantity * i.unit_cost; });
+    client = await getClient();
+    await client.query('BEGIN');
 
-    const poResult = await query(
+    const supplier = await client.query(
+      'SELECT id FROM suppliers WHERE id = $1 AND store_id = $2',
+      [supplier_id, req.user.store_id]
+    );
+    if (!supplier.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Supplier does not belong to this store' });
+    }
+
+    const productIds = [...new Set(items.map((item) => item.product_id))];
+    const products = await client.query(
+      'SELECT id FROM products WHERE store_id = $1 AND id = ANY($2::int[])',
+      [req.user.store_id, productIds]
+    );
+    if (products.rows.length !== productIds.length) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Every product must belong to this store' });
+    }
+
+    const total = items.reduce((sum, item) => sum + item.quantity * item.unit_cost, 0);
+
+    const poResult = await client.query(
       `INSERT INTO purchase_orders (store_id, supplier_id, user_id, total, notes)
        VALUES ($1,$2,$3,$4,$5) RETURNING *`,
       [req.user.store_id, supplier_id, req.user.id, total, notes || null]
     );
 
-    if (items && items.length > 0) {
-      for (const item of items) {
-        await query(
-          'INSERT INTO purchase_order_items (purchase_order_id, product_id, quantity, unit_cost) VALUES ($1,$2,$3,$4)',
-          [poResult.rows[0].id, item.product_id, item.quantity, item.unit_cost]
-        );
-      }
+    for (const item of items) {
+      await client.query(
+        `INSERT INTO purchase_order_items
+         (purchase_order_id, product_id, store_id, quantity, unit_cost)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [poResult.rows[0].id, item.product_id, req.user.store_id, item.quantity, item.unit_cost]
+      );
     }
+    await client.query('COMMIT');
 
     res.status(201).json({ purchaseOrder: poResult.rows[0] });
-  } catch (err) { next(err); }
+  } catch (err) {
+    if (client) await client.query('ROLLBACK');
+    next(err);
+  } finally {
+    client?.release();
+  }
 });
 
 export default router;

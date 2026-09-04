@@ -5,6 +5,8 @@ channel. The remaining steps require account credentials and signing keys and
 must be completed by an operator with access to Vercel, Cloudflare, Paystack,
 Flutterwave, Resend, and the GitHub repository.
 
+Build and release with Node.js 24 and npm 11, matching `.nvmrc` and CI.
+
 ## 1. Deploy the website
 
 Create a Vercel project with `packages/website` as its root directory. Use the
@@ -151,7 +153,13 @@ npm run db:migrate
 
 Migration `002_subscriptions` marks all existing stores as `grandfathered`.
 Migration `003_password_resets` adds hashed, expiring, single-use password
-reset tokens.
+reset tokens. Migrations `004`–`006` add activation, legal-acceptance, and
+idempotent-order support. Migration `007_tenant_integrity` repairs nullable
+cross-store links and enforces tenant-aware foreign keys. Migration
+`008_rate_limits` provides a shared PostgreSQL rate-limit store for horizontally
+scaled API instances. Migration `009_refresh_token_uniqueness` removes expired
+or duplicate legacy refresh-token rows and enforces token uniqueness.
+
 Review those stores manually before changing their status. Public seed
 credentials have been removed; optional seed credentials must be supplied
 through `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD`.

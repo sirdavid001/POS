@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -26,16 +24,20 @@ services:
     environment:
       DATABASE_URL: postgresql://pos_user:pos_password@postgres:5432/pos_db
       JWT_SECRET: change-this-in-production
-      JWT_REFRESH_SECRET: change-this-refresh-in-production
       PORT: 3001
       NODE_ENV: production
-      CORS_ORIGIN: http://localhost:5173
+      CORS_ORIGIN: http://localhost:5173,http://localhost,https://localhost,capacitor://localhost,null
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-}
       EMAIL_REPLY_TO: ${EMAIL_REPLY_TO:-}
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3001/health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   client:
     build:
@@ -44,7 +46,13 @@ services:
     ports:
       - '5173:80'
     depends_on:
-      - server
+      server:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost/']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   pgdata:

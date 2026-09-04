@@ -5,15 +5,23 @@ import { getStoreSubscription } from '../modules/billing/subscription.js';
 
 // Verify JWT and attach user to request
 export const authenticate = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  let decoded;
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, config.jwt.secret);
+    decoded = jwt.verify(token, config.jwt.secret);
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token expired', code: 'TOKEN_EXPIRED' });
+    }
+    return res.status(401).json({ error: 'Invalid token' });
+  }
 
+  try {
     // Fetch full user from DB to ensure they still exist and are active
     const result = await query(
       `SELECT u.id, u.email, u.name, u.store_id, u.is_active, r.name as role
@@ -30,10 +38,7 @@ export const authenticate = async (req, res, next) => {
     req.subscription = await getStoreSubscription(req.user.store_id);
     next();
   } catch (err) {
-    if (err.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Token expired', code: 'TOKEN_EXPIRED' });
-    }
-    return res.status(401).json({ error: 'Invalid token' });
+    next(err);
   }
 };
 

@@ -6,6 +6,7 @@ import logger from '../../config/logger.js';
 import { broadcast } from '../../app.js';
 import { validate } from '../../middleware/validate.js';
 import { createOrderSchema } from './schema.js';
+import { pagination } from '../../utils/pagination.js';
 
 const router = Router();
 router.use(authenticate);
@@ -50,6 +51,17 @@ router.post('/', validate(createOrderSchema), async (req, res, next) => {
       return res.status(400).json({ error: 'Every order item must have a positive whole-number quantity' });
     }
 
+    if (customer_id) {
+      const customer = await client.query(
+        'SELECT id FROM customers WHERE id = $1 AND store_id = $2 FOR SHARE',
+        [customer_id, req.user.store_id]
+      );
+      if (!customer.rows[0]) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Customer does not belong to this store' });
+      }
+    }
+
     if (client_order_id) {
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
         `${req.user.store_id}:${client_order_id}`,
@@ -60,12 +72,12 @@ router.post('/', validate(createOrderSchema), async (req, res, next) => {
       );
       if (existingOrder.rows[0]) {
         const existingItems = await client.query(
-          'SELECT * FROM order_items WHERE order_id = $1 ORDER BY id',
-          [existingOrder.rows[0].id]
+          'SELECT * FROM order_items WHERE order_id = $1 AND store_id = $2 ORDER BY id',
+          [existingOrder.rows[0].id, req.user.store_id]
         );
         const existingPayment = await client.query(
-          'SELECT reference FROM payments WHERE order_id = $1 ORDER BY id DESC LIMIT 1',
-          [existingOrder.rows[0].id]
+          'SELECT reference FROM payments WHERE order_id = $1 AND store_id = $2 ORDER BY id DESC LIMIT 1',
+          [existingOrder.rows[0].id, req.user.store_id]
         );
         await client.query('COMMIT');
         return res.json({
@@ -111,7 +123,12 @@ router.post('/', validate(createOrderSchema), async (req, res, next) => {
       }
 
       const itemDiscount = Math.max(0, Number(item.discount || 0));
-      const itemTotal = (parseFloat(product.price) * item.quantity) - itemDiscount;
+      const lineAmount = parseFloat(product.price) * item.quantity;
+      if (itemDiscount > lineAmount) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: `Discount cannot exceed the price of ${product.name}` });
+      }
+      const itemTotal = lineAmount - itemDiscount;
       subtotal += itemTotal;
 
       orderItems.push({
@@ -161,9 +178,10 @@ router.post('/', validate(createOrderSchema), async (req, res, next) => {
     // Create order items
     for (const item of orderItems) {
       await client.query(
-        `INSERT INTO order_items (order_id, product_id, product_name, quantity, unit_price, discount, total)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [order.id, item.product_id, item.product_name, item.quantity, item.unit_price, item.discount, item.total]
+        `INSERT INTO order_items
+         (order_id, product_id, store_id, product_name, quantity, unit_price, discount, total)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [order.id, item.product_id, req.user.store_id, item.product_name, item.quantity, item.unit_price, item.discount, item.total]
       );
     }
 
@@ -190,7 +208,7 @@ router.post('/', validate(createOrderSchema), async (req, res, next) => {
       order_number: orderNumber,
       total,
       cashier_id: req.user.id
-    });
+    }, req.user.store_id);
 
     res.status(201).json({
       order: { ...order, items: orderItems, payment_reference: payment_reference?.trim() || null },
@@ -206,14 +224,14 @@ router.post('/', validate(createOrderSchema), async (req, res, next) => {
 // GET orders (paginated)
 router.get('/', authorize('admin', 'manager'), async (req, res, next) => {
   try {
-    const { page = 1, limit = 20, status, start_date, end_date } = req.query;
-    const offset = (page - 1) * limit;
+    const { status, start_date, end_date } = req.query;
+    const { page, limit, offset } = pagination(req.query, { defaultLimit: 20 });
 
     let sql = `
       SELECT o.*, u.name as cashier_name, c.name as customer_name
       FROM orders o
-      LEFT JOIN users u ON o.user_id = u.id
-      LEFT JOIN customers c ON o.customer_id = c.id
+      LEFT JOIN users u ON o.user_id = u.id AND u.store_id = o.store_id
+      LEFT JOIN customers c ON o.customer_id = c.id AND c.store_id = o.store_id
       WHERE o.store_id = $1
     `;
     const params = [req.user.store_id];
@@ -228,12 +246,18 @@ router.get('/', authorize('admin', 'manager'), async (req, res, next) => {
 
     const result = await query(sql, params);
 
-    const countResult = await query('SELECT COUNT(*) FROM orders WHERE store_id = $1', [req.user.store_id]);
+    let countSql = 'SELECT COUNT(*) FROM orders WHERE store_id = $1';
+    const countParams = [req.user.store_id];
+    let countIdx = 2;
+    if (status) { countSql += ` AND status = $${countIdx}`; countParams.push(status); countIdx++; }
+    if (start_date) { countSql += ` AND created_at >= $${countIdx}`; countParams.push(start_date); countIdx++; }
+    if (end_date) { countSql += ` AND created_at <= $${countIdx}`; countParams.push(end_date); }
+    const countResult = await query(countSql, countParams);
 
     res.json({
       orders: result.rows,
       total: parseInt(countResult.rows[0].count),
-      page: parseInt(page),
+      page,
     });
   } catch (err) { next(err); }
 });
@@ -244,21 +268,21 @@ router.get('/:id', authorize('admin', 'manager'), async (req, res, next) => {
     const orderResult = await query(
       `SELECT o.*, u.name as cashier_name, c.name as customer_name
        FROM orders o
-       LEFT JOIN users u ON o.user_id = u.id
-       LEFT JOIN customers c ON o.customer_id = c.id
+       LEFT JOIN users u ON o.user_id = u.id AND u.store_id = o.store_id
+       LEFT JOIN customers c ON o.customer_id = c.id AND c.store_id = o.store_id
        WHERE o.id = $1 AND o.store_id = $2`,
       [req.params.id, req.user.store_id]
     );
     if (orderResult.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
 
     const itemsResult = await query(
-      'SELECT * FROM order_items WHERE order_id = $1',
-      [req.params.id]
+      'SELECT * FROM order_items WHERE order_id = $1 AND store_id = $2',
+      [req.params.id, req.user.store_id]
     );
 
     const paymentResult = await query(
-      'SELECT * FROM payments WHERE order_id = $1',
-      [req.params.id]
+      'SELECT * FROM payments WHERE order_id = $1 AND store_id = $2',
+      [req.params.id, req.user.store_id]
     );
 
     res.json({

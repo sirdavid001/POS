@@ -29,7 +29,7 @@ export const supportContactSchema = z.object({
     subject: z.string().trim().min(4, 'Subject is required').max(160),
     message: z.string().trim().min(20, 'Please describe the issue in at least 20 characters').max(4000),
     contact_permission: z.literal(true, {
-      errorMap: () => ({ message: 'Confirm that QuickPOS may contact you about this request' }),
+      error: 'Confirm that QuickPOS may contact you about this request',
     }),
     website: z.string().trim().optional(),
   }),

@@ -27,7 +27,7 @@ function authHeader() {
 async function withServer(callback) {
   const app = express();
   app.use('/sync', syncRouter);
-  app.use((error, req, res, next) => res.status(500).json({ error: error.message }));
+  app.use((error, req, res, _next) => res.status(500).json({ error: error.message }));
   const server = await new Promise((resolve) => {
     const created = app.listen(0, () => resolve(created));
   });

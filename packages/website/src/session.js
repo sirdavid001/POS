@@ -18,16 +18,19 @@ export function readSiteSession() {
     localStorage.removeItem(SITE_KEYS.user);
   }
 
+  // Remove refresh tokens written by older website builds. The current portal
+  // keeps its refresh credential in an HttpOnly API cookie.
+  localStorage.removeItem(SITE_KEYS.refreshToken);
+
   return {
     accessToken: localStorage.getItem(SITE_KEYS.accessToken),
-    refreshToken: localStorage.getItem(SITE_KEYS.refreshToken),
     user,
   };
 }
 
 export function storeSiteSession(data) {
   localStorage.setItem(SITE_KEYS.accessToken, data.accessToken);
-  localStorage.setItem(SITE_KEYS.refreshToken, data.refreshToken);
+  localStorage.removeItem(SITE_KEYS.refreshToken);
   localStorage.setItem(SITE_KEYS.user, JSON.stringify(data.user));
   notifySessionChange();
 }

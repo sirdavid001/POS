@@ -130,7 +130,7 @@ export async function renderReports() {
           </div>
         `).join('');
       }
-    } catch (err) { toast('Failed to load report', 'error'); }
+    } catch { toast('Failed to load report', 'error'); }
   }
 
   document.getElementById('load-report-btn').addEventListener('click', loadReport);
@@ -154,7 +154,7 @@ export async function renderReports() {
       a.click();
       URL.revokeObjectURL(url);
       toast('Report exported', 'success');
-    } catch (err) { toast('Export failed', 'error'); }
+    } catch { toast('Export failed', 'error'); }
   });
 
   await loadReport();

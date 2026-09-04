@@ -3,11 +3,13 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
+import jwt from 'jsonwebtoken';
 import { WebSocketServer } from 'ws';
 
 import config from './config/index.js';
 import logger from './config/logger.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
+import { PostgresRateLimitStore } from './middleware/postgres-rate-limit-store.js';
 
 // Route imports
 import authRouter from './modules/auth/router.js';
@@ -35,16 +37,23 @@ const server = isVercel ? null : createServer(app);
 if (isVercel) {
   app.set('trust proxy', 1);
 }
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet());
 const corsOptions = {
-  origin: true,
+  origin(origin, callback) {
+    if (!origin || config.corsOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+    const error = new Error('Origin not allowed');
+    error.statusCode = 403;
+    callback(error);
+  },
   credentials: true,
   exposedHeaders: ['Content-Disposition'],
 };
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
 app.use(express.json({
-  limit: '10mb',
+  limit: '1mb',
   verify: (req, res, buffer) => {
     req.rawBody = buffer;
   },
@@ -55,6 +64,12 @@ app.use(express.urlencoded({ extended: true }));
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 200,
+  legacyHeaders: false,
+  standardHeaders: 'draft-8',
+  store: new PostgresRateLimitStore('api'),
+  skip: (req) =>
+    req.originalUrl === '/api/health' ||
+    req.originalUrl.startsWith('/api/v1/billing/webhooks/'),
   message: { error: 'Too many requests, please try again later' },
 });
 app.use('/api/', limiter);
@@ -63,6 +78,9 @@ app.use('/api/', limiter);
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
+  legacyHeaders: false,
+  standardHeaders: 'draft-8',
+  store: new PostgresRateLimitStore('auth'),
   message: { error: 'Too many authentication attempts' },
 });
 app.use('/api/v1/auth/login', authLimiter);
@@ -128,13 +146,40 @@ app.use(errorHandler);
 
 // ---- WebSocket ----
 const wsClients = new Map();
+
+async function authenticateWebSocket(request) {
+  const protocols = String(request.headers['sec-websocket-protocol'] || '')
+    .split(',')
+    .map((protocol) => protocol.trim());
+  if (protocols[0] !== 'quickpos-v1' || !protocols[1]) {
+    throw new Error('Missing WebSocket credentials');
+  }
+
+  const decoded = jwt.verify(protocols[1], config.jwt.secret);
+  const result = await query(
+    `SELECT u.id, u.store_id
+     FROM users u
+     WHERE u.id = $1 AND u.store_id = $2 AND u.is_active = true`,
+    [decoded.userId, decoded.storeId]
+  );
+  if (!result.rows[0]) throw new Error('Invalid WebSocket credentials');
+  return result.rows[0];
+}
+
 if (server) {
   const wss = new WebSocketServer({ server, path: '/ws' });
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', async (ws, request) => {
     const clientId = Date.now().toString(36);
-    wsClients.set(clientId, ws);
-    logger.info(`WebSocket client connected: ${clientId}`);
+    try {
+      const user = await authenticateWebSocket(request);
+      wsClients.set(clientId, { ws, storeId: user.store_id });
+      logger.info(`WebSocket client connected: ${clientId}`, { storeId: user.store_id });
+    } catch (error) {
+      logger.warn('Rejected unauthenticated WebSocket connection', { error: error.message });
+      ws.close(1008, 'Authentication required');
+      return;
+    }
 
     ws.on('close', () => {
       wsClients.delete(clientId);
@@ -148,10 +193,14 @@ if (server) {
 }
 
 // Broadcast to all connected clients
-export function broadcast(event, data) {
+export function broadcast(event, data, storeId) {
+  if (!storeId) {
+    logger.warn('Skipped WebSocket broadcast without store scope', { event });
+    return;
+  }
   const message = JSON.stringify({ event, data, timestamp: new Date().toISOString() });
-  wsClients.forEach((ws) => {
-    if (ws.readyState === 1) {
+  wsClients.forEach(({ ws, storeId: clientStoreId }) => {
+    if (String(clientStoreId) === String(storeId) && ws.readyState === 1) {
       ws.send(message);
     }
   });

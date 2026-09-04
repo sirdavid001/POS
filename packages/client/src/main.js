@@ -64,6 +64,14 @@ async function startApplication() {
     clearTimeout(wsReconnectTimer);
     activeWebSocket?.close();
   });
+  window.addEventListener('quickpos-auth-changed', () => {
+    if (localStorage.getItem('user')) {
+      connectWebSocket();
+    } else {
+      clearTimeout(wsReconnectTimer);
+      activeWebSocket?.close();
+    }
+  });
   window.setInterval(() => {
     if (navigator.onLine && localStorage.getItem('user')) attemptSync();
   }, 60_000);
@@ -90,11 +98,11 @@ let wsReconnectAttempts = 0;
 
 function connectWebSocket() {
   const wsUrl = getWebSocketUrl();
-  if (!wsUrl || !navigator.onLine || !localStorage.getItem('user')) return;
+  if (!wsUrl || !navigator.onLine || !localStorage.getItem('user') || !api.accessToken) return;
   if (activeWebSocket && [WebSocket.CONNECTING, WebSocket.OPEN].includes(activeWebSocket.readyState)) return;
 
   try {
-    const ws = new WebSocket(wsUrl);
+    const ws = new WebSocket(wsUrl, ['quickpos-v1', api.accessToken]);
     activeWebSocket = ws;
 
     ws.onopen = () => {

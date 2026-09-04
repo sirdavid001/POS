@@ -340,7 +340,7 @@ async function loadProducts(search = '') {
     const data = await api.get(`/products${params}`);
     products = data.products.filter(p => p.is_active);
     renderProducts();
-  } catch (err) {
+  } catch {
     toast('Failed to load products', 'error');
   }
 }

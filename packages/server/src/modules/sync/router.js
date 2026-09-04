@@ -16,7 +16,7 @@ router.get('/bootstrap', async (req, res, next) => {
       query(
         `SELECT p.*, c.name AS category_name
          FROM products p
-         LEFT JOIN categories c ON c.id = p.category_id
+         LEFT JOIN categories c ON c.id = p.category_id AND c.store_id = p.store_id
          WHERE p.store_id = $1
          ORDER BY p.name`,
         [storeId]
@@ -42,9 +42,9 @@ router.get('/bootstrap', async (req, res, next) => {
                     '[]'::jsonb
                   ) AS items
            FROM orders o
-           LEFT JOIN users u ON u.id = o.user_id
-           LEFT JOIN customers c ON c.id = o.customer_id
-           LEFT JOIN order_items oi ON oi.order_id = o.id
+           LEFT JOIN users u ON u.id = o.user_id AND u.store_id = o.store_id
+           LEFT JOIN customers c ON c.id = o.customer_id AND c.store_id = o.store_id
+           LEFT JOIN order_items oi ON oi.order_id = o.id AND oi.store_id = o.store_id
            WHERE o.store_id = $1
            GROUP BY o.id, u.name, c.name
            ORDER BY o.created_at DESC
@@ -56,9 +56,9 @@ router.get('/bootstrap', async (req, res, next) => {
         ? query(
           `SELECT il.*, p.name AS product_name, u.name AS user_name, s.name AS supplier_name
            FROM inventory_logs il
-           JOIN products p ON p.id = il.product_id
-           LEFT JOIN users u ON u.id = il.user_id
-           LEFT JOIN suppliers s ON s.id = il.supplier_id
+           LEFT JOIN products p ON p.id = il.product_id AND p.store_id = il.store_id
+           LEFT JOIN users u ON u.id = il.user_id AND u.store_id = il.store_id
+           LEFT JOIN suppliers s ON s.id = il.supplier_id AND s.store_id = il.store_id
            WHERE il.store_id = $1
            ORDER BY il.created_at DESC
            LIMIT 500`,
@@ -71,7 +71,7 @@ router.get('/bootstrap', async (req, res, next) => {
                   r.name AS role, creator.name AS created_by
            FROM users u
            JOIN roles r ON r.id = u.role_id
-           LEFT JOIN users creator ON creator.id = u.created_by_user_id
+           LEFT JOIN users creator ON creator.id = u.created_by_user_id AND creator.store_id = u.store_id
            WHERE u.store_id = $1
            ORDER BY u.created_at`,
           [storeId]
