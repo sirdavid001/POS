@@ -71,17 +71,18 @@ https://developers.cloudflare.com/r2/buckets/public-buckets/#connect-a-bucket-to
 
 Create recurring monthly, quarterly, and yearly plans in both providers:
 
-| Plan | Amount | Interval |
-| --- | ---: | --- |
-| Monthly | NGN 5,000 | Monthly |
-| Quarterly | NGN 13,500 | Every 3 months |
-| Yearly | NGN 50,000 | Yearly |
+| Plan | Nigeria | Outside Nigeria | Interval |
+| --- | ---: | ---: | --- |
+| Monthly | NGN 5,000 | USD 4 | Monthly |
+| Quarterly | NGN 13,500 | USD 10 | Every 3 months |
+| Yearly | NGN 50,000 | USD 38 | Yearly |
 
-The required five-month NGN 20,000 initial activation is initialized as a
-one-time payment and does not need a provider plan.
+The required five-month activation is NGN 20,000 in Nigeria and USD 15
+elsewhere. It is initialized as a one-time payment and does not need a provider
+plan.
 
-After adding valid provider keys to `.env`, create or reuse the exact recurring
-plans and print their environment values:
+After adding valid provider keys to `.env`, create or reuse the exact NGN and
+USD recurring plans and print their environment values:
 
 ```bash
 npm run billing:configure
@@ -94,7 +95,8 @@ npm run billing:configure -- --write=.env
 ```
 
 Set the production server environment variables from `.env.example`, including
-the provider plan codes/IDs.
+the provider plan codes/IDs. Paystack merchants must have USD payments enabled
+on their account before the USD plans can be created or charged.
 
 Register these webhook URLs:
 

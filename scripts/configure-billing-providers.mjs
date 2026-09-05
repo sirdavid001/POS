@@ -11,25 +11,59 @@ const planDefinitions = [
   {
     code: 'monthly',
     name: 'QuickPOS Monthly',
-    amountNgn: 5000,
     paystackInterval: 'monthly',
     flutterwaveInterval: 'monthly',
   },
   {
     code: 'quarterly',
     name: 'QuickPOS Quarterly',
-    amountNgn: 13500,
     paystackInterval: 'quarterly',
     flutterwaveInterval: 'quarterly',
   },
   {
     code: 'yearly',
     name: 'QuickPOS Yearly',
-    amountNgn: 50000,
     paystackInterval: 'annually',
     flutterwaveInterval: 'yearly',
   },
 ];
+
+const defaultPrices = {
+  NGN: { monthly: 5000, quarterly: 13500, yearly: 50000 },
+  USD: { monthly: 4, quarterly: 10, yearly: 38 },
+};
+
+function configuredPrices() {
+  let overrides = {};
+  try {
+    overrides = JSON.parse(process.env.BILLING_CURRENCY_PRICES || '{}');
+  } catch {
+    throw new Error('BILLING_CURRENCY_PRICES must be valid JSON');
+  }
+  return Object.fromEntries(
+    Object.entries(defaultPrices).map(([currency, prices]) => [
+      currency,
+      { ...prices, ...(overrides[currency] || {}) },
+    ])
+  );
+}
+
+function planName(plan, currency) {
+  return currency === 'NGN' ? plan.name : `${plan.name} (${currency})`;
+}
+
+function planEnvName(provider, plan, currency) {
+  const suffix = currency === 'NGN' ? '' : `_${currency}`;
+  return `${provider}_PLAN_${plan.code.toUpperCase()}${suffix}`;
+}
+
+function providerCurrencies(name) {
+  const configured = String(process.env[name] || 'NGN,USD')
+    .split(',')
+    .map((currency) => currency.trim().toUpperCase())
+    .filter((currency) => ['NGN', 'USD'].includes(currency));
+  return [...new Set(configured)];
+}
 
 function apiError(provider, response, body) {
   const message = body?.message || body?.error || `${response.status} ${response.statusText}`;
@@ -58,32 +92,40 @@ async function configurePaystack(secretKey) {
   );
   const existing = listed.data || [];
   const values = {};
+  const prices = configuredPrices();
 
-  for (const plan of planDefinitions) {
-    const match = existing.find((item) =>
-      item.currency === 'NGN' &&
-      Number(item.amount) === plan.amountNgn * 100 &&
-      item.interval === plan.paystackInterval &&
-      item.name === plan.name
-    );
-    const result = match || (await providerRequest(
-      'Paystack',
-      'https://api.paystack.co/plan',
-      secretKey,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          name: plan.name,
-          amount: plan.amountNgn * 100,
-          interval: plan.paystackInterval,
-          currency: 'NGN',
-          description: `QuickPOS ${plan.code} store subscription`,
-          send_invoices: true,
-          send_sms: false,
-        }),
+  for (const currency of providerCurrencies('PAYSTACK_SUPPORTED_CURRENCIES')) {
+    for (const plan of planDefinitions) {
+      const amount = Number(prices[currency][plan.code]);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error(`${currency} ${plan.code} price must be greater than zero`);
       }
-    )).data;
-    values[`PAYSTACK_PLAN_${plan.code.toUpperCase()}`] = result.plan_code;
+      const name = planName(plan, currency);
+      const match = existing.find((item) =>
+        String(item.currency).toUpperCase() === currency &&
+        Number(item.amount) === Math.round(amount * 100) &&
+        item.interval === plan.paystackInterval &&
+        item.name === name
+      );
+      const result = match || (await providerRequest(
+        'Paystack',
+        'https://api.paystack.co/plan',
+        secretKey,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            name,
+            amount: Math.round(amount * 100),
+            interval: plan.paystackInterval,
+            currency,
+            description: `QuickPOS ${plan.code} store subscription in ${currency}`,
+            send_invoices: true,
+            send_sms: false,
+          }),
+        }
+      )).data;
+      values[planEnvName('PAYSTACK', plan, currency)] = result.plan_code;
+    }
   }
 
   return values;
@@ -97,30 +139,38 @@ async function configureFlutterwave(secretKey) {
   );
   const existing = listed.data || [];
   const values = {};
+  const prices = configuredPrices();
 
-  for (const plan of planDefinitions) {
-    const match = existing.find((item) =>
-      item.currency === 'NGN' &&
-      Number(item.amount) === plan.amountNgn &&
-      item.interval?.toLowerCase() === plan.flutterwaveInterval &&
-      item.name === plan.name &&
-      item.status === 'active'
-    );
-    const result = match || (await providerRequest(
-      'Flutterwave',
-      'https://api.flutterwave.com/v3/payment-plans',
-      secretKey,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          name: plan.name,
-          amount: plan.amountNgn,
-          interval: plan.flutterwaveInterval,
-          currency: 'NGN',
-        }),
+  for (const currency of providerCurrencies('FLUTTERWAVE_SUPPORTED_CURRENCIES')) {
+    for (const plan of planDefinitions) {
+      const amount = Number(prices[currency][plan.code]);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error(`${currency} ${plan.code} price must be greater than zero`);
       }
-    )).data;
-    values[`FLUTTERWAVE_PLAN_${plan.code.toUpperCase()}`] = String(result.id);
+      const name = planName(plan, currency);
+      const match = existing.find((item) =>
+        String(item.currency).toUpperCase() === currency &&
+        Number(item.amount) === amount &&
+        item.interval?.toLowerCase() === plan.flutterwaveInterval &&
+        item.name === name &&
+        item.status === 'active'
+      );
+      const result = match || (await providerRequest(
+        'Flutterwave',
+        'https://api.flutterwave.com/v3/payment-plans',
+        secretKey,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            name,
+            amount,
+            interval: plan.flutterwaveInterval,
+            currency,
+          }),
+        }
+      )).data;
+      values[planEnvName('FLUTTERWAVE', plan, currency)] = String(result.id);
+    }
   }
 
   return values;

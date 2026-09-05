@@ -30,6 +30,78 @@ const API_BASE = resolveApiBase(import.meta.env.VITE_API_URL, {
   development: import.meta.env.DEV,
 });
 
+const PUBLIC_BILLING_PRICES = {
+  activation_5m: { NGN: 20000, USD: 15 },
+  monthly: { NGN: 5000, USD: 4 },
+  quarterly: { NGN: 13500, USD: 10 },
+  yearly: { NGN: 50000, USD: 38 },
+};
+
+function countryFromLocale(locale = '') {
+  try {
+    return new Intl.Locale(String(locale).replace('_', '-')).region?.toUpperCase() || '';
+  } catch {
+    return '';
+  }
+}
+
+function browserBillingCurrency() {
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (timeZone === 'Africa/Lagos') return 'NGN';
+  const locales = [...(navigator.languages || []), navigator.language].filter(Boolean);
+  return locales.some((locale) => countryFromLocale(locale) === 'NG') ? 'NGN' : 'USD';
+}
+
+function formatBillingPrice(amount, currency) {
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: currency === 'NGN' ? 0 : 2,
+  }).format(Number(amount));
+}
+
+function renderLocalizedPricing(currency, prices = PUBLIC_BILLING_PRICES) {
+  document.querySelectorAll('[data-billing-plan]').forEach((element) => {
+    const planCode = element.dataset.billingPlan;
+    const amount = prices[planCode]?.[currency] ?? PUBLIC_BILLING_PRICES[planCode]?.[currency];
+    if (amount != null) element.textContent = formatBillingPrice(amount, currency);
+  });
+  document.querySelectorAll('[data-billing-price]').forEach((element) => {
+    const amount = Number(element.dataset[`billing${currency === 'NGN' ? 'Ngn' : 'Usd'}`]);
+    if (Number.isFinite(amount)) element.textContent = formatBillingPrice(amount, currency);
+  });
+  document.querySelectorAll('[data-billing-currency-note]').forEach((element) => {
+    element.textContent = currency === 'NGN'
+      ? 'Pricing shown in NGN for customers in Nigeria.'
+      : 'Pricing shown in USD for customers outside Nigeria.';
+  });
+}
+
+async function localizePublicPricing() {
+  if (!document.querySelector('[data-billing-plan], [data-billing-price]')) return;
+  renderLocalizedPricing(browserBillingCurrency());
+
+  const hints = new URLSearchParams({
+    locale: navigator.language || '',
+    time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+  });
+  try {
+    const response = await fetch(`${API_BASE}/billing/plans?${hints}`);
+    if (!response.ok) return;
+    const result = await response.json();
+    const currency = result.currency?.recommended;
+    if (!['NGN', 'USD'].includes(currency)) return;
+    const prices = Object.fromEntries(
+      (result.plans || []).map((plan) => [plan.code, plan.prices || {}])
+    );
+    renderLocalizedPricing(currency, prices);
+  } catch {
+    // Browser location remains a useful fallback when the API is unavailable.
+  }
+}
+
+localizePublicPricing();
+
 function escapeNavigationText(value = '') {
   return String(value)
     .replace(/&/g, '&amp;')
@@ -164,7 +236,7 @@ if (footer) {
         <a href="/privacy">Privacy Policy</a>
         <a href="/account-deletion">Account Deletion</a>
         <a href="/refund">Refund Policy</a>
-        <p>Current versions effective June 11, 2026.</p>
+        <p>Effective dates are shown on each legal page.</p>
       </div>
     </div>
     <div class="site-shell footer-bottom">

@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import {
   availableCurrenciesForPlan,
+  billingCurrencyForLocation,
   currencyFromCountry,
   currencyFromLocale,
   currencyFromTimeZone,
@@ -47,18 +48,20 @@ describe('billing currency selection', () => {
   test('maps locale country hints to payment currencies', () => {
     expect(currencyFromLocale('en-US')).toBe('USD');
     expect(currencyFromLocale('en-NG')).toBe('NGN');
-    expect(currencyFromLocale('fr-CI')).toBe('XOF');
+    expect(currencyFromLocale('fr-CI')).toBe('USD');
     expect(currencyFromLocale('en-GB')).toBe('USD');
     expect(currencyFromLocale('fr-FR')).toBe('USD');
     expect(currencyFromLocale('en-US,en;q=0.9')).toBe('USD');
   });
 
-  test('maps country and timezone hints to regional currencies with USD outside the region', () => {
+  test('maps Nigeria to NGN and every foreign location to USD', () => {
     expect(currencyFromCountry('NG')).toBe('NGN');
     expect(currencyFromCountry('DE')).toBe('USD');
     expect(currencyFromTimeZone('Africa/Lagos')).toBe('NGN');
-    expect(currencyFromTimeZone('Africa/Accra')).toBe('GHS');
+    expect(currencyFromTimeZone('Africa/Accra')).toBe('USD');
     expect(currencyFromTimeZone('Europe/London')).toBe('USD');
+    expect(billingCurrencyForLocation({ country: 'GH', timeZone: 'Africa/Lagos' })).toBe('USD');
+    expect(billingCurrencyForLocation({ timeZone: 'Africa/Lagos', locale: 'en-US' })).toBe('NGN');
   });
 
   test('allows non-recurring activation in a configured supported currency', () => {
@@ -70,17 +73,27 @@ describe('billing currency selection', () => {
     expect(availableCurrenciesForPlan(config(), 'paystack', monthlyPlan)).toEqual(['NGN']);
   });
 
-  test('prefers USD when requested currency is unavailable and location is outside regional currencies', () => {
+  test('enforces the location currency even when the browser requests another currency', () => {
     expect(preferredCurrencyForRequest(config(), 'paystack', activationPlan, 'EUR', 'en-GB')).toBe('USD');
     expect(preferredCurrencyForRequest(config(), 'paystack', activationPlan, undefined, 'fr-FR')).toBe('USD');
-    expect(preferredCurrencyForRequest(config(), 'paystack', activationPlan, undefined, 'en-US', {
+    expect(preferredCurrencyForRequest(config(), 'paystack', activationPlan, 'USD', 'en-US', {
       country: 'NG',
       timeZone: 'Africa/Lagos',
     })).toBe('NGN');
+    expect(preferredCurrencyForRequest(config(), 'paystack', activationPlan, 'NGN', 'en-NG', {
+      country: 'US',
+      timeZone: 'Africa/Lagos',
+    })).toBe('USD');
   });
 
-  test('falls back to NGN when USD is not available for a recurring provider plan', () => {
-    expect(preferredCurrencyForRequest(config(), 'paystack', monthlyPlan, 'EUR', 'en-US')).toBe('NGN');
+  test('does not fall back to NGN when a foreign recurring plan lacks USD configuration', () => {
+    expect(preferredCurrencyForRequest(config(), 'paystack', monthlyPlan, 'NGN', 'en-US')).toBeNull();
+  });
+
+  test('uses a currency-specific USD recurring plan when configured', () => {
+    const configured = config();
+    configured.paystack.plansByCurrency.USD = { monthly: 'PLN_monthly_usd' };
+    expect(preferredCurrencyForRequest(configured, 'paystack', monthlyPlan, 'NGN', 'en-US')).toBe('USD');
   });
 
   test('returns null when no provider-supported configured currency is available', () => {

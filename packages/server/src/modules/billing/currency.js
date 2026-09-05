@@ -1,83 +1,8 @@
 const DEFAULT_CURRENCY = 'NGN';
 const INTERNATIONAL_FALLBACK_CURRENCY = 'USD';
 
-const PAYSTACK_SUPPORTED_CURRENCIES = ['NGN', 'USD', 'GHS', 'ZAR', 'KES', 'XOF'];
-const FLUTTERWAVE_SUPPORTED_CURRENCIES = [
-  'GBP',
-  'CAD',
-  'XAF',
-  'COP',
-  'EGP',
-  'EUR',
-  'GHS',
-  'KES',
-  'NGN',
-  'RWF',
-  'SLL',
-  'ZAR',
-  'TZS',
-  'UGX',
-  'USD',
-  'XOF',
-  'ZMW',
-];
-
-const COUNTRY_CURRENCY = {
-  NG: 'NGN',
-  GH: 'GHS',
-  ZA: 'ZAR',
-  KE: 'KES',
-  CI: 'XOF',
-  BJ: 'XOF',
-  BF: 'XOF',
-  GW: 'XOF',
-  ML: 'XOF',
-  NE: 'XOF',
-  SN: 'XOF',
-  TG: 'XOF',
-  US: 'USD',
-  GB: 'USD',
-  CA: 'USD',
-  RW: 'RWF',
-  SL: 'SLL',
-  TZ: 'TZS',
-  UG: 'UGX',
-  ZM: 'ZMW',
-  CM: 'XAF',
-  CF: 'XAF',
-  TD: 'XAF',
-  CG: 'XAF',
-  GQ: 'XAF',
-  GA: 'XAF',
-  EG: 'EGP',
-};
-
-const TIMEZONE_CURRENCY = {
-  'Africa/Lagos': 'NGN',
-  'Africa/Accra': 'GHS',
-  'Africa/Johannesburg': 'ZAR',
-  'Africa/Nairobi': 'KES',
-  'Africa/Abidjan': 'XOF',
-  'Africa/Porto-Novo': 'XOF',
-  'Africa/Ouagadougou': 'XOF',
-  'Africa/Bissau': 'XOF',
-  'Africa/Bamako': 'XOF',
-  'Africa/Niamey': 'XOF',
-  'Africa/Dakar': 'XOF',
-  'Africa/Lome': 'XOF',
-  'Africa/Kigali': 'RWF',
-  'Africa/Freetown': 'SLL',
-  'Africa/Dar_es_Salaam': 'TZS',
-  'Africa/Kampala': 'UGX',
-  'Africa/Lusaka': 'ZMW',
-  'Africa/Douala': 'XAF',
-  'Africa/Bangui': 'XAF',
-  'Africa/Ndjamena': 'XAF',
-  'Africa/Brazzaville': 'XAF',
-  'Africa/Malabo': 'XAF',
-  'Africa/Libreville': 'XAF',
-  'Africa/Cairo': 'EGP',
-};
+const PAYSTACK_SUPPORTED_CURRENCIES = ['NGN', 'USD'];
+const FLUTTERWAVE_SUPPORTED_CURRENCIES = ['NGN', 'USD'];
 
 const DEFAULT_PLAN_PRICES = {
   NGN: {
@@ -177,7 +102,7 @@ function countryFromLocale(locale = '') {
 export function currencyFromCountry(country = '') {
   const code = String(country || '').trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(code)) return INTERNATIONAL_FALLBACK_CURRENCY;
-  return COUNTRY_CURRENCY[code] || INTERNATIONAL_FALLBACK_CURRENCY;
+  return code === 'NG' ? DEFAULT_CURRENCY : INTERNATIONAL_FALLBACK_CURRENCY;
 }
 
 export function currencyFromLocale(locale = '') {
@@ -188,7 +113,14 @@ export function currencyFromLocale(locale = '') {
 export function currencyFromTimeZone(timeZone = '') {
   const normalized = String(timeZone || '').trim();
   if (!normalized) return null;
-  return TIMEZONE_CURRENCY[normalized] || INTERNATIONAL_FALLBACK_CURRENCY;
+  return normalized === 'Africa/Lagos'
+    ? DEFAULT_CURRENCY
+    : INTERNATIONAL_FALLBACK_CURRENCY;
+}
+
+export function billingCurrencyForLocation({ country = '', timeZone = '', locale = '' } = {}) {
+  if (/^[A-Z]{2}$/i.test(String(country).trim())) return currencyFromCountry(country);
+  return currencyFromTimeZone(timeZone) || currencyFromLocale(locale);
 }
 
 export function checkoutAmountForPlan(plan, currency, configuredPrices = DEFAULT_PLAN_PRICES) {
@@ -219,24 +151,25 @@ export function availableCurrenciesForPlan(config, provider, plan) {
     .filter((currency) => planCurrencyAvailable(config, provider, plan, currency));
 }
 
-export function preferredCurrencyForRequest(config, provider, plan, requestedCurrency, locale, options = {}) {
-  const candidates = [
-    requestedCurrency?.toUpperCase(),
-    options.country ? currencyFromCountry(options.country) : null,
-    options.timeZone ? currencyFromTimeZone(options.timeZone) : null,
-    currencyFromLocale(locale),
-    INTERNATIONAL_FALLBACK_CURRENCY,
-    DEFAULT_CURRENCY,
-  ].filter(Boolean);
+export function preferredCurrencyForRequest(config, provider, plan, _requestedCurrency, locale, options = {}) {
+  const locationCurrency = billingCurrencyForLocation({
+    country: options.country,
+    timeZone: options.timeZone,
+    locale,
+  });
 
-  return [...new Set(candidates)].find((currency) => planCurrencyAvailable(config, provider, plan, currency)) ||
-    availableCurrenciesForPlan(config, provider, plan)[0] ||
-    null;
+  // Currency is a server-side market decision: Nigeria pays NGN and every
+  // other country pays USD. Never fall back to NGN for a foreign checkout.
+  return planCurrencyAvailable(config, provider, plan, locationCurrency)
+    ? locationCurrency
+    : null;
 }
 
 export function currencyDisclosure(currency, requestedCurrency) {
   if (!requestedCurrency || requestedCurrency.toUpperCase() === currency) return null;
-  return `Requested currency ${requestedCurrency.toUpperCase()} is not available for this provider and plan. Checkout will use ${currency}.`;
+  return currency === DEFAULT_CURRENCY
+    ? 'Customers in Nigeria are charged in NGN. Checkout has been set to NGN.'
+    : 'Customers outside Nigeria are charged in USD. Checkout has been set to USD.';
 }
 
 export { DEFAULT_CURRENCY, INTERNATIONAL_FALLBACK_CURRENCY };

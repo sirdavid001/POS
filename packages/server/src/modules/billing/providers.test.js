@@ -31,11 +31,13 @@ describe('billing providers', () => {
       paystack: {
         secretKey: 'sk_test_valid',
         plans: { monthly: 'PLN_monthly', quarterly: '', yearly: 'PLN_yearly' },
+        plansByCurrency: {},
       },
       flutterwave: {
         secretKey: 'FLWSECK_TEST-valid-X',
         webhookSecret: '',
         plans: { monthly: '1', quarterly: '2', yearly: '3' },
+        plansByCurrency: {},
       },
     });
 
@@ -43,5 +45,24 @@ describe('billing providers', () => {
     expect(availability.paystack.plans.quarterly).toBe(false);
     expect(availability.paystack.plans.activation_5m).toBe(true);
     expect(availability.flutterwave.available).toBe(false);
+  });
+
+  test('advertises a recurring plan configured only for USD', () => {
+    const availability = getProviderAvailability({
+      paystack: {
+        secretKey: 'sk_test_valid',
+        plans: { monthly: '', quarterly: '', yearly: '' },
+        plansByCurrency: { USD: { monthly: 'PLN_monthly_usd' } },
+      },
+      flutterwave: {
+        secretKey: '',
+        webhookSecret: '',
+        plans: { monthly: '', quarterly: '', yearly: '' },
+        plansByCurrency: {},
+      },
+    });
+
+    expect(availability.paystack.plans.monthly).toBe(true);
+    expect(availability.paystack.plans.quarterly).toBe(false);
   });
 });

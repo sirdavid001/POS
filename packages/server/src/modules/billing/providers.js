@@ -34,13 +34,18 @@ export function getProviderAvailability(config) {
     config.flutterwave.secretKey && config.flutterwave.webhookSecret
   );
 
-  const buildPlanAvailability = (provider, configured) => ({
-    activation_5m: configured,
-    ...Object.fromEntries(RECURRING_PLAN_CODES.map((code) => [
-      code,
-      configured && Boolean(config[provider].plans[code]),
-    ])),
-  });
+  const buildPlanAvailability = (provider, configured) => {
+    const currencyPlans = Object.values(config[provider].plansByCurrency || {});
+    return {
+      activation_5m: configured,
+      ...Object.fromEntries(RECURRING_PLAN_CODES.map((code) => [
+        code,
+        configured && Boolean(
+          config[provider].plans[code] || currencyPlans.some((plans) => plans[code])
+        ),
+      ])),
+    };
+  };
 
   const paystackPlans = buildPlanAvailability('paystack', paystackConfigured);
   const flutterwavePlans = buildPlanAvailability('flutterwave', flutterwaveConfigured);

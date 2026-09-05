@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="QuickPOS pricing starts with a one-time ₦20,000 activation for five months, then simple monthly, quarterly, or yearly renewal plans.">
+  <meta name="description" content="QuickPOS pricing starts with a one-time ₦20,000 or $15 activation for five months, then simple monthly, quarterly, or yearly renewal plans.">
   <link rel="icon" href="/favicon.ico">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <meta name="theme-color" content="#15161b">
@@ -17,7 +17,7 @@
         <div class="page-intro">
           <span class="eyebrow">Transparent store-wide pricing</span>
           <h1>Professional POS pricing without complicated tiers.</h1>
-          <p>Create your store account on the website, activate one store for ₦20,000, and get five months of full access before choosing a renewal plan.</p>
+          <p>Create your store account on the website, activate one store for <span data-billing-plan="activation_5m">₦20,000 / $15</span>, and get five months of full access before choosing a renewal plan.</p>
           <div class="hero-actions">
             <a class="button" href="/account#create">Create store account</a>
             <a class="button button-secondary" href="#renewal-plans">Compare renewals</a>
@@ -31,7 +31,7 @@
 
         <aside class="pricing-hero-card" aria-label="QuickPOS activation summary">
           <span class="plan-label">Required first step</span>
-          <strong>₦20,000</strong>
+          <strong data-billing-plan="activation_5m">₦20,000 / $15</strong>
           <span>Five months of full store access</span>
           <p>One payment unlocks sales, inventory, staff roles, reports, exports, updates, and support for your store.</p>
         </aside>
@@ -57,6 +57,7 @@
           <span class="eyebrow">Renewal plans</span>
           <h2>Choose a plan after activation.</h2>
           <p>Every renewal includes the same QuickPOS features. The only difference is how often your store renews and how much you save by paying ahead.</p>
+          <p data-billing-currency-note>Customers in Nigeria pay NGN; customers outside Nigeria pay USD.</p>
         </div>
 
         <div class="pricing-grid pricing-grid-detailed">
@@ -65,7 +66,7 @@
               <span class="plan-kicker">Flexible</span>
               <h3>Monthly</h3>
             </div>
-            <div class="price">₦5,000</div>
+            <div class="price" data-billing-plan="monthly">₦5,000 / $4</div>
             <div class="price-note">Renews every month after activation</div>
             <p class="plan-description">Best for stores that want the lowest renewal commitment and predictable month-to-month billing.</p>
             <ul>
@@ -82,11 +83,11 @@
               <span class="plan-kicker">Balanced</span>
               <h3>Quarterly</h3>
             </div>
-            <div class="price">₦13,500</div>
+            <div class="price" data-billing-plan="quarterly">₦13,500 / $10</div>
             <div class="price-note">Renews every 3 months</div>
             <p class="plan-description">A practical middle option for active stores that prefer fewer billing interruptions.</p>
             <ul>
-              <li>Save ₦1,500 versus monthly</li>
+              <li>Save <span data-billing-price data-billing-ngn="1500" data-billing-usd="2">₦1,500 / $2</span> versus monthly</li>
               <li>All QuickPOS features</li>
               <li>Unlimited staff for one store</li>
               <li>Updates and support included</li>
@@ -100,11 +101,11 @@
               <span class="plan-kicker">Recommended</span>
               <h3>Yearly</h3>
             </div>
-            <div class="price">₦50,000</div>
+            <div class="price" data-billing-plan="yearly">₦50,000 / $38</div>
             <div class="price-note">Renews every 12 months</div>
             <p class="plan-description">The strongest value for committed stores that want a full year of uninterrupted access.</p>
             <ul>
-              <li>Save ₦10,000 versus monthly</li>
+              <li>Save <span data-billing-price data-billing-ngn="10000" data-billing-usd="10">₦10,000 / $10</span> versus monthly</li>
               <li>All QuickPOS features</li>
               <li>Unlimited staff for one store</li>
               <li>Updates and support included</li>
@@ -136,10 +137,10 @@
         <div>
           <span class="eyebrow">Billing clarity</span>
           <h2>No hidden upgrade tiers.</h2>
-          <p>Prices are shown in Nigerian naira. Recurring plans renew automatically until cancelled. Cancelling stops future renewal, and access remains available through the paid period.</p>
+          <p>Customers in Nigeria are charged in Nigerian naira. Customers outside Nigeria are charged in US dollars. Recurring plans renew automatically until cancelled. Cancelling stops future renewal, and access remains available through the paid period.</p>
         </div>
         <ul class="fine-print-list">
-          <li>The ₦20,000 activation is required before a new store can record business data.</li>
+          <li>The <span data-billing-plan="activation_5m">₦20,000 / $15</span> activation is required before a new store can record business data.</li>
           <li>Activation includes five months and does not renew automatically.</li>
           <li>Renewal plans start only after the activation period has been completed.</li>
           <li>No prorated refunds are offered, except where required for duplicate or erroneous charges.</li>

@@ -65,6 +65,7 @@ Important values:
 - `VITE_API_URL` defaults to `http://localhost:3001/api/v1`
 - `VITE_WS_URL` defaults to `ws://localhost:3001`
 - `PAYSTACK_*` keys are required only if you want Paystack enabled
+- `PAYSTACK_PLAN_*_USD` and `FLUTTERWAVE_PLAN_*_USD` enable recurring USD checkout for customers outside Nigeria; `npm run billing:configure -- --write=.env` creates/reuses both NGN and USD plans
 - `RESEND_API_KEY` and `EMAIL_FROM` are required only for emailing store sales statements
 
 ### 3. Start PostgreSQL

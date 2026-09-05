@@ -15,6 +15,7 @@ import {
   verifyPaystackWebhook,
 } from './providers.js';
 import {
+  billingCurrencyForLocation,
   checkoutAmountForPlan,
   currencyDisclosure,
   preferredCurrencyForRequest,
@@ -24,6 +25,23 @@ import { checkoutSchema } from './schema.js';
 import { LEGAL_DOCUMENT_VERSIONS, recordLegalAcceptances } from '../legal.js';
 
 const router = Router();
+
+function normalizedCountry(value) {
+  const country = String(value || '').trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(country) && country !== 'XX' ? country : '';
+}
+
+function billingLocationForRequest(req, hints = {}) {
+  const edgeCountry =
+    normalizedCountry(req.get('x-vercel-ip-country')) ||
+    normalizedCountry(req.get('cf-ipcountry'));
+  return {
+    // Vercel/Cloudflare geo headers take precedence over browser-supplied hints.
+    country: edgeCountry || normalizedCountry(hints.country),
+    timeZone: String(hints.timeZone || '').trim().slice(0, 120),
+    locale: String(hints.locale || req.get('accept-language') || '').trim().slice(0, 160),
+  };
+}
 
 function verifyPaystackSignature(req) {
   return verifyPaystackWebhook(
@@ -358,6 +376,11 @@ async function finishWebhook(id, status, error = null) {
 router.get('/plans', async (req, res, next) => {
   try {
     const providers = getProviderAvailability(config);
+    const billingLocation = billingLocationForRequest(req, {
+      country: req.query.country,
+      timeZone: req.query.time_zone,
+      locale: req.query.locale,
+    });
     const result = await query(
       `SELECT code, name, price_ngn, duration_months, billing_interval, recurring, is_promotional
        FROM subscription_plans WHERE is_active = true ORDER BY price_ngn`
@@ -377,6 +400,8 @@ router.get('/plans', async (req, res, next) => {
       providers,
       currency: {
         default: 'NGN',
+        recommended: billingCurrencyForLocation(billingLocation),
+        policy: 'NGN_IN_NIGERIA_USD_ELSEWHERE',
         prices_configured: Object.keys(config.billingCurrencies.prices || {}),
         provider_supported: config.billingCurrencies.providerSupported,
       },
@@ -551,7 +576,7 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
     const activationEligible = await initialActivationEligible(req.user.store_id, subscription);
     if (subscription.activation_required && planCode !== 'activation_5m') {
       return res.status(403).json({
-        error: 'Complete the ₦20,000 initial activation before choosing a renewal plan',
+        error: 'Complete the required initial activation before choosing a renewal plan',
         code: 'INITIAL_ACTIVATION_REQUIRED',
       });
     }
@@ -576,26 +601,28 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
         available_after: currentEnd.toISOString(),
       });
     }
+    const billingLocation = billingLocationForRequest(req, {
+      country,
+      timeZone,
+      locale,
+    });
+    const requiredCurrency = billingCurrencyForLocation(billingLocation);
     const checkoutCurrency = preferredCurrencyForRequest(
       config,
       provider,
       plan,
       requestedCurrency,
-      locale || req.get('accept-language') || '',
-      {
-        country:
-          country ||
-          req.get('x-vercel-ip-country') ||
-          req.get('cf-ipcountry') ||
-          req.get('x-country-code') ||
-          '',
-        timeZone,
-      }
+      billingLocation.locale,
+      billingLocation
     );
     if (!checkoutCurrency) {
       return res.status(503).json({
-        error: 'No supported payment currency is configured for this provider and plan',
-        code: 'PAYMENT_CURRENCY_UNAVAILABLE',
+        error: requiredCurrency === 'USD'
+          ? `USD checkout is not configured for this ${provider} plan. Choose another provider or contact support.`
+          : `NGN checkout is not configured for this ${provider} plan. Choose another provider or contact support.`,
+        code: requiredCurrency === 'USD'
+          ? 'USD_PAYMENT_NOT_CONFIGURED'
+          : 'NGN_PAYMENT_NOT_CONFIGURED',
       });
     }
     const checkoutAmount = checkoutAmountForPlan(plan, checkoutCurrency, config.billingCurrencies.prices);
@@ -606,7 +633,7 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
       });
     }
     if (requestedCurrency && requestedCurrency !== checkoutCurrency) {
-      logger.info('Checkout currency fell back to supported provider currency', {
+      logger.info('Checkout currency was set by the customer billing market', {
         requestedCurrency,
         checkoutCurrency,
         provider,

@@ -1,5 +1,5 @@
 export const LEGAL_DOCUMENT_VERSIONS = Object.freeze({
-  terms: '2026-06-11',
+  terms: '2026-09-04',
   privacy: '2026-06-11',
   refund: '2026-06-11',
 });

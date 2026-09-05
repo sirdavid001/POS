@@ -111,67 +111,9 @@ class SiteApi {
 }
 
 const siteApi = new SiteApi();
-const PAYMENT_CURRENCY_KEY = 'quickpos_site_payment_currency';
 const DEFAULT_PAYMENT_CURRENCY = 'NGN';
 const INTERNATIONAL_PAYMENT_CURRENCY = 'USD';
 const PORTAL_SECTIONS = ['overview', 'profile', 'store', 'staff', 'billing', 'downloads'];
-
-const COUNTRY_CURRENCY = {
-  NG: 'NGN',
-  GH: 'GHS',
-  ZA: 'ZAR',
-  KE: 'KES',
-  CI: 'XOF',
-  BJ: 'XOF',
-  BF: 'XOF',
-  GW: 'XOF',
-  ML: 'XOF',
-  NE: 'XOF',
-  SN: 'XOF',
-  TG: 'XOF',
-  US: 'USD',
-  GB: 'USD',
-  CA: 'USD',
-  RW: 'RWF',
-  SL: 'SLL',
-  TZ: 'TZS',
-  UG: 'UGX',
-  ZM: 'ZMW',
-  CM: 'XAF',
-  CF: 'XAF',
-  TD: 'XAF',
-  CG: 'XAF',
-  GQ: 'XAF',
-  GA: 'XAF',
-  EG: 'EGP',
-};
-
-const TIMEZONE_CURRENCY = {
-  'Africa/Lagos': 'NGN',
-  'Africa/Accra': 'GHS',
-  'Africa/Johannesburg': 'ZAR',
-  'Africa/Nairobi': 'KES',
-  'Africa/Abidjan': 'XOF',
-  'Africa/Porto-Novo': 'XOF',
-  'Africa/Ouagadougou': 'XOF',
-  'Africa/Bissau': 'XOF',
-  'Africa/Bamako': 'XOF',
-  'Africa/Niamey': 'XOF',
-  'Africa/Dakar': 'XOF',
-  'Africa/Lome': 'XOF',
-  'Africa/Kigali': 'RWF',
-  'Africa/Freetown': 'SLL',
-  'Africa/Dar_es_Salaam': 'TZS',
-  'Africa/Kampala': 'UGX',
-  'Africa/Lusaka': 'ZMW',
-  'Africa/Douala': 'XAF',
-  'Africa/Bangui': 'XAF',
-  'Africa/Ndjamena': 'XAF',
-  'Africa/Brazzaville': 'XAF',
-  'Africa/Malabo': 'XAF',
-  'Africa/Libreville': 'XAF',
-  'Africa/Cairo': 'EGP',
-};
 
 function escapeHtml(value = '') {
   return String(value)
@@ -210,7 +152,7 @@ function countryFromLocale(locale = '') {
 function currencyFromCountry(country = '') {
   const code = String(country || '').trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(code)) return INTERNATIONAL_PAYMENT_CURRENCY;
-  return COUNTRY_CURRENCY[code] || INTERNATIONAL_PAYMENT_CURRENCY;
+  return code === 'NG' ? DEFAULT_PAYMENT_CURRENCY : INTERNATIONAL_PAYMENT_CURRENCY;
 }
 
 function currencyFromLocale(locale = '') {
@@ -221,7 +163,9 @@ function currencyFromLocale(locale = '') {
 function currencyFromTimeZone(timeZone = '') {
   const normalized = String(timeZone || '').trim();
   if (!normalized) return null;
-  return TIMEZONE_CURRENCY[normalized] || INTERNATIONAL_PAYMENT_CURRENCY;
+  return normalized === 'Africa/Lagos'
+    ? DEFAULT_PAYMENT_CURRENCY
+    : INTERNATIONAL_PAYMENT_CURRENCY;
 }
 
 function detectLocalCurrency() {
@@ -240,15 +184,9 @@ function detectLocalCurrency() {
   ].find(Boolean);
 }
 
-function detectPreferredCurrency(availableCurrencies = [DEFAULT_PAYMENT_CURRENCY]) {
-  const saved = localStorage.getItem(PAYMENT_CURRENCY_KEY);
-  const localCurrency = detectLocalCurrency();
-  return [saved, localCurrency, INTERNATIONAL_PAYMENT_CURRENCY, DEFAULT_PAYMENT_CURRENCY]
-    .filter(Boolean)
-    .map((currency) => currency.toUpperCase())
-    .find((currency) => availableCurrencies.includes(currency)) ||
-    availableCurrencies[0] ||
-    DEFAULT_PAYMENT_CURRENCY;
+function detectPreferredCurrency(serverCurrency = '') {
+  const normalized = String(serverCurrency || '').trim().toUpperCase();
+  return ['NGN', 'USD'].includes(normalized) ? normalized : detectLocalCurrency();
 }
 
 function formatCurrency(value, currency = 'NGN') {
@@ -822,22 +760,10 @@ function renderTransactions(transactions = []) {
   `;
 }
 
-function currenciesForPlan(plan) {
-  const currencies = plan.provider_availability?.currencies || {};
-  return [...new Set([
-    ...(currencies.paystack || []),
-    ...(currencies.flutterwave || []),
-  ])];
-}
-
 function priceForPlan(plan, selectedCurrency) {
-  const planCurrencies = currenciesForPlan(plan);
-  const currency = planCurrencies.includes(selectedCurrency)
-    ? selectedCurrency
-    : DEFAULT_PAYMENT_CURRENCY;
   return {
-    currency,
-    amount: plan.prices?.[currency] || plan.price_ngn,
+    currency: selectedCurrency,
+    amount: plan.prices?.[selectedCurrency] ?? null,
   };
 }
 
@@ -848,19 +774,14 @@ function visiblePlansForSubscription(plans = [], subscription = {}) {
   );
 }
 
-function renderPlanCards(plans = [], providers = {}, subscription = {}) {
+function renderPlanCards(plans = [], providers = {}, subscription = {}, billingCurrency = '') {
   const activationPeriodActive =
     subscription.plan_code === 'activation_5m' &&
     subscription.can_write;
   const visiblePlans = visiblePlansForSubscription(plans, subscription);
   const configuredProviderCount = Object.values(providers || {})
     .filter((provider) => provider.available).length;
-  const availableCurrencies = [...new Set(
-    visiblePlans.flatMap((plan) => currenciesForPlan(plan))
-  )];
-  const selectedCurrency = detectPreferredCurrency(
-    availableCurrencies.length ? availableCurrencies : [DEFAULT_PAYMENT_CURRENCY]
-  );
+  const selectedCurrency = detectPreferredCurrency(billingCurrency);
 
   return `
     ${configuredProviderCount === 0 ? `
@@ -879,22 +800,19 @@ function renderPlanCards(plans = [], providers = {}, subscription = {}) {
         <div>
           <span class="section-kicker">Checkout preferences</span>
           <h3>Choose how you want to pay</h3>
-          <p>Select your billing currency, review the terms, then continue with your preferred payment provider.</p>
+          <p>Review the automatically selected billing currency and terms, then continue with your preferred payment provider.</p>
         </div>
         <span class="billing-secure-badge">Secure hosted checkout</span>
       </div>
       <div class="account-currency-row">
-        <label for="account-payment-currency">
+        <div class="account-currency-field">
           <span>Payment currency</span>
-          <select id="account-payment-currency" ${availableCurrencies.length <= 1 ? 'disabled' : ''}>
-            ${(availableCurrencies.length ? availableCurrencies : [DEFAULT_PAYMENT_CURRENCY]).map((currency) => `
-              <option value="${currency}" ${currency === selectedCurrency ? 'selected' : ''}>${currency}</option>
-            `).join('')}
-          </select>
-        </label>
+          <strong>${selectedCurrency}</strong>
+          <input id="account-payment-currency" type="hidden" value="${selectedCurrency}">
+        </div>
         <div class="billing-currency-copy">
-          <strong>${selectedCurrency} pricing selected</strong>
-          <p>QuickPOS suggests a currency from your location. Customers outside supported regional currencies use USD when available.</p>
+          <strong>${selectedCurrency} billing is set from your current country</strong>
+          <p>Customers in Nigeria pay in NGN. Customers outside Nigeria pay in USD. Checkout verifies this again before creating the payment.</p>
         </div>
       </div>
       <label class="account-check billing-ack">
@@ -924,7 +842,7 @@ function renderPlanCards(plans = [], providers = {}, subscription = {}) {
             const price = priceForPlan(plan, selectedCurrency);
             return `
               <div class="account-plan-price">
-                <strong>${formatCurrency(price.amount, price.currency)}</strong>
+                <strong>${price.amount == null ? `${price.currency} unavailable` : formatCurrency(price.amount, price.currency)}</strong>
                 <span>${planCadence(plan)}</span>
               </div>
             `;
@@ -957,7 +875,7 @@ function renderPlanCards(plans = [], providers = {}, subscription = {}) {
   `;
 }
 
-function renderPortal({ overview, plans, providers, transactions, staff = [] }, flash = '') {
+function renderPortal({ overview, plans, providers, transactions, staff = [], billingCurrency }, flash = '') {
   const { user, store } = overview;
   const subscription = overview.subscription;
   const unlocked = downloadsUnlocked(subscription);
@@ -1209,7 +1127,7 @@ function renderPortal({ overview, plans, providers, transactions, staff = [] }, 
                 <p>${unlocked ? 'Your store currently has full write access.' : 'Complete payment to unlock full access.'}</p>
               </article>
             </div>
-            ${renderPlanCards(plans, providers, subscription)}
+            ${renderPlanCards(plans, providers, subscription, billingCurrency)}
             <div class="account-subpanel billing-history-panel">
               <div class="billing-history-heading">
                 <div>
@@ -1367,10 +1285,10 @@ function attachPortalHandlers() {
   });
 
   const acknowledgement = document.getElementById('account-billing-ack');
-  const currencySelect = document.getElementById('account-payment-currency');
+  const currencyInput = document.getElementById('account-payment-currency');
   const checkoutButtons = [...document.querySelectorAll('[data-checkout-provider]')];
   const syncCheckoutButtons = () => {
-    const selectedCurrency = currencySelect?.value || 'NGN';
+    const selectedCurrency = currencyInput?.value || DEFAULT_PAYMENT_CURRENCY;
     checkoutButtons.forEach((button) => {
       const option = button.closest('.account-provider-option');
       const status = option?.querySelector(`[data-provider-status="${button.dataset.checkoutProvider}"]`);
@@ -1398,10 +1316,6 @@ function attachPortalHandlers() {
       }
     });
   };
-  currencySelect?.addEventListener('change', () => {
-    localStorage.setItem(PAYMENT_CURRENCY_KEY, currencySelect.value);
-    loadPortal();
-  });
   acknowledgement?.addEventListener('change', syncCheckoutButtons);
   syncCheckoutButtons();
 
@@ -1415,7 +1329,7 @@ function attachPortalHandlers() {
         const checkout = await siteApi.post('/billing/checkout', {
           provider: button.dataset.checkoutProvider,
           plan_code: button.dataset.plan,
-          currency: currencySelect?.value || DEFAULT_PAYMENT_CURRENCY,
+          currency: currencyInput?.value || DEFAULT_PAYMENT_CURRENCY,
           locale: navigator.language || '',
           time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
           legal_acknowledged: true,
@@ -1494,8 +1408,12 @@ async function loadPortal(flash = '') {
       return;
     }
 
+    const billingHints = new URLSearchParams({
+      locale: navigator.language || '',
+      time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+    });
     const [plansResult, statusResult, transactionsResult, staffResult] = await Promise.all([
-      siteApi.get('/billing/plans'),
+      siteApi.get(`/billing/plans?${billingHints}`),
       siteApi.get('/billing/status'),
       siteApi.get('/billing/transactions'),
       siteApi.get('/settings/users'),
@@ -1508,6 +1426,7 @@ async function loadPortal(flash = '') {
       },
       plans: plansResult.plans || [],
       providers: plansResult.providers || {},
+      billingCurrency: plansResult.currency?.recommended || '',
       transactions: transactionsResult.transactions || [],
       staff: staffResult.users || [],
     }, flash);
