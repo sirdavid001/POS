@@ -1,4 +1,4 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, test } from 'vitest';
 import { addMonths, serializeSubscription } from './subscription.js';
 
 const now = new Date('2026-06-10T12:00:00.000Z');

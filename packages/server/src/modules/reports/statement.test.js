@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+import { describe, expect, test, vi } from 'vitest';
 
 import {
   createStatementExcel,
@@ -68,7 +68,7 @@ describe('store sales statements', () => {
   });
 
   test('builds store totals and excludes cancelled orders from cumulative revenue', async () => {
-    const queryFn = jest.fn()
+    const queryFn = vi.fn()
       .mockResolvedValueOnce({
         rows: [{
           id: 1,

@@ -1,16 +1,16 @@
-import { describe, expect, jest, test } from '@jest/globals';
+import { describe, expect, test, vi } from 'vitest';
 import { requireActiveSubscription } from './subscription.js';
 
 function response() {
   return {
-    status: jest.fn().mockReturnThis(),
-    json: jest.fn().mockReturnThis(),
+    status: vi.fn().mockReturnThis(),
+    json: vi.fn().mockReturnThis(),
   };
 }
 
 describe('subscription mutation enforcement', () => {
   test('allows reads after expiry', () => {
-    const next = jest.fn();
+    const next = vi.fn();
     requireActiveSubscription()(
       { method: 'GET', path: '/', subscription: { can_write: false } },
       response(),
@@ -20,7 +20,7 @@ describe('subscription mutation enforcement', () => {
   });
 
   test('allows mutations with a current entitlement', () => {
-    const next = jest.fn();
+    const next = vi.fn();
     requireActiveSubscription()(
       { method: 'POST', path: '/', subscription: { can_write: true } },
       response(),
@@ -30,7 +30,7 @@ describe('subscription mutation enforcement', () => {
   });
 
   test('returns the subscription-specific 402 response after expiry', () => {
-    const next = jest.fn();
+    const next = vi.fn();
     const res = response();
     requireActiveSubscription()(
       { method: 'POST', path: '/', subscription: { can_write: false, status: 'expired' } },
@@ -45,7 +45,7 @@ describe('subscription mutation enforcement', () => {
   });
 
   test('returns the activation-specific 402 response for a new store', () => {
-    const next = jest.fn();
+    const next = vi.fn();
     const res = response();
     requireActiveSubscription()(
       {

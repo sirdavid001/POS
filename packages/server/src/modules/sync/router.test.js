@@ -1,16 +1,16 @@
-import { beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import express from 'express';
 import jwt from 'jsonwebtoken';
 
-const mockQuery = jest.fn();
-const mockGetStoreSubscription = jest.fn();
+const mockQuery = vi.fn();
+const mockGetStoreSubscription = vi.fn();
 
-jest.unstable_mockModule('../../config/database.js', () => ({
+vi.doMock('../../config/database.js', () => ({
   query: mockQuery,
-  getClient: jest.fn(),
+  getClient: vi.fn(),
 }));
 
-jest.unstable_mockModule('../billing/subscription.js', () => ({
+vi.doMock('../billing/subscription.js', () => ({
   getStoreSubscription: mockGetStoreSubscription,
 }));
 

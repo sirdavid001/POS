@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+import { describe, expect, test, vi } from 'vitest';
 import {
   REFRESH_COOKIE_NAME,
   clearRefreshCookie,
@@ -45,7 +45,7 @@ describe('refresh token helpers', () => {
   });
 
   test('sets and clears a production HttpOnly refresh cookie', () => {
-    const res = { cookie: jest.fn(), clearCookie: jest.fn() };
+    const res = { cookie: vi.fn(), clearCookie: vi.fn() };
     const config = {
       nodeEnv: 'production',
       jwt: { refreshExpiry: '2h' },

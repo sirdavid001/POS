@@ -1,10 +1,10 @@
-import { jest } from '@jest/globals';
+import { describe, expect, test, vi } from 'vitest';
 import { PostgresRateLimitStore } from './postgres-rate-limit-store.js';
 
 describe('PostgresRateLimitStore', () => {
   test('returns the shared hit count and reset time from PostgreSQL', async () => {
     const resetAt = new Date('2026-09-04T12:00:00.000Z');
-    const execute = jest.fn().mockResolvedValue({
+    const execute = vi.fn().mockResolvedValue({
       rows: [{ hits: '3', reset_at: resetAt }],
     });
     const store = new PostgresRateLimitStore('auth', execute);
@@ -21,7 +21,7 @@ describe('PostgresRateLimitStore', () => {
   });
 
   test('uses separate scopes and never stores raw client identifiers', async () => {
-    const execute = jest.fn().mockResolvedValue({ rows: [] });
+    const execute = vi.fn().mockResolvedValue({ rows: [] });
     const store = new PostgresRateLimitStore('api', execute);
 
     await store.resetKey('sensitive-client-key');

@@ -13,7 +13,7 @@
     "node": ">=24.0.0",
     "npm": ">=11.0.0"
   },
-  "packageManager": "npm@11.6.2",
+  "packageManager": "npm@11.21.0",
   "main": "desktop/main.cjs",
   "workspaces": [
     "packages/shared",
@@ -45,9 +45,9 @@
   "devDependencies": {
     "@capacitor/cli": "^8.5.1",
     "@eslint/js": "^10.0.1",
-    "concurrently": "^10.0.5",
+    "concurrently": "^10.0.6",
     "electron": "^44.2.0",
-    "electron-builder": "^26.15.3",
+    "electron-builder": "26.17.0",
     "eslint": "^10.9.1",
     "globals": "^17.12.0"
   },
@@ -58,6 +58,7 @@
     "electron-updater": "^6.8.9"
   },
   "overrides": {
+    "@electron/get": "5.0.0",
     "xcode": {
       "uuid": "^11.1.1"
     }

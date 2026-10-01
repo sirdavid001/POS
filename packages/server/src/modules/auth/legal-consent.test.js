@@ -1,4 +1,4 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, test } from 'vitest';
 import { registerSchema } from './schema.js';
 import { checkoutSchema } from '../billing/schema.js';
 

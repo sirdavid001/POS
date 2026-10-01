@@ -1,3 +1,5 @@
+import { describe, expect, test } from 'vitest';
+
 import { createCategorySchema, updateCategorySchema } from './categories/schema.js';
 import { createCustomerSchema } from './customers/schema.js';
 import { adjustStockSchema, createPurchaseOrderSchema } from './inventory/schema.js';
