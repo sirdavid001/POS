@@ -15,3 +15,12 @@ export const checkoutSchema = z.object({
     error: 'Accept the Terms of Service and Refund Policy before payment',
   }),
 });
+
+export const paymentConfirmationSchema = z.object({
+  provider: z.enum(['paystack', 'flutterwave']),
+  reference: z.string().trim().min(1).max(255),
+  transaction_id: z.union([z.string(), z.number()])
+    .transform((value) => String(value).trim())
+    .refine(Boolean, 'Transaction ID cannot be empty')
+    .optional(),
+});

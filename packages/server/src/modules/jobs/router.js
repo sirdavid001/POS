@@ -4,6 +4,10 @@ import { query } from '../../config/database.js';
 import logger from '../../config/logger.js';
 import { sendBillingEmail } from '../billing/email.js';
 import { sendWelcomeEmail } from '../auth/welcome-email.js';
+import {
+  activateVerifiedPayment,
+  verifyProviderTransaction,
+} from '../billing/router.js';
 
 const router = Router();
 
@@ -150,8 +154,79 @@ async function sendStoreWelcome(req, res, next) {
   }
 }
 
+async function reconcilePayments(req, res, next) {
+  if (!authorized(req)) {
+    return res.status(401).json({ error: 'Invalid cron credentials' });
+  }
+
+  const requestedStoreId = req.body?.store_id == null ? null : Number(req.body.store_id);
+  if (requestedStoreId != null && (!Number.isSafeInteger(requestedStoreId) || requestedStoreId < 1)) {
+    return res.status(400).json({ error: 'store_id must be a positive integer' });
+  }
+
+  try {
+    const result = await query(
+      `SELECT id, store_id, provider, provider_reference
+       FROM billing_transactions
+       WHERE status = 'initialized'
+         AND provider IN ('paystack', 'flutterwave')
+         AND ($1::int IS NULL OR store_id = $1)
+       ORDER BY created_at
+       LIMIT 100`,
+      [requestedStoreId]
+    );
+    const outcomes = [];
+
+    for (const transaction of result.rows) {
+      try {
+        const verified = await verifyProviderTransaction(
+          transaction.provider,
+          transaction.provider_reference
+        );
+        if (verified.reference !== transaction.provider_reference) {
+          throw new Error('Provider returned a different payment reference');
+        }
+        await activateVerifiedPayment(transaction.provider, verified);
+        const updated = await query(
+          'SELECT status FROM billing_transactions WHERE id = $1',
+          [transaction.id]
+        );
+        outcomes.push({
+          reference: transaction.provider_reference,
+          status: updated.rows[0]?.status || 'unknown',
+        });
+      } catch (error) {
+        if (error.code === 'PAYMENT_NOT_COMPLETE') continue;
+        logger.error('Pending payment reconciliation failed', {
+          storeId: transaction.store_id,
+          provider: transaction.provider,
+          reference: transaction.provider_reference,
+          error: error.message,
+        });
+        outcomes.push({
+          reference: transaction.provider_reference,
+          status: 'error',
+          error: error.message,
+        });
+      }
+    }
+
+    res.json({
+      checked: result.rows.length,
+      reconciled: outcomes.filter((outcome) =>
+        ['success', 'paid_duplicate'].includes(outcome.status)
+      ).length,
+      outcomes,
+    });
+  } catch (error) {
+    logger.error('Payment reconciliation job failed', { error: error.message });
+    next(error);
+  }
+}
+
 router.get('/subscription-reminders', runSubscriptionReminders);
 router.post('/subscription-reminders', runSubscriptionReminders);
 router.post('/welcome-email', sendStoreWelcome);
+router.post('/reconcile-payments', reconcilePayments);
 
 export default router;

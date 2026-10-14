@@ -21,7 +21,7 @@ import {
   preferredCurrencyForRequest,
   providerPlanIdForCurrency,
 } from './currency.js';
-import { checkoutSchema } from './schema.js';
+import { checkoutSchema, paymentConfirmationSchema } from './schema.js';
 import { LEGAL_DOCUMENT_VERSIONS, recordLegalAcceptances } from '../legal.js';
 
 const router = Router();
@@ -114,14 +114,21 @@ async function initialActivationEligible(storeId, subscription) {
   return !result.rows[0].has_paid;
 }
 
-async function verifyPaystackTransaction(reference) {
+function paymentNotComplete(message) {
+  const error = new Error(message);
+  error.code = 'PAYMENT_NOT_COMPLETE';
+  error.statusCode = 409;
+  return error;
+}
+
+export async function verifyPaystackTransaction(reference) {
   const response = await axios.get(
     `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
     { headers: { Authorization: `Bearer ${config.paystack.secretKey}` } }
   );
   const data = response.data?.data;
   if (!response.data?.status || data?.status !== 'success') {
-    throw new Error('Paystack transaction is not successful');
+    throw paymentNotComplete('Paystack transaction is not successful yet');
   }
   return {
     reference: data.reference,
@@ -137,17 +144,13 @@ async function verifyPaystackTransaction(reference) {
   };
 }
 
-async function verifyFlutterwaveTransaction(transactionId) {
-  const response = await axios.get(
-    `https://api.flutterwave.com/v3/transactions/${encodeURIComponent(transactionId)}/verify`,
-    { headers: { Authorization: `Bearer ${config.flutterwave.secretKey}` } }
-  );
+function normalizeFlutterwaveTransaction(response) {
   const data = response.data?.data;
   if (
     response.data?.status !== 'success' ||
     !['successful', 'succeeded'].includes(data?.status)
   ) {
-    throw new Error('Flutterwave transaction is not successful');
+    throw paymentNotComplete('Flutterwave transaction is not successful yet');
   }
   return {
     reference: data.tx_ref,
@@ -162,7 +165,41 @@ async function verifyFlutterwaveTransaction(transactionId) {
   };
 }
 
-async function activateVerifiedPayment(provider, verified) {
+export async function verifyFlutterwaveTransaction(transactionId) {
+  const response = await axios.get(
+    `https://api.flutterwave.com/v3/transactions/${encodeURIComponent(transactionId)}/verify`,
+    { headers: { Authorization: `Bearer ${config.flutterwave.secretKey}` } }
+  );
+  return normalizeFlutterwaveTransaction(response);
+}
+
+export async function verifyFlutterwaveReference(reference) {
+  let response;
+  try {
+    response = await axios.get(
+      'https://api.flutterwave.com/v3/transactions/verify_by_reference',
+      {
+        params: { tx_ref: reference },
+        headers: { Authorization: `Bearer ${config.flutterwave.secretKey}` },
+      }
+    );
+  } catch (error) {
+    if ([400, 404].includes(error.response?.status)) {
+      throw paymentNotComplete('Flutterwave transaction is not available yet');
+    }
+    throw providerError(error, 'Flutterwave', 'Transaction verification failed');
+  }
+  return normalizeFlutterwaveTransaction(response);
+}
+
+export async function verifyProviderTransaction(provider, reference, transactionId = null) {
+  if (provider === 'paystack') return verifyPaystackTransaction(reference);
+  return transactionId
+    ? verifyFlutterwaveTransaction(transactionId)
+    : verifyFlutterwaveReference(reference);
+}
+
+export async function activateVerifiedPayment(provider, verified) {
   const client = await getClient();
   try {
     await client.query('BEGIN');
@@ -221,7 +258,7 @@ async function activateVerifiedPayment(provider, verified) {
       transaction = transactionResult.rows[0];
     }
 
-    if (transaction.status === 'success') {
+    if (['success', 'paid_duplicate'].includes(transaction.status)) {
       await client.query('COMMIT');
       return getStoreSubscription(transaction.store_id);
     }
@@ -240,6 +277,50 @@ async function activateVerifiedPayment(provider, verified) {
     );
     const current = currentResult.rows[0];
     const now = new Date();
+
+    if (plan.code === 'activation_5m' && current.activation_fee_paid) {
+      await client.query(
+        `UPDATE billing_transactions SET
+           provider_transaction_id = $1,
+           amount_ngn = $2,
+           currency = $3,
+           status = 'paid_duplicate',
+           paid_at = $4,
+           metadata = metadata || $5::jsonb,
+           updated_at = NOW()
+         WHERE id = $6`,
+        [
+          verified.transactionId,
+          Math.round(verified.amountNgn),
+          verified.currency,
+          verified.paidAt || now,
+          JSON.stringify({ verified: verified.raw, review_required: 'duplicate_activation_payment' }),
+          transaction.id,
+        ]
+      );
+      await client.query(
+        `INSERT INTO audit_logs (store_id, entity_type, action, new_values)
+         VALUES ($1, 'subscription', 'duplicate_payment_detected', $2)`,
+        [
+          transaction.store_id,
+          JSON.stringify({
+            provider,
+            reference: verified.reference,
+            plan_code: plan.code,
+            amount: Number(verified.amountNgn),
+            currency: verified.currency,
+          }),
+        ]
+      );
+      await client.query('COMMIT');
+      logger.warn('Duplicate activation payment requires review', {
+        storeId: transaction.store_id,
+        provider,
+        reference: verified.reference,
+      });
+      return getStoreSubscription(transaction.store_id);
+    }
+
     const currentEnd = current.current_period_end ? new Date(current.current_period_end) : null;
     const periodStart = currentEnd && currentEnd > now ? currentEnd : now;
     const periodEnd = addMonths(periodStart, plan.duration_months);
@@ -541,6 +622,66 @@ router.get('/status', async (req, res, next) => {
     const subscription = await getStoreSubscription(req.user.store_id);
     const activationEligible = await initialActivationEligible(req.user.store_id, subscription);
     res.json({ subscription, initial_activation_eligible: activationEligible });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/confirm', authorize('admin'), async (req, res, next) => {
+  try {
+    const parsed = paymentConfirmationSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: parsed.error.issues[0]?.message || 'Provide a valid payment reference',
+      });
+    }
+
+    const {
+      provider,
+      reference,
+      transaction_id: transactionId,
+    } = parsed.data;
+    const transactionResult = await query(
+      `SELECT id, status
+       FROM billing_transactions
+       WHERE store_id = $1 AND provider = $2 AND provider_reference = $3`,
+      [req.user.store_id, provider, reference]
+    );
+    const transaction = transactionResult.rows[0];
+    if (!transaction) {
+      return res.status(404).json({ error: 'Payment reference was not created for this store' });
+    }
+    if (['success', 'paid_duplicate'].includes(transaction.status)) {
+      return res.json({
+        confirmed: transaction.status === 'success',
+        duplicate_review: transaction.status === 'paid_duplicate',
+        subscription: await getStoreSubscription(req.user.store_id),
+      });
+    }
+
+    let verified;
+    try {
+      verified = await verifyProviderTransaction(provider, reference, transactionId);
+    } catch (error) {
+      if (error.code === 'PAYMENT_NOT_COMPLETE') {
+        return res.status(202).json({ confirmed: false, pending: true });
+      }
+      throw error;
+    }
+    if (verified.reference !== reference) {
+      return res.status(400).json({ error: 'Verified payment reference does not match this checkout' });
+    }
+
+    const subscription = await activateVerifiedPayment(provider, verified);
+    const updated = await query(
+      'SELECT status FROM billing_transactions WHERE id = $1',
+      [transaction.id]
+    );
+    res.json({
+      confirmed: updated.rows[0]?.status === 'success',
+      duplicate_review: updated.rows[0]?.status === 'paid_duplicate',
+      subscription,
+    });
   } catch (error) {
     next(error);
   }

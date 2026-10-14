@@ -1340,7 +1340,7 @@ function attachPortalHandlers() {
             `Complete ${formatCurrency(checkout.amount, checkout.currency)} payment in the secure provider page. This portal will unlock downloads after confirmation.`,
           'info'
         );
-        pollForActivation(button.dataset.plan);
+        pollForActivation(button.dataset.plan, checkout);
       } catch (error) {
         setFlash(error.message || 'Could not start checkout', 'error');
       } finally {
@@ -1351,7 +1351,7 @@ function attachPortalHandlers() {
   });
 }
 
-function pollForActivation(planCode) {
+function pollForActivation(planCode, checkout = {}) {
   if (activationPoll) clearInterval(activationPoll);
   let attempts = 0;
   activationPoll = setInterval(async () => {
@@ -1361,6 +1361,17 @@ function pollForActivation(planCode) {
       return;
     }
     try {
+      if (checkout.provider && checkout.reference) {
+        const confirmation = await siteApi.post('/billing/confirm', {
+          provider: checkout.provider,
+          reference: checkout.reference,
+        });
+        if (confirmation.confirmed && confirmation.subscription?.can_write) {
+          clearInterval(activationPoll);
+          await loadPortal('Payment confirmed. Your store and staff access are now active.');
+          return;
+        }
+      }
       const result = await siteApi.get('/billing/status');
       if (result.subscription?.plan_code === planCode && result.subscription?.can_write) {
         clearInterval(activationPoll);
@@ -1370,6 +1381,39 @@ function pollForActivation(planCode) {
       // Keep polling while the provider redirects and verifies payment.
     }
   }, 4000);
+}
+
+function returnedPayment(params) {
+  const transactionId = params.get('transaction_id') || '';
+  const flutterwaveReference = params.get('tx_ref') || '';
+  const paystackReference = params.get('reference') || params.get('trxref') || '';
+  const reference = flutterwaveReference || paystackReference;
+  if (!reference) return null;
+  return {
+    provider: flutterwaveReference || transactionId ? 'flutterwave' : 'paystack',
+    reference,
+    transaction_id: transactionId || undefined,
+    status: params.get('status') || '',
+  };
+}
+
+async function confirmReturnedPayment(params) {
+  const payment = returnedPayment(params);
+  if (!payment) return '';
+  if (payment.provider === 'flutterwave' && payment.status && payment.status !== 'successful') {
+    return 'Payment was not completed. Your store has not been charged or activated.';
+  }
+
+  const result = await siteApi.post('/billing/confirm', payment);
+  if (result.confirmed && result.subscription?.can_write) {
+    window.history.replaceState({}, '', `${window.location.pathname}#billing`);
+    return 'Payment confirmed. Your store and staff access are now active.';
+  }
+  if (result.duplicate_review) {
+    window.history.replaceState({}, '', `${window.location.pathname}#billing`);
+    return 'Payment received. A possible duplicate charge has been flagged for support review.';
+  }
+  return 'Payment is still being confirmed. This page will update automatically.';
 }
 
 async function loadDownloads() {
@@ -1437,7 +1481,7 @@ async function loadPortal(flash = '') {
   }
 }
 
-function bootstrap() {
+async function bootstrap() {
   if (!root) return;
   const { mode, params } = routeInfo();
   const publicAuthRoutes = ['signin', 'login', 'create', 'register', 'signup', 'forgot-password'];
@@ -1462,7 +1506,13 @@ function bootstrap() {
     renderSignIn();
     return;
   }
-  loadPortal();
+  let flash;
+  try {
+    flash = await confirmReturnedPayment(params);
+  } catch (error) {
+    flash = error.message || 'Payment confirmation is still pending. Please refresh shortly.';
+  }
+  await loadPortal(flash);
 }
 
 function handleAccountNavigation() {
