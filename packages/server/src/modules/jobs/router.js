@@ -3,6 +3,7 @@ import config from '../../config/index.js';
 import { query } from '../../config/database.js';
 import logger from '../../config/logger.js';
 import { sendBillingEmail } from '../billing/email.js';
+import { sendWelcomeEmail } from '../auth/welcome-email.js';
 
 const router = Router();
 
@@ -94,7 +95,63 @@ async function runSubscriptionReminders(req, res, next) {
   }
 }
 
+async function sendStoreWelcome(req, res, next) {
+  if (!authorized(req)) {
+    return res.status(401).json({ error: 'Invalid cron credentials' });
+  }
+
+  const storeId = Number(req.body?.store_id);
+  if (!Number.isSafeInteger(storeId) || storeId < 1) {
+    return res.status(400).json({ error: 'A valid store_id is required' });
+  }
+
+  try {
+    const result = await query(
+      `SELECT s.id, s.name AS store_name,
+              COALESCE(s.email, owner.email) AS email,
+              owner.name AS owner_name
+       FROM stores s
+       LEFT JOIN LATERAL (
+         SELECT u.email, u.name
+         FROM users u
+         JOIN roles r ON r.id = u.role_id
+         WHERE u.store_id = s.id AND r.name = 'admin' AND u.is_active = true
+         ORDER BY u.created_at
+         LIMIT 1
+       ) owner ON true
+       WHERE s.id = $1`,
+      [storeId]
+    );
+    const store = result.rows[0];
+
+    if (!store) {
+      return res.status(404).json({ error: 'Store not found' });
+    }
+    if (!store.email) {
+      return res.status(400).json({ error: 'Store does not have a welcome email recipient' });
+    }
+
+    const delivery = await sendWelcomeEmail({
+      storeId: store.id,
+      to: store.email,
+      name: store.owner_name,
+      storeName: store.store_name,
+    });
+
+    res.json({
+      store_id: store.id,
+      sent: !delivery?.skipped,
+      duplicate: Boolean(delivery?.duplicate),
+      delivery_id: delivery?.id || null,
+    });
+  } catch (error) {
+    logger.error('Store welcome email job failed', { storeId, error: error.message });
+    next(error);
+  }
+}
+
 router.get('/subscription-reminders', runSubscriptionReminders);
 router.post('/subscription-reminders', runSubscriptionReminders);
+router.post('/welcome-email', sendStoreWelcome);
 
 export default router;
