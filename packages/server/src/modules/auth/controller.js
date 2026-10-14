@@ -4,8 +4,8 @@ import { getClient, query } from '../../config/database.js';
 import config from '../../config/index.js';
 import logger from '../../config/logger.js';
 import { createPendingActivation, getStoreSubscription } from '../billing/subscription.js';
-import { sendBillingEmail } from '../billing/email.js';
 import { sendPasswordResetEmail } from './email.js';
+import { sendWelcomeEmail } from './welcome-email.js';
 import {
   buildPasswordResetUrl,
   createPasswordResetToken,
@@ -71,17 +71,14 @@ export const register = async (req, res, next) => {
     await client.query('COMMIT');
 
     try {
-      await sendBillingEmail({
+      await sendWelcomeEmail({
         storeId: store.id,
         to: email,
-        type: 'activation_required',
-        key: 'initial_activation',
-        subject: 'Activate your QuickPOS store',
-        heading: `Welcome to QuickPOS, ${name}`,
-        body: `Your store, ${store.name}, is ready. Complete the one-time ₦20,000 initial activation to unlock all QuickPOS features for five months.`,
+        name,
+        storeName: store.name,
       });
     } catch (emailError) {
-      logger.warn('Activation email could not be sent', { storeId: store.id, error: emailError.message });
+      logger.warn('Welcome email could not be sent', { storeId: store.id, error: emailError.message });
     }
 
     logger.info(`Owner registered for store ${store.id}: ${email}`);

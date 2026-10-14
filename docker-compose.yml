@@ -30,6 +30,8 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-}
       EMAIL_REPLY_TO: ${EMAIL_REPLY_TO:-}
+      EMAIL_SUPPORT_COPY_TO: ${EMAIL_SUPPORT_COPY_TO:-}
+      EMAIL_APP_URL: ${EMAIL_APP_URL:-}
     depends_on:
       postgres:
         condition: service_healthy
