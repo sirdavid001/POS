@@ -3,8 +3,20 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "cleanUrls": true,
   "trailingSlash": false,
+  "rewrites": [
+    { "source": "/features", "destination": "/features.html" },
+    { "source": "/pricing", "destination": "/pricing.html" },
+    { "source": "/downloads", "destination": "/downloads.html" },
+    { "source": "/account", "destination": "/account.html" },
+    { "source": "/faq", "destination": "/faq.html" },
+    { "source": "/support", "destination": "/support.html" },
+    { "source": "/legal", "destination": "/legal.html" },
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/account-deletion", "destination": "/account-deletion.html" },
+    { "source": "/terms", "destination": "/terms.html" },
+    { "source": "/refund", "destination": "/refund.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
