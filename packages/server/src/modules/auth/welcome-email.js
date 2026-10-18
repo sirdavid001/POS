@@ -161,7 +161,7 @@ export async function sendWelcomeEmail({ storeId, to, name, storeName }) {
 
   try {
     const { data, error } = await resend.emails.send({
-      from: config.email.from,
+      from: config.email.welcomeFrom,
       to: [to],
       bcc,
       replyTo: config.email.replyTo || undefined,

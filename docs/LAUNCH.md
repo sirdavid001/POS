@@ -124,6 +124,7 @@ Verify a sending domain in Resend and set:
 ```text
 RESEND_API_KEY
 EMAIL_FROM=QuickPOS <billing@quickpos.com.ng>
+EMAIL_WELCOME_FROM=QuickPOS <noreply@quickpos.com.ng>
 EMAIL_REPLY_TO=support@quickpos.com.ng
 ```
 

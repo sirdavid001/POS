@@ -131,6 +131,8 @@ const config = {
   email: {
     resendApiKey: process.env.RESEND_API_KEY || '',
     from: process.env.EMAIL_FROM || 'QuickPOS <support@quickpos.com.ng>',
+    welcomeFrom:
+      process.env.EMAIL_WELCOME_FROM || 'QuickPOS <noreply@quickpos.com.ng>',
     replyTo: process.env.EMAIL_REPLY_TO || 'support@quickpos.com.ng',
     supportCopyTo: process.env.EMAIL_SUPPORT_COPY_TO || 'support@quickpos.com.ng',
     appUrl: process.env.EMAIL_APP_URL || 'https://quickpos.com.ng/account#signin',
