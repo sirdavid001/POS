@@ -8,8 +8,8 @@ inject();
 
 const page = document.body.dataset.page || 'home';
 const navigation = [
-  ['home', '/', 'Home'],
   ['features', '/features', 'Features'],
+  ['solutions', '/retail-pos-software', 'Solutions'],
   ['pricing', '/pricing', 'Pricing'],
   ['downloads', '/downloads', 'Downloads'],
   ['faq', '/faq', 'FAQ'],
@@ -213,30 +213,29 @@ if (footer) {
     <div class="site-shell footer-grid">
       <div>
         <a class="brand" href="/"><img class="brand-mark" src="/brand/quickpos-mark.svg" alt=""><span>QuickPOS</span></a>
-        <p>Simple point of sale software built for growing stores.</p>
+        <p>Retail point of sale software for growing stores.</p>
         <p>Operated by <strong>SIRDAVID MULTI-TRADE LTD</strong><br>RC 9387137</p>
       </div>
       <div>
-        <strong>Product</strong>
+        <strong>Solutions</strong>
+        <a href="/pos-for-small-business">POS for small business</a>
+        <a href="/retail-pos-software">Retail POS software</a>
+        <a href="/inventory-and-sales-software">Inventory and sales software</a>
         <a href="/features">Features</a>
+      </div>
+      <div>
+        <strong>Start and support</strong>
         <a href="/pricing">Pricing</a>
         <a href="/downloads">Downloads</a>
-        <a href="/account">Account portal</a>
-      </div>
-      <div>
-        <strong>Help</strong>
         <a href="/faq">FAQ</a>
         <a href="/support">Support</a>
-        <a href="mailto:support@quickpos.com.ng">Customer support</a>
-        <a href="mailto:support@quickpos.com.ng?subject=Privacy%20or%20legal%20request">Privacy or legal request</a>
       </div>
       <div>
-        <strong>Legal</strong>
+        <strong>Company</strong>
+        <a href="/about">About QuickPOS</a>
         <a href="/terms">Terms of Service</a>
         <a href="/privacy">Privacy Policy</a>
-        <a href="/account-deletion">Account Deletion</a>
         <a href="/refund">Refund Policy</a>
-        <p>Effective dates are shown on each legal page.</p>
       </div>
     </div>
     <div class="site-shell footer-bottom">

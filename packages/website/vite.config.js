@@ -1,7 +1,75 @@
 import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 
+const staticHeader = `
+  <header class="site-header" data-site-header>
+    <div class="site-shell nav-shell">
+      <a class="brand" href="/" aria-label="QuickPOS home">
+        <img class="brand-mark" src="/brand/quickpos-mark.svg" alt="">
+        <span>QuickPOS</span>
+      </a>
+      <button class="menu-button" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open navigation menu">
+        <span></span><span></span><span></span><b>Menu</b>
+      </button>
+      <nav id="site-nav" class="site-nav" aria-label="Primary navigation">
+        <a href="/features">Features</a>
+        <a href="/retail-pos-software">Solutions</a>
+        <a href="/pricing">Pricing</a>
+        <a href="/downloads">Downloads</a>
+        <a href="/faq">FAQ</a>
+        <a href="/support">Support</a>
+        <a href="/account#signin" class="nav-signin">Sign in</a>
+        <a href="/account#create" class="button button-small">Create account</a>
+      </nav>
+    </div>
+  </header>`;
+
+const staticFooter = `
+  <footer class="site-footer" data-site-footer>
+    <div class="site-shell footer-grid">
+      <div>
+        <a class="brand" href="/"><img class="brand-mark" src="/brand/quickpos-mark.svg" alt=""><span>QuickPOS</span></a>
+        <p>Retail point of sale software for growing stores.</p>
+        <p>Operated by <strong>SIRDAVID MULTI-TRADE LTD</strong><br>RC 9387137</p>
+      </div>
+      <div>
+        <strong>Solutions</strong>
+        <a href="/pos-for-small-business">POS for small business</a>
+        <a href="/retail-pos-software">Retail POS software</a>
+        <a href="/inventory-and-sales-software">Inventory and sales software</a>
+        <a href="/features">All features</a>
+      </div>
+      <div>
+        <strong>Start and support</strong>
+        <a href="/pricing">Pricing</a>
+        <a href="/downloads">Downloads</a>
+        <a href="/faq">FAQ</a>
+        <a href="/support">Support</a>
+      </div>
+      <div>
+        <strong>Company</strong>
+        <a href="/about">About QuickPOS</a>
+        <a href="/terms">Terms of Service</a>
+        <a href="/privacy">Privacy Policy</a>
+        <a href="/refund">Refund Policy</a>
+      </div>
+    </div>
+    <div class="site-shell footer-bottom"><span>© 2026 SIRDAVID MULTI-TRADE LTD. All rights reserved.</span></div>
+  </footer>`;
+
+function staticSeoShell() {
+  return {
+    name: 'quickpos-static-seo-shell',
+    transformIndexHtml(html) {
+      return html
+        .replace('<header class="site-header" data-site-header></header>', staticHeader)
+        .replace('<footer class="site-footer" data-site-footer></footer>', staticFooter);
+    },
+  };
+}
+
 export default defineConfig({
+  plugins: [staticSeoShell()],
   build: {
     rollupOptions: {
       input: {
@@ -17,6 +85,13 @@ export default defineConfig({
         accountDeletion: resolve(import.meta.dirname, 'account-deletion.html'),
         terms: resolve(import.meta.dirname, 'terms.html'),
         refund: resolve(import.meta.dirname, 'refund.html'),
+        about: resolve(import.meta.dirname, 'about.html'),
+        posForSmallBusiness: resolve(import.meta.dirname, 'pos-for-small-business.html'),
+        retailPosSoftware: resolve(import.meta.dirname, 'retail-pos-software.html'),
+        inventoryAndSalesSoftware: resolve(
+          import.meta.dirname,
+          'inventory-and-sales-software.html',
+        ),
       },
     },
   },
