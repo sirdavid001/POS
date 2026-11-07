@@ -221,6 +221,10 @@ if (footer) {
         <a href="/pos-for-small-business">POS for small business</a>
         <a href="/retail-pos-software">Retail POS software</a>
         <a href="/inventory-and-sales-software">Inventory and sales software</a>
+        <a href="/offline-pos-software">Offline POS software</a>
+        <a href="/barcode-pos-system">Barcode POS system</a>
+        <a href="/retail-sales-reporting-software">Sales reporting software</a>
+        <a href="/pos-machine-vs-pos-software-nigeria">POS machine vs POS software</a>
         <a href="/features">Features</a>
       </div>
       <div>

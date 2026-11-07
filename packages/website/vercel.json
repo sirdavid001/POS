@@ -29,6 +29,18 @@
       ]
     },
     {
+      "source": "/account-deletion",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, noarchive" }
+      ]
+    },
+    {
+      "source": "/account-deletion.html",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, noarchive" }
+      ]
+    },
+    {
       "source": "/assets/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
