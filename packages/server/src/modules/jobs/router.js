@@ -4,6 +4,7 @@ import { query } from '../../config/database.js';
 import logger from '../../config/logger.js';
 import { sendBillingEmail } from '../billing/email.js';
 import { sendWelcomeEmail } from '../auth/welcome-email.js';
+import { scheduleActivationReminder } from '../auth/activation-reminder-queue.js';
 import {
   activateVerifiedPayment,
   verifyProviderTransaction,
@@ -224,9 +225,48 @@ async function reconcilePayments(req, res, next) {
   }
 }
 
+async function queueActivationReminders(req, res, next) {
+  if (!authorized(req)) {
+    return res.status(401).json({ error: 'Invalid cron credentials' });
+  }
+
+  try {
+    const result = await query(
+      `SELECT s.id
+       FROM stores s
+       JOIN store_subscriptions ss ON ss.store_id = s.id
+       WHERE s.created_at <= NOW() - INTERVAL '24 hours'
+         AND ss.activation_fee_paid = false
+         AND ss.status IN ('pending_activation', 'trialing')
+         AND NOT EXISTS (
+           SELECT 1 FROM subscription_notifications sn
+           WHERE sn.store_id = s.id
+             AND sn.notification_type = 'activation_reminder'
+             AND sn.notification_key = 'registration_24h'
+         )
+       ORDER BY s.created_at
+       LIMIT 100`
+    );
+
+    const outcomes = await Promise.allSettled(
+      result.rows.map((store) => scheduleActivationReminder(store.id, { delaySeconds: 0 }))
+    );
+    const queued = outcomes.filter((outcome) => outcome.status === 'fulfilled').length;
+    const failed = outcomes.length - queued;
+    if (failed) {
+      logger.warn('Some activation reminders could not be queued', { queued, failed });
+    }
+    res.json({ eligible: result.rows.length, queued, failed });
+  } catch (error) {
+    logger.error('Activation reminder queue job failed', { error: error.message });
+    next(error);
+  }
+}
+
 router.get('/subscription-reminders', runSubscriptionReminders);
 router.post('/subscription-reminders', runSubscriptionReminders);
 router.post('/welcome-email', sendStoreWelcome);
 router.post('/reconcile-payments', reconcilePayments);
+router.post('/queue-activation-reminders', queueActivationReminders);
 
 export default router;

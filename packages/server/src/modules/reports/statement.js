@@ -4,6 +4,7 @@ import { Resend } from 'resend';
 
 import config from '../../config/index.js';
 import { query } from '../../config/database.js';
+import { renderEmailDetails, renderQuickPosEmail } from '../email/template.js';
 
 const PDF_MIME = 'application/pdf';
 const EXCEL_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -80,15 +81,6 @@ function safeFilePart(value) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 60) || 'store';
-}
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
 }
 
 function escapeXml(value) {
@@ -499,23 +491,30 @@ export async function sendStatementEmail({ statement, recipient, format }) {
   const filename = createStatementFilename(statement, file.extension);
   const resend = new Resend(config.email.resendApiKey);
   const currency = statement.store.currency || 'NGN';
+  const storeName = statement.store.name || 'QuickPOS Store';
+  const periodLabel = statement.period.label;
+  const details = [
+    ['Period', periodLabel],
+    ['Completed orders', statement.summary.completed_orders],
+    ['Total sales', formatMoney(statement.summary.total_sales, currency)],
+  ];
 
   const { data, error } = await resend.emails.send({
     from: config.email.from,
     to: recipient,
     replyTo: config.email.replyTo || undefined,
     subject: `${statement.store.name || 'QuickPOS'} sales statement`,
-    html: `
-      <div style="font-family:Arial,sans-serif;color:#111827;line-height:1.5;">
-        <h2 style="margin-bottom:8px;">Store Sales Statement</h2>
-        <p>Your store sales statement for <strong>${escapeHtml(statement.period.label)}</strong> is attached.</p>
-        <table style="border-collapse:collapse;margin:20px 0;">
-          <tr><td style="padding:6px 18px 6px 0;color:#6b7280;">Completed orders</td><td style="padding:6px 0;font-weight:700;">${statement.summary.completed_orders}</td></tr>
-          <tr><td style="padding:6px 18px 6px 0;color:#6b7280;">Total sales</td><td style="padding:6px 0;font-weight:700;">${escapeHtml(formatMoney(statement.summary.total_sales, currency))}</td></tr>
-        </table>
-        <p>Regards,<br>${escapeHtml(statement.store.name || 'QuickPOS Store')}</p>
-      </div>
-    `,
+    html: renderQuickPosEmail({
+      title: 'Your sales statement is ready',
+      preheader: `${storeName} sales statement for ${periodLabel}.`,
+      intro: `The requested sales statement for ${storeName} is attached to this email.`,
+      badge: 'Reports',
+      contentHtml: renderEmailDetails(details),
+      cta: { label: 'Open reports', url: 'https://quickpos.com.ng/account#overview' },
+      supportEmail: config.email.replyTo,
+      footerNote: 'This report was generated from the sales records in this QuickPOS store.',
+    }),
+    text: `Your sales statement is ready\n\nThe requested sales statement for ${storeName} is attached.\n\n${details.map(([label, value]) => `${label}: ${value}`).join('\n')}\n\nSupport: ${config.email.replyTo}`,
     attachments: [{
       filename,
       content: file.buffer,

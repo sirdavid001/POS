@@ -1,15 +1,7 @@
 import { Resend } from 'resend';
 import config from '../../config/index.js';
 import { query } from '../../config/database.js';
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
+import { renderQuickPosEmail } from '../email/template.js';
 
 export async function sendBillingEmail({
   storeId,
@@ -43,15 +35,16 @@ export async function sendBillingEmail({
       to,
       replyTo: config.email.replyTo,
       subject,
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#172033">
-          <h1 style="font-size:24px">${escapeHtml(heading)}</h1>
-          <p style="line-height:1.65">${escapeHtml(body)}</p>
-          <p style="line-height:1.65">Manage your plan in QuickPOS. For help, email
-            <a href="mailto:support@quickpos.com.ng">support@quickpos.com.ng</a>.
-          </p>
-        </div>
-      `,
+      html: renderQuickPosEmail({
+        title: heading,
+        preheader: body,
+        intro: body,
+        badge: type === 'payment_success' ? 'Payment confirmed' : 'Billing update',
+        cta: { label: 'Manage billing', url: 'https://quickpos.com.ng/account#billing' },
+        supportEmail: config.email.replyTo,
+        footerNote: 'This billing message relates to the QuickPOS subscription on this store account.',
+      }),
+      text: `${heading}\n\n${body}\n\nManage billing: https://quickpos.com.ng/account#billing\n\nSupport: ${config.email.replyTo}`,
     });
 
     const messageId = result.data?.id || result.id || null;

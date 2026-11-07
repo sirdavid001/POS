@@ -1,14 +1,6 @@
 import { Resend } from 'resend';
 import config from '../../config/index.js';
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
+import { renderQuickPosEmail } from '../email/template.js';
 
 export async function sendPasswordResetEmail({
   to,
@@ -22,36 +14,26 @@ export async function sendPasswordResetEmail({
   }
 
   const resend = new Resend(config.email.resendApiKey);
-  const safeName = escapeHtml(name || 'there');
-  const safeStoreName = escapeHtml(storeName || 'your store');
-  const safeResetUrl = escapeHtml(resetUrl);
+  const recipientName = String(name || 'there').trim() || 'there';
+  const businessName = String(storeName || 'your store').trim() || 'your store';
+  const intro = `We received a request to reset the password for ${businessName}. This secure link expires in ${expiresInMinutes} minutes.`;
 
   const result = await resend.emails.send({
     from: config.email.from,
     to,
     replyTo: config.email.replyTo,
     subject: 'Reset your QuickPOS password',
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#172033">
-        <h1 style="font-size:24px">Reset your QuickPOS password</h1>
-        <p style="line-height:1.65">Hello ${safeName},</p>
-        <p style="line-height:1.65">
-          We received a request to reset the password for ${safeStoreName}.
-          This secure link expires in ${expiresInMinutes} minutes.
-        </p>
-        <p style="margin:28px 0">
-          <a href="${safeResetUrl}" style="background:#4f46e5;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;display:inline-block">
-            Reset password
-          </a>
-        </p>
-        <p style="line-height:1.65">
-          If you did not request this, you can ignore this email. Your password will not change.
-        </p>
-        <p style="line-height:1.65">
-          For help, email <a href="mailto:support@quickpos.com.ng">support@quickpos.com.ng</a>.
-        </p>
-      </div>
-    `,
+    html: renderQuickPosEmail({
+      title: `Reset your password, ${recipientName}`,
+      preheader: `Reset access to ${businessName}.`,
+      intro,
+      badge: 'Security',
+      contentHtml: '<div style="margin:22px 0 0;padding:15px 16px;border-left:3px solid #d97706;background:#fffbeb;color:#475569;font-size:14px;line-height:1.6;">If you did not request this, ignore this email. Your password will not change.</div>',
+      cta: { label: 'Reset password', url: resetUrl },
+      supportEmail: config.email.replyTo,
+      footerNote: 'For your security, QuickPOS will never ask for your password by email.',
+    }),
+    text: `Hello ${recipientName},\n\n${intro}\n\nReset password: ${resetUrl}\n\nIf you did not request this, ignore this email. Your password will not change.\n\nSupport: ${config.email.replyTo}`,
   });
 
   if (result.error) {

@@ -6,6 +6,8 @@ import logger from '../../config/logger.js';
 import { createPendingActivation, getStoreSubscription } from '../billing/subscription.js';
 import { sendPasswordResetEmail } from './email.js';
 import { sendWelcomeEmail } from './welcome-email.js';
+import { scheduleActivationReminder } from './activation-reminder-queue.js';
+import { sendRegistrationSupportNotification } from '../notifications/support-email.js';
 import {
   buildPasswordResetUrl,
   createPasswordResetToken,
@@ -70,15 +72,33 @@ export const register = async (req, res, next) => {
     const subscription = await createPendingActivation(client, store.id);
     await client.query('COMMIT');
 
-    try {
-      await sendWelcomeEmail({
+    const registrationTasks = await Promise.allSettled([
+      sendWelcomeEmail({
         storeId: store.id,
         to: email,
         name,
         storeName: store.name,
-      });
-    } catch (emailError) {
-      logger.warn('Welcome email could not be sent', { storeId: store.id, error: emailError.message });
+      }),
+      sendRegistrationSupportNotification({
+        storeId: store.id,
+        storeName: store.name,
+        ownerName: name,
+        ownerEmail: email,
+      }),
+      scheduleActivationReminder(store.id),
+    ]);
+    const registrationTaskNames = [
+      'Welcome email',
+      'Registration support notification',
+      'Activation reminder queue',
+    ];
+    for (const [index, task] of registrationTasks.entries()) {
+      if (task.status === 'rejected') {
+        logger.warn(`${registrationTaskNames[index]} could not be completed`, {
+          storeId: store.id,
+          error: task.reason?.message || String(task.reason),
+        });
+      }
     }
 
     logger.info(`Owner registered for store ${store.id}: ${email}`);

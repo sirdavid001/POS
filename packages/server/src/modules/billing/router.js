@@ -7,6 +7,7 @@ import config from '../../config/index.js';
 import logger from '../../config/logger.js';
 import { addMonths, getPlan, getStoreSubscription } from './subscription.js';
 import { sendBillingEmail } from './email.js';
+import { sendPaymentSupportNotification } from '../notifications/support-email.js';
 import {
   getProviderAvailability,
   getPlanProviderAvailability,
@@ -393,8 +394,8 @@ export async function activateVerifiedPayment(provider, verified) {
     await client.query('COMMIT');
 
     const identity = await getBillingIdentity(transaction.store_id);
-    try {
-      await sendBillingEmail({
+    const paymentEmailResults = await Promise.allSettled([
+      sendBillingEmail({
         storeId: transaction.store_id,
         to: identity?.email,
         type: 'payment_success',
@@ -402,9 +403,26 @@ export async function activateVerifiedPayment(provider, verified) {
         subject: 'QuickPOS payment received',
         heading: 'Your QuickPOS access is active',
         body: `We received your ${formatMoney(verified.amountNgn, verified.currency)} payment for the ${plan.name} plan. Your access is paid through ${periodEnd.toLocaleDateString('en-NG')}.`,
-      });
-    } catch (error) {
-      logger.warn('Payment receipt email failed', { error: error.message });
+      }),
+      sendPaymentSupportNotification({
+        storeId: transaction.store_id,
+        storeName: identity?.name,
+        customerEmail: identity?.email,
+        provider,
+        reference: verified.reference,
+        planName: plan.name,
+        amount: formatMoney(verified.amountNgn, verified.currency),
+        paidThrough: periodEnd.toLocaleDateString('en-NG'),
+      }),
+    ]);
+    for (const [index, result] of paymentEmailResults.entries()) {
+      if (result.status === 'rejected') {
+        logger.warn(index === 0
+          ? 'Payment receipt email failed'
+          : 'Payment support notification failed', {
+          error: result.reason?.message || String(result.reason),
+        });
+      }
     }
 
     return getStoreSubscription(transaction.store_id);

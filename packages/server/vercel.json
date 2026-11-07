@@ -6,6 +6,18 @@
       "destination": "/api"
     }
   ],
+  "functions": {
+    "api/queues/activation-reminder.js": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "quickpos-activation-reminders",
+          "retryAfterSeconds": 60,
+          "initialDelaySeconds": 0
+        }
+      ]
+    }
+  },
   "crons": [
     {
       "path": "/api/v1/jobs/subscription-reminders",
