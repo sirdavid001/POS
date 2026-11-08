@@ -138,6 +138,12 @@ const config = {
     appUrl: process.env.EMAIL_APP_URL || 'https://quickpos.com.ng/account#signin',
   },
 
+  growth: {
+    // Public review page (Trustpilot, Capterra, Google, etc.). Review requests stay off until set.
+    reviewRequestUrl: process.env.REVIEW_REQUEST_URL || '',
+    reviewRequestDelayDays: Math.max(1, Number(process.env.REVIEW_REQUEST_DELAY_DAYS) || 21),
+  },
+
   auth: {
     passwordResetUrl:
       process.env.PASSWORD_RESET_URL ||

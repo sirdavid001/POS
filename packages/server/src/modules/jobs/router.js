@@ -5,6 +5,7 @@ import logger from '../../config/logger.js';
 import { sendBillingEmail } from '../billing/email.js';
 import { sendWelcomeEmail } from '../auth/welcome-email.js';
 import { scheduleActivationReminder } from '../auth/activation-reminder-queue.js';
+import { sendReviewRequests } from '../growth/review-request.js';
 import {
   activateVerifiedPayment,
   verifyProviderTransaction,
@@ -93,7 +94,16 @@ async function runSubscriptionReminders(req, res, next) {
       if (!delivery.skipped) sent += 1;
     }
 
-    res.json({ processed: result.rows.length, sent });
+    // Review requests ride on the daily cron but must never block billing reminders.
+    let reviewRequests;
+    try {
+      reviewRequests = await sendReviewRequests();
+    } catch (error) {
+      logger.error('Review request job failed', { error: error.message });
+      reviewRequests = { error: error.message };
+    }
+
+    res.json({ processed: result.rows.length, sent, review_requests: reviewRequests });
   } catch (error) {
     logger.error('Subscription reminder job failed', { error: error.message });
     next(error);
