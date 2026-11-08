@@ -40,8 +40,15 @@ const staticFooter = `
         <a href="/offline-pos-software">Offline POS software</a>
         <a href="/barcode-pos-system">Barcode POS system</a>
         <a href="/retail-sales-reporting-software">Sales reporting software</a>
-        <a href="/pos-machine-vs-pos-software-nigeria">POS machine vs POS software</a>
         <a href="/features">All features</a>
+      </div>
+      <div>
+        <strong>Store types and guides</strong>
+        <a href="/supermarket-pos-software">Supermarket POS software</a>
+        <a href="/boutique-pos-software">Boutique and fashion POS</a>
+        <a href="/android-pos-app">Android POS app</a>
+        <a href="/best-pos-software-nigeria">Best POS software in Nigeria</a>
+        <a href="/pos-machine-vs-pos-software-nigeria">POS machine vs POS software</a>
       </div>
       <div>
         <strong>Start and support</strong>
@@ -102,6 +109,10 @@ export default defineConfig({
           import.meta.dirname,
           'retail-sales-reporting-software.html',
         ),
+        supermarketPosSoftware: resolve(import.meta.dirname, 'supermarket-pos-software.html'),
+        boutiquePosSoftware: resolve(import.meta.dirname, 'boutique-pos-software.html'),
+        androidPosApp: resolve(import.meta.dirname, 'android-pos-app.html'),
+        bestPosSoftwareNigeria: resolve(import.meta.dirname, 'best-pos-software-nigeria.html'),
         posMachineVsPosSoftwareNigeria: resolve(
           import.meta.dirname,
           'pos-machine-vs-pos-software-nigeria.html',

@@ -19,6 +19,7 @@ export default [
       'packages/server/**/*.js',
       'packages/shared/**/*.js',
       'packages/*/vite.config.js',
+      'packages/*/scripts/**/*.mjs',
       'scripts/**/*.mjs',
     ],
     languageOptions: {

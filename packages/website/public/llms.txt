@@ -1,0 +1,48 @@
+# QuickPOS
+
+> QuickPOS is retail point of sale (POS) software for shops, supermarkets, boutiques, and growing retail stores in Nigeria and worldwide. It connects checkout, barcode scanning, inventory, staff roles, customers, receipts, and sales reports in one system, with installed apps for Windows, Android, macOS, and Linux and an offline sales queue for connection interruptions. QuickPOS is operated by SIRDAVID MULTI-TRADE LTD (RC 9387137), Nigeria.
+
+Key facts:
+
+- QuickPOS is POS software, not a bank payment terminal ("POS machine"). It records each sale and its payment method (cash, card, transfer, or mobile) alongside the store's own payment terminal or bank account.
+- Pricing (one store, all features, unlimited staff): ₦20,000 (US$15 outside Nigeria) activation covering the first five months, then ₦5,000 / $4 monthly, ₦13,500 / $10 quarterly, or ₦50,000 / $38 yearly.
+- Platforms: Windows 10 or later (64-bit), Android 8 or later, macOS (Intel and Apple silicon), and 64-bit Linux. Installers are downloaded from the QuickPOS account portal after activation.
+- Barcode scanning with a device camera or USB/Bluetooth scanners.
+- Offline: after an online sync, supported sales continue during a connection interruption and synchronize when the connection returns; a verified subscription works offline for up to seven days.
+- Staff roles: admin, manager, and cashier.
+- Reports: revenue, orders, discounts, tax, top products, and cashier and payment records, with PDF, Excel, and CSV exports and emailed store statements.
+- Current limits: one store per subscription; no batch or expiry-date tracking; no size/colour variants (each size or colour is created as its own product); sales are recorded in whole units.
+- Support: support@quickpos.com.ng or https://quickpos.com.ng/support
+
+## Product
+
+- [Home](https://quickpos.com.ng/): Overview of QuickPOS retail POS software
+- [Features](https://quickpos.com.ng/features): Full feature list: checkout, barcode scanning, inventory, customers, orders, staff roles, reports, offline sync
+- [Pricing](https://quickpos.com.ng/pricing): Activation and renewal plans in NGN and USD
+- [Downloads](https://quickpos.com.ng/downloads): Windows, Android, macOS, and Linux apps
+- [FAQ](https://quickpos.com.ng/faq): Pricing, setup, devices, and offline use
+
+## Solutions
+
+- [POS for small business](https://quickpos.com.ng/pos-for-small-business): POS system for small businesses in Nigeria
+- [Retail POS software](https://quickpos.com.ng/retail-pos-software): Connected checkout, stock, staff, customers, and reports for shops
+- [Supermarket POS software](https://quickpos.com.ng/supermarket-pos-software): For supermarkets, mini marts, and provision stores
+- [Boutique and fashion POS](https://quickpos.com.ng/boutique-pos-software): For boutiques, fashion, and clothing stores
+- [Android POS app](https://quickpos.com.ng/android-pos-app): Run a store from an Android phone or tablet
+- [Inventory and sales software](https://quickpos.com.ng/inventory-and-sales-software): Stock records tied to every sale
+- [Offline POS software](https://quickpos.com.ng/offline-pos-software): What works offline and what needs a connection
+- [Barcode POS system](https://quickpos.com.ng/barcode-pos-system): Camera, USB, and Bluetooth barcode checkout
+- [Retail sales reporting software](https://quickpos.com.ng/retail-sales-reporting-software): Revenue, orders, cashiers, top products, and statements
+
+## Guides
+
+- [Best POS software in Nigeria: buying guide](https://quickpos.com.ng/best-pos-software-nigeria): Nine questions to ask before choosing POS software
+- [POS machine vs POS software in Nigeria](https://quickpos.com.ng/pos-machine-vs-pos-software-nigeria): The difference between a payment terminal and retail POS software
+
+## Company
+
+- [About QuickPOS](https://quickpos.com.ng/about): Company and product background
+- [Support](https://quickpos.com.ng/support): Contact and help
+- [Terms of Service](https://quickpos.com.ng/terms)
+- [Privacy Policy](https://quickpos.com.ng/privacy)
+- [Refund Policy](https://quickpos.com.ng/refund)
