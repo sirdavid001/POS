@@ -30,12 +30,90 @@ const API_BASE = resolveApiBase(import.meta.env.VITE_API_URL, {
   development: import.meta.env.DEV,
 });
 
+const rawAdsenseClient = String(import.meta.env.VITE_ADSENSE_CLIENT || '').trim();
+const rawAdsenseContentSlot = String(import.meta.env.VITE_ADSENSE_CONTENT_SLOT || '').trim();
+const ADSENSE_CLIENT = /^ca-pub-\d+$/.test(rawAdsenseClient) ? rawAdsenseClient : '';
+const ADSENSE_CONTENT_SLOT = /^\d+$/.test(rawAdsenseContentSlot) ? rawAdsenseContentSlot : '';
+const AD_ELIGIBLE_PATHS = new Set([
+  '/android-pos-app',
+  '/barcode-pos-system',
+  '/best-pos-software-nigeria',
+  '/boutique-pos-software',
+  '/inventory-and-sales-software',
+  '/offline-pos-software',
+  '/pos-for-small-business',
+  '/pos-machine-vs-pos-software-nigeria',
+  '/retail-pos-software',
+  '/retail-sales-reporting-software',
+  '/supermarket-pos-software',
+  '/windows-pos-software',
+]);
+
 const PUBLIC_BILLING_PRICES = {
   activation_5m: { NGN: 20000, USD: 15 },
   monthly: { NGN: 5000, USD: 4 },
   quarterly: { NGN: 13500, USD: 10 },
   yearly: { NGN: 50000, USD: 38 },
 };
+
+function normalizedPathname() {
+  const path = window.location.pathname.replace(/\.html$/, '').replace(/\/$/, '');
+  return path || '/';
+}
+
+function adPlacement(position) {
+  const section = document.createElement('section');
+  section.className = 'ad-break';
+  section.setAttribute('aria-label', 'Advertisement');
+  section.dataset.adPosition = position;
+  section.innerHTML = `
+    <div class="site-shell ad-break-shell">
+      <span class="ad-disclosure">Advertisement</span>
+      <ins class="adsbygoogle"
+        style="display:block"
+        data-ad-client="${ADSENSE_CLIENT}"
+        data-ad-slot="${ADSENSE_CONTENT_SLOT}"
+        data-ad-format="auto"
+        data-full-width-responsive="true"></ins>
+    </div>
+  `;
+  return section;
+}
+
+function initializeContentAds() {
+  if (!ADSENSE_CLIENT || !ADSENSE_CONTENT_SLOT) return;
+  if (!AD_ELIGIBLE_PATHS.has(normalizedPathname())) return;
+  if (readSiteSession().accessToken) return;
+
+  const sections = [...document.querySelectorAll('main > section.section')]
+    .filter((section) => !section.querySelector('.support-card, .launch-callout'));
+  if (!sections.length) return;
+
+  const placements = [
+    { anchor: sections[0], position: 'after-introduction' },
+  ];
+  if (sections.length >= 4) {
+    placements.push({
+      anchor: sections[sections.length - 2],
+      position: 'before-final-section',
+    });
+  }
+
+  placements.forEach(({ anchor, position }) => {
+    anchor.insertAdjacentElement('afterend', adPlacement(position));
+  });
+
+  const script = document.createElement('script');
+  script.async = true;
+  script.crossOrigin = 'anonymous';
+  script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(ADSENSE_CLIENT)}`;
+  script.addEventListener('load', () => {
+    document.querySelectorAll('.adsbygoogle').forEach(() => {
+      (window.adsbygoogle = window.adsbygoogle || []).push({});
+    });
+  });
+  document.head.append(script);
+}
 
 function countryFromLocale(locale = '') {
   try {
@@ -532,6 +610,7 @@ async function loadDownloads() {
 
 loadDownloads();
 preparePublicDownloadPage();
+initializeContentAds();
 
 document.querySelectorAll('[data-icon]').forEach((element) => {
   element.innerHTML = utilityIcons[element.dataset.icon] || '';

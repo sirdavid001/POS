@@ -2933,6 +2933,22 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
 .account-download-experience .primary-download-card,
 .account-download-experience .platform-panel { min-height: auto; }
 
+.ad-break {
+  padding: 20px 0;
+  border-block: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface-2) 72%, transparent);
+}
+.ad-break-shell { min-width: 0; }
+.ad-disclosure {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.adsbygoogle { min-height: 120px; overflow: hidden; }
+
 .site-footer { margin-top: 70px; padding: 54px 0 24px; color: var(--color-text-muted); background: var(--color-surface-2); border-top: 1px solid var(--color-border); }
 .footer-grid { display: grid; grid-template-columns: 1.6fr 1.2fr 1.2fr 1fr 1fr; gap: 30px; }
 .footer-grid > div { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
@@ -3140,4 +3156,6 @@ details p { margin: 14px 0 0; color: var(--muted); line-height: 1.7; }
   .account-panel-heading { flex-direction: column; }
   .account-auth-footer { flex-wrap: wrap; }
   .section { padding: 62px 0; }
+  .ad-break { padding: 16px 0; }
+  .adsbygoogle { min-height: 100px; }
 }
