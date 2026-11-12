@@ -9,7 +9,7 @@ export async function renderProducts() {
   content.innerHTML = `
     <div class="animate-fade-in">
       <div class="page-header">
-        <h2>Products</h2>
+        <h1>Products</h1>
         <button class="btn btn-primary" id="add-product-btn">${icons.plus} Add Product</button>
       </div>
 
@@ -134,7 +134,7 @@ function showProductModal(product, onSave) {
       <form id="product-form">
         <div class="form-grid-2">
           <div class="form-group" style="grid-column:1/-1;">
-            <label class="label">Product Image</label>
+            <label class="label" for="image-url-input">Product Image</label>
             <div style="display:flex;gap:0.75rem;align-items:start;">
               <div id="image-preview" style="width:80px;height:80px;border-radius:0.5rem;border:1px dashed var(--color-border);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;background:rgba(255,255,255,0.05);">
                 ${product?.image_url
@@ -152,15 +152,15 @@ function showProductModal(product, onSave) {
             </div>
           </div>
           <div class="form-group" style="grid-column:1/-1;">
-            <label class="label">Product Name *</label>
-            <input class="input" name="name" value="${escapeAttribute(product?.name || '')}" required>
+            <label class="label" for="product-name">Product Name *</label>
+            <input id="product-name" class="input" name="name" value="${escapeAttribute(product?.name || '')}" required>
           </div>
           <div class="form-group">
-            <label class="label">SKU</label>
-            <input class="input" name="sku" value="${escapeAttribute(product?.sku || '')}">
+            <label class="label" for="product-sku">SKU</label>
+            <input id="product-sku" class="input" name="sku" value="${escapeAttribute(product?.sku || '')}">
           </div>
           <div class="form-group">
-            <label class="label">Barcode</label>
+            <label class="label" for="barcode-input">Barcode</label>
             <div class="barcode-controls">
               <input class="input" name="barcode" id="barcode-input" value="${escapeAttribute(product?.barcode || '')}" placeholder="Scan or type barcode" style="flex:1;">
               <button type="button" class="btn btn-ghost btn-sm" id="scan-barcode-btn" title="Scan barcode with camera" style="padding:0.5rem;">
@@ -173,34 +173,34 @@ function showProductModal(product, onSave) {
           </div>
           <div id="lookup-status" style="grid-column:1/-1;display:none;"></div>
           <div class="form-group">
-            <label class="label">Price (₦) *</label>
-            <input class="input" type="number" min="0" step="0.01" name="price" value="${escapeAttribute(product?.price || '')}" required>
+            <label class="label" for="product-price">Price (₦) *</label>
+            <input id="product-price" class="input" type="number" min="0" step="0.01" name="price" value="${escapeAttribute(product?.price || '')}" required>
           </div>
           <div class="form-group">
-            <label class="label">Cost Price (₦)</label>
-            <input class="input" type="number" min="0" step="0.01" name="cost_price" value="${escapeAttribute(product?.cost_price || '')}">
+            <label class="label" for="product-cost-price">Cost Price (₦)</label>
+            <input id="product-cost-price" class="input" type="number" min="0" step="0.01" name="cost_price" value="${escapeAttribute(product?.cost_price || '')}">
           </div>
           <div class="form-group">
-            <label class="label">Stock Quantity</label>
-            <input class="input" type="number" min="0" name="stock_quantity" value="${escapeAttribute(product?.stock_quantity ?? 0)}">
+            <label class="label" for="product-stock-quantity">Stock Quantity</label>
+            <input id="product-stock-quantity" class="input" type="number" min="0" name="stock_quantity" value="${escapeAttribute(product?.stock_quantity ?? 0)}">
           </div>
           <div class="form-group">
-            <label class="label">Low Stock Alert</label>
-            <input class="input" type="number" min="0" name="low_stock_threshold" value="${escapeAttribute(product?.low_stock_threshold ?? 10)}">
+            <label class="label" for="product-low-stock-threshold">Low Stock Alert</label>
+            <input id="product-low-stock-threshold" class="input" type="number" min="0" name="low_stock_threshold" value="${escapeAttribute(product?.low_stock_threshold ?? 10)}">
           </div>
           <div class="form-group" style="grid-column:1/-1;">
-            <label class="label">Category</label>
+            <label class="label" for="modal-category-select">Category</label>
             <select class="input" name="category_id" id="modal-category-select">
               <option value="">No Category</option>
             </select>
           </div>
           <div class="form-group" style="grid-column:1/-1;">
-            <label class="label">Description</label>
-            <textarea class="input" name="description" rows="2" style="resize:vertical;">${escapeHTML(product?.description || '')}</textarea>
+            <label class="label" for="product-description">Description</label>
+            <textarea id="product-description" class="input" name="description" rows="2" style="resize:vertical;">${escapeHTML(product?.description || '')}</textarea>
           </div>
         </div>
         <div style="display:flex;gap:0.5rem;margin-top:1.25rem;">
-          <button type="button" class="btn btn-ghost" id="cancel-product" style="flex:1;">Cancel</button>
+          <button type="button" class="btn btn-ghost" id="cancel-product" data-dialog-close style="flex:1;">Cancel</button>
           <button type="submit" class="btn btn-primary" style="flex:2;">${isEdit ? 'Save Changes' : 'Create Product'}</button>
         </div>
       </form>

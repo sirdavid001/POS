@@ -20,7 +20,7 @@ export async function renderOrders() {
 
   content.innerHTML = `
     <div class="animate-fade-in">
-      <div class="page-header"><h2>Orders</h2></div>
+      <div class="page-header"><h1>Orders</h1></div>
       <div class="filter-row" style="display:flex;gap:1rem;margin-bottom:1rem;justify-content:space-between;align-items:center;">
         <select class="input" id="order-status-filter" style="max-width:180px;">
           <option value="">All Statuses</option>
@@ -132,7 +132,7 @@ function showOrderDetail(order) {
         <div>Discount: -${formatCurrency(order.discount_amount)}</div>
         <div style="font-weight:800;font-size:1.1rem;margin-top:0.5rem;">Total: ${formatCurrency(order.total)}</div>
       </div>
-      <button class="btn btn-ghost" id="close-order-detail" type="button" style="width:100%;margin-top:1rem;">Close</button>
+      <button class="btn btn-ghost" id="close-order-detail" data-dialog-close type="button" style="width:100%;margin-top:1rem;">Close</button>
     </div>
   `;
   document.body.appendChild(overlay);

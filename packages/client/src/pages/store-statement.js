@@ -37,14 +37,14 @@ export function showStoreStatementModal(initialFilters = {}) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
-    <div class="modal statement-printable" style="max-width:980px;">
+    <div class="modal statement-printable" role="dialog" aria-modal="true" aria-labelledby="statement-dialog-title" style="max-width:980px;">
       <div class="no-print">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem;">
           <div>
-            <h3 style="font-weight:700;">Store Sales Statement</h3>
+            <h3 id="statement-dialog-title" style="font-weight:700;">Store Sales Statement</h3>
             <p style="font-size:0.8rem;color:var(--color-text-muted);">Complete sales statement for the store owner.</p>
           </div>
-          <button class="btn btn-ghost btn-sm" id="close-statement">Close</button>
+          <button class="btn btn-ghost btn-sm" id="close-statement" type="button" data-dialog-close>Close</button>
         </div>
 
         <div style="display:flex;gap:0.75rem;align-items:end;flex-wrap:wrap;margin-bottom:1rem;">

@@ -9,7 +9,7 @@ export async function renderReports() {
   content.innerHTML = `
     <div class="animate-fade-in">
       <div class="page-header">
-        <h2>Reports</h2>
+        <h1>Reports</h1>
         <button class="btn btn-ghost" id="export-csv-btn">📥 Export CSV</button>
       </div>
 
@@ -83,12 +83,12 @@ export async function renderReports() {
         <div class="stat-card">
           <div class="stat-label">Today</div>
           <div class="stat-value" style="color:var(--color-accent);">${formatCurrency(revenue.today.revenue)}</div>
-          <div class="stat-change" style="color:var(--color-text-muted);">${revenue.today.orders} orders</div>
+          <div class="stat-change" style="color:var(--color-text-muted);">${Number(revenue.today.orders) || 0} order${Number(revenue.today.orders) === 1 ? '' : 's'}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">This Month</div>
           <div class="stat-value">${formatCurrency(revenue.thisMonth.revenue)}</div>
-          <div class="stat-change" style="color:var(--color-text-muted);">${revenue.thisMonth.orders} orders</div>
+          <div class="stat-change" style="color:var(--color-text-muted);">${Number(revenue.thisMonth.orders) || 0} order${Number(revenue.thisMonth.orders) === 1 ? '' : 's'}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">All Time Revenue</div>

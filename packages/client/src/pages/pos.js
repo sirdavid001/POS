@@ -3,7 +3,14 @@ import { canWriteBusinessData } from '../entitlement.js';
 import { renderLayout } from './layout.js';
 import { escapeAttribute, escapeHTML, formatCurrency, toast, debounce, icons } from '../utils.js';
 import { startUSBScanner, stopUSBScanner, openCameraScanner, scanButtonHTML } from '../scanner.js';
-import { calculateCartTotals, createClientOrderId } from '../pos-math.js';
+import {
+  calculateCartTotals,
+  changeDue,
+  createClientOrderId,
+  quickCashAmounts,
+  resolveDiscount,
+  roundMoney,
+} from '../pos-math.js';
 
 let cart = [];
 let products = [];
@@ -25,6 +32,8 @@ function renderCart() {
   if (cart.length === 0) {
     cartItems.innerHTML = '<div class="empty-state" style="padding:2rem;"><p>Cart is empty</p><p style="font-size:0.8rem;">Click products to add them</p></div>';
     cartSummary.innerHTML = '';
+    const emptyBadge = document.getElementById('mobile-cart-badge');
+    if (emptyBadge) emptyBadge.hidden = true;
     return;
   }
 
@@ -72,7 +81,11 @@ function renderCart() {
 
   // Update mobile cart badge
   const cartBadge = document.getElementById('mobile-cart-badge');
-  if (cartBadge) cartBadge.textContent = cart.reduce((sum, item) => sum + item.qty, 0);
+  if (cartBadge) {
+    const count = cart.reduce((sum, item) => sum + item.qty, 0);
+    cartBadge.textContent = count;
+    cartBadge.hidden = count === 0;
+  }
 }
 
 function addToCart(product) {
@@ -135,17 +148,31 @@ function checkoutCart() {
 }
 
 function showPaymentModal() {
-  const totals = getCartTotal();
+  const baseTotals = getCartTotal();
+  const billTotal = roundMoney(baseTotals.subtotal + baseTotals.tax);
+  const itemCount = cart.reduce((sum, item) => sum + item.qty, 0);
 
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title" style="max-width:420px;">
-      <h3 id="payment-modal-title" style="font-size:1.15rem;font-weight:700;margin-bottom:1.5rem;">Complete Payment</h3>
-      <div style="text-align:center;margin-bottom:1.5rem;">
-        <div style="font-size:0.8rem;color:var(--color-text-muted);text-transform:uppercase;">Total Amount</div>
-        <div style="font-size:2rem;font-weight:800;color:var(--color-accent);">${formatCurrency(totals.total)}</div>
-        <div style="font-size:0.8rem;color:var(--color-text-muted);">${cart.length} item(s)</div>
+    <div class="modal payment-modal" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title" style="max-width:440px;">
+      <h3 id="payment-modal-title" style="font-size:1.15rem;font-weight:700;margin-bottom:1.25rem;">Complete Payment</h3>
+      <div class="payment-total">
+        <div class="payment-total-label">Total to pay</div>
+        <div class="payment-total-value" id="payment-total-value">${formatCurrency(billTotal)}</div>
+        <div class="payment-total-meta" id="payment-total-meta">${itemCount} item${itemCount === 1 ? '' : 's'}</div>
+      </div>
+
+      <div class="form-group">
+        <label class="label" for="payment-discount">Discount (optional)</label>
+        <div class="discount-row">
+          <input class="input" id="payment-discount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" autocomplete="off">
+          <select class="input" id="payment-discount-unit" aria-label="Discount type">
+            <option value="amount">₦ off</option>
+            <option value="percent">% off</option>
+          </select>
+        </div>
+        <p class="field-help" id="payment-discount-help" hidden></p>
       </div>
 
       <span class="label" id="payment-method-label">Payment Method</span>
@@ -153,6 +180,15 @@ function showPaymentModal() {
         <button type="button" class="btn btn-primary pay-method-btn active-method" aria-pressed="true" data-method="cash" style="flex:1;">💵 Cash</button>
         <button type="button" class="btn btn-ghost pay-method-btn" aria-pressed="false" data-method="card" style="flex:1;">💳 Card</button>
         <button type="button" class="btn btn-ghost pay-method-btn" aria-pressed="false" data-method="transfer" style="flex:1;">🏦 Transfer</button>
+      </div>
+
+      <div class="form-group" id="cash-group">
+        <label class="label" for="cash-received">Amount received</label>
+        <input class="input" id="cash-received" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Leave empty if exact" autocomplete="off">
+        <div class="quick-cash" role="group" aria-label="Quick cash amounts" id="quick-cash"></div>
+        <div class="change-due" id="change-due-row" aria-live="polite">
+          <span>Change due</span><strong id="change-due">${formatCurrency(0)}</strong>
+        </div>
       </div>
 
       <div class="form-group" id="payment-reference-group" hidden>
@@ -168,10 +204,10 @@ function showPaymentModal() {
         </select>
       </div>
 
-      <div style="display:flex;gap:0.5rem;margin-top:1.5rem;">
-        <button class="btn btn-ghost" id="cancel-payment" style="flex:1;">Cancel</button>
-        <button class="btn btn-accent btn-lg" id="confirm-payment" style="flex:2;">
-          Confirm Payment
+      <div class="payment-actions">
+        <button class="btn btn-ghost" id="cancel-payment" type="button" data-dialog-close style="flex:1;">Cancel</button>
+        <button class="btn btn-accent btn-lg" id="confirm-payment" type="button" style="flex:2;">
+          Confirm ${formatCurrency(billTotal)}
         </button>
       </div>
     </div>
@@ -196,6 +232,62 @@ function showPaymentModal() {
     });
   }).catch(() => {});
 
+  // Discount and cash: everything shown is recomputed from these inputs.
+  const discountInput = overlay.querySelector('#payment-discount');
+  const discountUnit = overlay.querySelector('#payment-discount-unit');
+  const discountHelp = overlay.querySelector('#payment-discount-help');
+  const cashInput = overlay.querySelector('#cash-received');
+  const quickCash = overlay.querySelector('#quick-cash');
+  const changeDueEl = overlay.querySelector('#change-due');
+  const changeRow = overlay.querySelector('#change-due-row');
+  let payable = billTotal;
+  let discountAmount = 0;
+
+  function renderQuickCash() {
+    quickCash.innerHTML = quickCashAmounts(payable).map((amount, index) => `
+      <button type="button" class="btn btn-ghost btn-sm" data-cash-amount="${amount}">${index === 0 ? 'Exact' : formatCurrency(amount)}</button>
+    `).join('');
+  }
+
+  function updateChange() {
+    if (cashInput.value === '') {
+      changeDueEl.textContent = formatCurrency(0);
+      changeRow.classList.remove('is-short');
+      return;
+    }
+    const change = changeDue(cashInput.value, payable);
+    changeRow.classList.toggle('is-short', change === null);
+    changeDueEl.textContent = change === null
+      ? `${formatCurrency(payable - roundMoney(cashInput.value))} short`
+      : formatCurrency(change);
+  }
+
+  function updateTotals() {
+    const { amount, capped } = resolveDiscount({ value: discountInput.value, unit: discountUnit.value, billTotal });
+    discountAmount = amount;
+    payable = roundMoney(billTotal - amount);
+    overlay.querySelector('#payment-total-value').textContent = formatCurrency(payable);
+    overlay.querySelector('#payment-total-meta').textContent = amount > 0
+      ? `${itemCount} item${itemCount === 1 ? '' : 's'} · ${formatCurrency(amount)} discount`
+      : `${itemCount} item${itemCount === 1 ? '' : 's'}`;
+    overlay.querySelector('#confirm-payment').textContent = `Confirm ${formatCurrency(payable)}`;
+    discountHelp.hidden = !capped;
+    discountHelp.textContent = capped ? `Discount can’t be more than the bill (${formatCurrency(billTotal)}).` : '';
+    renderQuickCash();
+    updateChange();
+  }
+
+  discountInput.addEventListener('input', updateTotals);
+  discountUnit.addEventListener('change', updateTotals);
+  cashInput.addEventListener('input', updateChange);
+  quickCash.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-cash-amount]');
+    if (!button) return;
+    cashInput.value = button.dataset.cashAmount;
+    updateChange();
+  });
+  renderQuickCash();
+
   // Payment method selection
   let selectedMethod = 'cash';
   overlay.querySelectorAll('.pay-method-btn').forEach(btn => {
@@ -211,13 +303,17 @@ function showPaymentModal() {
       referenceGroup.hidden = selectedMethod === 'cash';
       referenceInput.required = selectedMethod !== 'cash';
       if (selectedMethod === 'cash') referenceInput.value = '';
+      overlay.querySelector('#cash-group').hidden = selectedMethod !== 'cash';
+      if (selectedMethod !== 'cash') {
+        cashInput.value = '';
+        updateChange();
+      }
     });
   });
 
   // Cancel
   document.getElementById('cancel-payment').addEventListener('click', closePaymentModal);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closePaymentModal(); });
-  overlay.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePaymentModal(); });
 
   // Confirm
   document.getElementById('confirm-payment').addEventListener('click', async () => {
@@ -233,8 +329,16 @@ function showPaymentModal() {
       document.getElementById('payment-reference').focus();
       return;
     }
+    const cashReceived = selectedMethod === 'cash' && cashInput.value !== '' ? roundMoney(cashInput.value) : null;
+    const cashChange = cashReceived === null ? null : changeDue(cashReceived, payable);
+    if (cashReceived !== null && cashChange === null) {
+      toast(`Amount received is less than ${formatCurrency(payable)}. Enter the full amount or leave it empty for exact cash.`, 'warning', 5000);
+      cashInput.focus();
+      return;
+    }
+    const confirmLabel = confirmBtn.textContent;
     confirmBtn.disabled = true;
-    confirmBtn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;"></div> Processing...';
+    confirmBtn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;"></div> Processing…';
 
     const orderData = {
       items: cart.map(item => ({
@@ -244,6 +348,7 @@ function showPaymentModal() {
       payment_method: selectedMethod,
       payment_reference: paymentReference || undefined,
       customer_id: document.getElementById('customer-select').value || null,
+      discount_amount: discountAmount,
       client_order_id: createClientOrderId(),
     };
 
@@ -255,7 +360,7 @@ function showPaymentModal() {
       renderCart();
 
       // Show receipt modal
-      showReceiptModal(result.order);
+      showReceiptModal(result.order, { cashReceived, cashChange });
 
       // Reload products to update stock
       loadProducts();
@@ -267,18 +372,24 @@ function showPaymentModal() {
     } catch (err) {
       if (err.code === 'SUBSCRIPTION_EXPIRED') {
         toast('QuickPOS is read-only until the store renews.', 'warning', 5000);
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Confirm Payment';
       } else {
         toast(err.message || 'Payment failed', 'error');
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Confirm Payment';
       }
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = confirmLabel;
     }
   });
 }
 
-function showReceiptModal(order) {
+function showReceiptModal(order, { cashReceived = null, cashChange = null } = {}) {
+  const discount = Number(order.discount_amount || 0);
+  const discountLine = discount > 0
+    ? `<div style="display:flex;justify-content:space-between;"><span>Discount:</span><span>−${formatCurrency(discount)}</span></div>`
+    : '';
+  const cashLines = cashReceived !== null
+    ? `<div style="display:flex;justify-content:space-between;margin-top:0.5rem;"><span>Cash received:</span><span>${formatCurrency(cashReceived)}</span></div>
+       <div style="display:flex;justify-content:space-between;font-weight:700;"><span>Change:</span><span>${formatCurrency(cashChange ?? 0)}</span></div>`
+    : '';
   const shopName = escapeHTML(storeSettings.name || 'QuickPOS Store');
   const receiptHeader = storeSettings.receipt_header
     ? `<div style="text-align:center;font-size:0.8rem;margin-bottom:1rem;color:var(--color-text-muted);white-space:pre-wrap;">${escapeHTML(storeSettings.receipt_header)}</div>`
@@ -297,7 +408,7 @@ function showReceiptModal(order) {
 
       <div style="font-size:0.8rem;margin-bottom:1rem;">
         <div style="display:flex;justify-content:space-between;"><span>Order #:</span><span style="font-weight:700;">${escapeHTML(order.order_number)}</span></div>
-        <div style="display:flex;justify-content:space-between;"><span>Date:</span><span>${new Date(order.created_at).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>Date:</span><span>${new Date(order.created_at).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' })}</span></div>
         <div style="display:flex;justify-content:space-between;"><span>Payment:</span><span>${escapeHTML(order.payment_method?.toUpperCase())}</span></div>
         ${order.payment_reference ? `<div style="display:flex;justify-content:space-between;gap:1rem;"><span>Reference:</span><span>${escapeHTML(order.payment_reference)}</span></div>` : ''}
       </div>
@@ -314,16 +425,18 @@ function showReceiptModal(order) {
       <div style="font-size:0.85rem;">
         <div style="display:flex;justify-content:space-between;"><span>Subtotal:</span><span>${formatCurrency(order.subtotal)}</span></div>
         <div style="display:flex;justify-content:space-between;"><span>Tax:</span><span>${formatCurrency(order.tax_amount)}</span></div>
+        ${discountLine}
         <div style="display:flex;justify-content:space-between;font-weight:800;font-size:1.1rem;margin-top:0.5rem;border-top:1px dashed var(--color-border);padding-top:0.5rem;">
           <span>TOTAL:</span><span>${formatCurrency(order.total)}</span>
         </div>
+        ${cashLines}
       </div>
 
       <div style="text-align:center;font-size:0.75rem;margin-top:1.5rem;color:var(--color-text-muted);white-space:pre-wrap;">${receiptFooter}</div>
 
       <div class="no-print" style="text-align:center;margin-top:1.5rem;">
         <button class="btn btn-ghost btn-sm" id="print-receipt" type="button">🖨️ Print</button>
-        <button class="btn btn-primary btn-sm" id="close-receipt" type="button">Done</button>
+        <button class="btn btn-primary btn-sm" id="close-receipt" type="button" data-dialog-close>Done</button>
       </div>
     </div>
   `;
@@ -385,7 +498,7 @@ export async function renderPOS() {
   content.innerHTML = `
     <div class="animate-fade-in">
       <div class="page-header" style="margin-bottom:1rem;">
-        <h2>POS Terminal</h2>
+        <h1>POS Terminal</h1>
         <div style="display:flex;align-items:center;gap:0.5rem;">
           ${scanButtonHTML('pos-camera-scan', { label: 'Scan', variant: 'btn-primary btn-sm' })}
         </div>
@@ -414,9 +527,9 @@ export async function renderPOS() {
       </div>
 
       <!-- Mobile cart toggle FAB -->
-      <button class="mobile-cart-toggle" id="mobile-cart-toggle">
+      <button class="mobile-cart-toggle" id="mobile-cart-toggle" type="button" aria-label="Open cart">
         🛒
-        <span class="cart-badge" id="mobile-cart-badge">0</span>
+        <span class="cart-badge" id="mobile-cart-badge" hidden>0</span>
       </button>
     </div>
   `;

@@ -9,7 +9,7 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' https://pagead2.googlesyndication.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https:; connect-src 'self' https://pos-server-six.vercel.app https://downloads.quickpos.com.ng https://api.github.com https://*.googlesyndication.com https://*.doubleclick.net; frame-src https://*.googlesyndication.com https://*.doubleclick.net; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' https://pagead2.googlesyndication.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://pos-server-six.vercel.app https://downloads.quickpos.com.ng https://api.github.com https://*.googlesyndication.com https://*.doubleclick.net; frame-src https://*.googlesyndication.com https://*.doubleclick.net; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "DENY" },

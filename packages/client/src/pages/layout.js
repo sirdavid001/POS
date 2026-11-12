@@ -23,13 +23,12 @@ export function renderLayout(activePage) {
   ];
 
   const visibleNav = navItems.filter(item => item.roles.includes(user.role));
+  const pageLabel = navItems.find(item => item.id === activePage)?.label || 'QuickPOS';
+  document.title = `${pageLabel} · QuickPOS`;
 
   app.innerHTML = `
+    <a class="skip-link" href="#page-content" data-skip-link>Skip to content</a>
     <div class="app-layout">
-      <!-- Mobile menu button -->
-      <button id="mobile-menu-btn" class="btn btn-ghost" type="button" aria-label="Open navigation menu" aria-expanded="false" style="position:fixed;top:0.75rem;left:0.75rem;z-index:60;padding:0.5rem;">
-        ${icons.menu}
-      </button>
 
       <!-- Sidebar overlay backdrop -->
       <div class="sidebar-overlay" id="sidebar-overlay"></div>
@@ -42,23 +41,29 @@ export function renderLayout(activePage) {
         <nav class="sidebar-nav">
           ${visibleNav.map(item => `
             <a href="${item.hash}" class="nav-item ${activePage === item.id ? 'active' : ''}" data-page="${item.id}" ${activePage === item.id ? 'aria-current="page"' : ''}>
-              ${item.icon}
+              <span class="nav-icon" aria-hidden="true">${item.icon}</span>
               <span>${item.label}</span>
             </a>
           `).join('')}
         </nav>
         <div class="sidebar-footer">
           <div class="offline-status" id="offline-status"></div>
-          <button id="logout-btn" class="nav-item" style="color:var(--color-danger);">
-            ${icons.logout}
+          <button id="logout-btn" class="nav-item" type="button" style="color:var(--color-danger);">
+            <span class="nav-icon" aria-hidden="true">${icons.logout}</span>
             <span>Logout</span>
           </button>
         </div>
       </aside>
 
       <main class="main-content">
+        <header class="mobile-topbar">
+          <button id="mobile-menu-btn" class="btn btn-ghost mobile-topbar-menu" type="button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="sidebar">
+            <span aria-hidden="true">${icons.menu}</span>
+          </button>
+          <span class="mobile-topbar-title">${escapeHTML(pageLabel)}</span>
+        </header>
         <div id="subscription-banner"></div>
-        <div id="page-content">
+        <div id="page-content" tabindex="-1">
           <div style="display:flex;align-items:center;justify-content:center;height:60vh;">
             <div class="spinner spinner-lg"></div>
           </div>
@@ -66,6 +71,12 @@ export function renderLayout(activePage) {
       </main>
     </div>
   `;
+
+  // Skip link: move focus to the page without touching the hash router.
+  app.querySelector('[data-skip-link]').addEventListener('click', (event) => {
+    event.preventDefault();
+    document.getElementById('page-content')?.focus();
+  });
 
   // Logout handler
   document.getElementById('logout-btn').addEventListener('click', async () => {

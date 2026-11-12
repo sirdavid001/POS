@@ -323,6 +323,13 @@ h3 { letter-spacing: -0.025em; }
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
+/* Narrow price cards (three columns on tablets) have no room for a corner badge. */
+.price-card { container-type: inline-size; }
+.price-card .price { font-size: min(46px, 15.5cqi); }
+@container (max-width: 250px) {
+  .price-badge { position: static; align-self: flex-start; margin-bottom: 12px; }
+  .price-card.featured .plan-topline { padding-right: 0; }
+}
 .price { position: relative; z-index: 1; margin: 0 0 4px; font-size: 46px; font-weight: 850; letter-spacing: -0.055em; }
 .price-note { position: relative; z-index: 1; color: var(--muted); font-size: 13px; font-weight: 700; }
 .plan-description {
@@ -343,8 +350,8 @@ h3 { letter-spacing: -0.025em; }
   margin: 24px 0;
   list-style: none;
 }
-.price-card li { display: flex; gap: 10px; padding: 7px 0; color: var(--color-text); line-height: 1.45; }
-.price-card li::before { content: "✓"; flex: 0 0 auto; color: var(--orange); font-weight: 900; }
+.price-card li { position: relative; padding: 7px 0 7px 22px; color: var(--color-text); line-height: 1.45; }
+.price-card li::before { content: "✓"; position: absolute; left: 0; top: 7px; color: var(--orange); font-weight: 900; }
 .price-card .button { position: relative; z-index: 1; width: 100%; }
 .price-card.featured .button { color: var(--color-on-accent); background: var(--lime); }
 .launch-callout {

@@ -60,7 +60,7 @@ export async function renderPermissionsPage() {
     <div class="permission-setup animate-fade-in">
       <div class="permission-setup-header">
         <span class="badge badge-info">Device setup</span>
-        <h2>Allow QuickPOS permissions</h2>
+        <h1>Allow QuickPOS permissions</h1>
         <p>Set up this device before using the POS. Camera access is optional for barcode scanning, while local storage keeps offline sales safe until sync.</p>
       </div>
 

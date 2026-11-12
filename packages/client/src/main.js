@@ -6,8 +6,10 @@ import { checkForAppUpdate } from './updates.js';
 import { api } from './api.js';
 import { canAccessInstalledApp, renderInstallRequiredPage } from './installGate.js';
 import { toast } from './utils.js';
+import { initDialogs } from './dialog.js';
 
 async function startApplication() {
+  initDialogs();
   if (!canAccessInstalledApp()) {
     renderInstallRequiredPage();
     return;

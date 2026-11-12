@@ -10,7 +10,7 @@ export async function renderInventory() {
   content.innerHTML = `
     <div class="animate-fade-in">
       <div class="page-header">
-        <h2>Inventory</h2>
+        <h1>Inventory</h1>
         <button class="btn btn-primary" id="adjust-stock-btn">${icons.plus} Adjust Stock</button>
       </div>
 
@@ -81,33 +81,33 @@ export async function renderInventory() {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
-      <div class="modal">
-        <h3 style="font-weight:700;margin-bottom:1.25rem;">Adjust Stock</h3>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="adjust-stock-title">
+        <h3 id="adjust-stock-title" style="font-weight:700;margin-bottom:1.25rem;">Adjust Stock</h3>
         <form id="adjust-form">
           <div class="form-group">
-            <label class="label">Product</label>
+            <label class="label" for="adj-product-select">Product</label>
             <select class="input" name="product_id" required id="adj-product-select">
               <option value="">Select product</option>
             </select>
           </div>
           <div class="form-group">
-            <label class="label">Type</label>
-            <select class="input" name="type" required>
+            <label class="label" for="inventory-type">Type</label>
+            <select id="inventory-type" class="input" name="type" required>
               <option value="in">Stock In</option>
               <option value="out">Stock Out</option>
               <option value="adjustment">Adjustment</option>
             </select>
           </div>
           <div class="form-group">
-            <label class="label">Quantity</label>
-            <input class="input" type="number" name="quantity" min="1" required>
+            <label class="label" for="inventory-quantity">Quantity</label>
+            <input id="inventory-quantity" class="input" type="number" name="quantity" min="1" required>
           </div>
           <div class="form-group">
-            <label class="label">Reason</label>
-            <input class="input" name="reason" placeholder="e.g. Restock from supplier">
+            <label class="label" for="inventory-reason">Reason</label>
+            <input id="inventory-reason" class="input" name="reason" placeholder="e.g. Restock from supplier">
           </div>
           <div style="display:flex;gap:0.5rem;margin-top:1.25rem;">
-            <button type="button" class="btn btn-ghost cancel-inventory-modal" style="flex:1;">Cancel</button>
+            <button type="button" class="btn btn-ghost cancel-inventory-modal" data-dialog-close style="flex:1;">Cancel</button>
             <button type="submit" class="btn btn-primary" style="flex:2;">Adjust Stock</button>
           </div>
         </form>
@@ -165,15 +165,15 @@ export async function renderInventory() {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
-      <div class="modal">
-        <h3 style="font-weight:700;margin-bottom:1.25rem;">Add Supplier</h3>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="add-supplier-title">
+        <h3 id="add-supplier-title" style="font-weight:700;margin-bottom:1.25rem;">Add Supplier</h3>
         <form id="supplier-form">
-          <div class="form-group"><label class="label">Company Name *</label><input class="input" name="name" required></div>
-          <div class="form-group"><label class="label">Contact Person</label><input class="input" name="contact_name"></div>
-          <div class="form-group"><label class="label">Phone</label><input class="input" name="phone"></div>
-          <div class="form-group"><label class="label">Email</label><input class="input" type="email" name="email"></div>
+          <div class="form-group"><label class="label" for="inventory-name">Company Name *</label><input id="inventory-name" class="input" name="name" required></div>
+          <div class="form-group"><label class="label" for="inventory-contact-name">Contact Person</label><input id="inventory-contact-name" class="input" name="contact_name"></div>
+          <div class="form-group"><label class="label" for="inventory-phone">Phone</label><input id="inventory-phone" class="input" name="phone"></div>
+          <div class="form-group"><label class="label" for="inventory-email">Email</label><input id="inventory-email" class="input" type="email" name="email"></div>
           <div style="display:flex;gap:0.5rem;margin-top:1.25rem;">
-            <button type="button" class="btn btn-ghost cancel-inventory-modal" style="flex:1;">Cancel</button>
+            <button type="button" class="btn btn-ghost cancel-inventory-modal" data-dialog-close style="flex:1;">Cancel</button>
             <button type="submit" class="btn btn-primary" style="flex:2;">Add Supplier</button>
           </div>
         </form>

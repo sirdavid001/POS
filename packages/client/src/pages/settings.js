@@ -10,23 +10,23 @@ export async function renderSettings() {
 
   content.innerHTML = `
     <div class="animate-fade-in">
-      <div class="page-header"><h2>Settings</h2></div>
+      <div class="page-header"><h1>Settings</h1></div>
 
       <div class="responsive-grid-2 settings-grid-responsive">
         ${isAdmin ? `
         <div class="glass-card" style="padding:1.5rem;">
           <h3 style="font-size:1rem;font-weight:700;margin-bottom:1.25rem;">🏪 Store Information</h3>
           <form id="store-form">
-            <div class="form-group"><label class="label">Store Name</label><input class="input" name="name" id="s-name"></div>
-            <div class="form-group"><label class="label">Address</label><input class="input" name="address" id="s-address"></div>
-            <div class="form-group"><label class="label">Phone</label><input class="input" name="phone" id="s-phone"></div>
-            <div class="form-group"><label class="label">Email</label><input class="input" type="email" name="email" id="s-email"></div>
+            <div class="form-group"><label class="label" for="s-name">Store Name</label><input class="input" name="name" id="s-name"></div>
+            <div class="form-group"><label class="label" for="s-address">Address</label><input class="input" name="address" id="s-address"></div>
+            <div class="form-group"><label class="label" for="s-phone">Phone</label><input class="input" name="phone" id="s-phone"></div>
+            <div class="form-group"><label class="label" for="s-email">Email</label><input class="input" type="email" name="email" id="s-email"></div>
             <div class="form-grid-2">
-              <div class="form-group"><label class="label">Tax Rate (%)</label><input class="input" type="number" step="0.01" name="tax_rate" id="s-tax"></div>
-              <div class="form-group"><label class="label">Currency</label><input class="input" name="currency" id="s-currency"></div>
+              <div class="form-group"><label class="label" for="s-tax">Tax Rate (%)</label><input class="input" type="number" step="0.01" name="tax_rate" id="s-tax"></div>
+              <div class="form-group"><label class="label" for="s-currency">Currency</label><input class="input" name="currency" id="s-currency"></div>
             </div>
-            <div class="form-group"><label class="label">Receipt Header</label><textarea class="input" name="receipt_header" id="s-rh" rows="2" style="resize:vertical;"></textarea></div>
-            <div class="form-group"><label class="label">Receipt Footer</label><textarea class="input" name="receipt_footer" id="s-rf" rows="2" style="resize:vertical;"></textarea></div>
+            <div class="form-group"><label class="label" for="s-rh">Receipt Header</label><textarea class="input" name="receipt_header" id="s-rh" rows="2" style="resize:vertical;"></textarea></div>
+            <div class="form-group"><label class="label" for="s-rf">Receipt Footer</label><textarea class="input" name="receipt_footer" id="s-rf" rows="2" style="resize:vertical;"></textarea></div>
             <button type="submit" class="btn btn-primary" style="width:100%;">Save Settings</button>
           </form>
         </div>
@@ -255,20 +255,20 @@ export async function renderSettings() {
         <p style="font-size:0.8rem;color:var(--color-text-muted);margin-bottom:1.25rem;">Update login details for <strong>${escapeHTML(currentName)}</strong></p>
         <form id="edit-staff-form">
           <div class="form-group">
-            <label class="label">Full Name</label>
-            <input class="input" name="name" value="${escapeAttribute(currentName)}" placeholder="Full name">
+            <label class="label" for="settings-name">Full Name</label>
+            <input id="settings-name" class="input" name="name" value="${escapeAttribute(currentName)}" placeholder="Full name">
           </div>
           <div class="form-group">
-            <label class="label">Email</label>
-            <input class="input" type="email" name="email" value="${escapeAttribute(currentEmail)}" placeholder="Email address">
+            <label class="label" for="settings-email">Email</label>
+            <input id="settings-email" class="input" type="email" name="email" value="${escapeAttribute(currentEmail)}" placeholder="Email address">
           </div>
           <div class="form-group">
-            <label class="label">New Password</label>
-            <input class="input" type="password" name="password" placeholder="Leave blank to keep current password" minlength="8">
+            <label class="label" for="settings-password">New Password</label>
+            <input id="settings-password" class="input" type="password" name="password" placeholder="Leave blank to keep current password" minlength="8">
             <p style="font-size:0.7rem;color:var(--color-text-muted);margin-top:0.25rem;">Only fill this if you want to change the password</p>
           </div>
           <div style="display:flex;gap:0.5rem;margin-top:1.25rem;">
-            <button type="button" class="btn btn-ghost" id="cancel-edit" style="flex:1;">Cancel</button>
+            <button type="button" class="btn btn-ghost" id="cancel-edit" data-dialog-close style="flex:1;">Cancel</button>
             <button type="submit" class="btn btn-primary" style="flex:2;">Save Changes</button>
           </div>
         </form>
@@ -321,20 +321,20 @@ export async function renderSettings() {
         <h3 id="add-staff-title" style="font-weight:700;margin-bottom:1.25rem;">Add Staff Member</h3>
         <form id="staff-form">
           <div class="form-group">
-            <label class="label">Full Name *</label>
-            <input class="input" name="name" placeholder="Enter full name" required>
+            <label class="label" for="settings-name-2">Full Name *</label>
+            <input id="settings-name-2" class="input" name="name" placeholder="Enter full name" required>
           </div>
           <div class="form-group">
-            <label class="label">Email *</label>
-            <input class="input" type="email" name="email" placeholder="Enter email address" required>
+            <label class="label" for="settings-email-2">Email *</label>
+            <input id="settings-email-2" class="input" type="email" name="email" placeholder="Enter email address" required>
           </div>
           <div class="form-group">
-            <label class="label">Password *</label>
-            <input class="input" type="password" name="password" placeholder="Set initial password" minlength="8" required>
+            <label class="label" for="settings-password-2">Password *</label>
+            <input id="settings-password-2" class="input" type="password" name="password" placeholder="Set initial password" minlength="8" required>
           </div>
           <div class="form-group">
-            <label class="label">Role *</label>
-            <select class="input" name="role" required>
+            <label class="label" for="settings-role">Role *</label>
+            <select id="settings-role" class="input" name="role" required>
               ${allowedRoles.map(r => `<option value="${r}">${r === 'admin' ? '👑 Admin' : r === 'manager' ? '🏢 Manager' : '💳 Cashier'}</option>`).join('')}
             </select>
             <p style="font-size:0.7rem;color:var(--color-text-muted);margin-top:0.35rem;">
@@ -342,7 +342,7 @@ export async function renderSettings() {
             </p>
           </div>
           <div style="display:flex;gap:0.5rem;margin-top:1.25rem;">
-            <button type="button" class="btn btn-ghost" id="cancel-staff" style="flex:1;">Cancel</button>
+            <button type="button" class="btn btn-ghost" id="cancel-staff" data-dialog-close style="flex:1;">Cancel</button>
             <button type="submit" class="btn btn-primary" style="flex:2;">Create Staff</button>
           </div>
         </form>

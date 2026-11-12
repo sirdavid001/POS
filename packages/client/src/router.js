@@ -1,5 +1,6 @@
 // Simple hash-based SPA router
 import { hasCompletedPermissionSetup } from './permissions.js';
+import { closeAllDialogs } from './dialog.js';
 
 class Router {
   constructor() {
@@ -63,6 +64,8 @@ class Router {
     // Find matching route
     const handler = this.routes[hash];
     if (handler) {
+      // A dialog belongs to the page that opened it; never carry it onto the next page.
+      closeAllDialogs();
       this.currentPage = hash;
       handler();
     } else {

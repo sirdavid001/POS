@@ -116,12 +116,14 @@ export function openCameraScanner(onScan, options = {}) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'camera-scanner-overlay';
+  // The scanner handles Escape itself so the camera always stops.
+  overlay.setAttribute('data-dialog-own-escape', '');
   overlay.style.zIndex = '10000';
   overlay.innerHTML = `
-    <div class="modal" style="max-width:480px;padding:1.5rem;position:relative;">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="camera-scanner-title" style="max-width:480px;padding:1.5rem;position:relative;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-        <h3 style="font-weight:700;font-size:1rem;">${title}</h3>
-        <button id="close-camera-scanner" class="btn btn-ghost btn-sm" style="font-size:1.2rem;padding:0.25rem 0.5rem;z-index:10001;position:relative;">✕</button>
+        <h3 id="camera-scanner-title" style="font-weight:700;font-size:1rem;">${title}</h3>
+        <button id="close-camera-scanner" type="button" data-dialog-close aria-label="Close scanner" class="btn btn-ghost btn-sm" style="font-size:1.2rem;padding:0.25rem 0.5rem;z-index:10001;position:relative;">✕</button>
       </div>
       <div id="camera-scanner-region" style="width:100%;border-radius:0.75rem;overflow:hidden;background:#000;min-height:280px;"></div>
       <p style="text-align:center;margin-top:0.75rem;font-size:0.8rem;color:var(--color-text-muted);">
@@ -146,6 +148,7 @@ export function openCameraScanner(onScan, options = {}) {
       _cameraScanner = null;
     }
     try { overlay.remove(); } catch {}
+    document.removeEventListener('keydown', escHandler);
   };
 
   // Close button

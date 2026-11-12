@@ -3,6 +3,20 @@ import { renderLayout } from './layout.js';
 import { escapeHTML, formatCurrency, formatDateTime, icons } from '../utils.js';
 import Chart from 'chart.js/auto';
 
+function orderCount(count) {
+  const n = Number(count) || 0;
+  return `${n.toLocaleString('en-NG')} order${n === 1 ? '' : 's'}`;
+}
+
+function firstSalePrompt(message) {
+  return `
+    <div class="first-sale-prompt">
+      <p>${escapeHTML(message)}</p>
+      <a class="btn btn-primary btn-sm" href="#/pos">Open POS Terminal</a>
+    </div>
+  `;
+}
+
 if (!window._wsDashboardMounted) {
   window.addEventListener('ws-message', (e) => {
     if (e.detail?.event === 'NEW_ORDER' && window.location.hash.startsWith('#/dashboard')) {
@@ -81,7 +95,7 @@ async function renderManagerDashboard() {
   content.innerHTML = `
     <div class="animate-fade-in">
       <div class="page-header">
-        <h2>Dashboard</h2>
+        <h1>Dashboard</h1>
         <span style="font-size:0.85rem;color:var(--color-text-muted);">${new Date().toLocaleDateString('en-NG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
       </div>
 
@@ -140,29 +154,32 @@ async function renderManagerDashboard() {
     document.getElementById('stats-grid').innerHTML = `
       <div class="stat-card">
         <div class="stat-label">Today's Revenue</div>
-        <div class="stat-value" style="color:var(--color-accent);">${formatCurrency(revenue.today.revenue)}</div>
-        <div class="stat-change" style="color:var(--color-text-muted);">${revenue.today.orders} orders</div>
+        <div class="stat-value" style="${Number(revenue.today.revenue) > 0 ? 'color:var(--color-accent);' : ''}">${formatCurrency(revenue.today.revenue)}</div>
+        <div class="stat-change" style="color:var(--color-text-muted);">${orderCount(revenue.today.orders)}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">This Week</div>
         <div class="stat-value">${formatCurrency(revenue.thisWeek.revenue)}</div>
-        <div class="stat-change" style="color:var(--color-text-muted);">${revenue.thisWeek.orders} orders</div>
+        <div class="stat-change" style="color:var(--color-text-muted);">${orderCount(revenue.thisWeek.orders)}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">This Month</div>
         <div class="stat-value">${formatCurrency(revenue.thisMonth.revenue)}</div>
-        <div class="stat-change" style="color:var(--color-text-muted);">${revenue.thisMonth.orders} orders</div>
+        <div class="stat-change" style="color:var(--color-text-muted);">${orderCount(revenue.thisMonth.orders)}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">All Time</div>
         <div class="stat-value">${formatCurrency(revenue.allTime.revenue)}</div>
-        <div class="stat-change" style="color:var(--color-text-muted);">${revenue.allTime.orders} orders</div>
+        <div class="stat-change" style="color:var(--color-text-muted);">${orderCount(revenue.allTime.orders)}</div>
       </div>
     `;
 
     // Render Chart
     const ctx = document.getElementById('revenueChart');
-    if (ctx && salesData.sales) {
+    const hasSales = (salesData.sales || []).some((s) => Number(s.revenue) > 0);
+    if (ctx && !hasSales) {
+      ctx.parentElement.innerHTML = firstSalePrompt('Your revenue trend appears here after your first sale.');
+    } else if (ctx && salesData.sales) {
       // Backend returns dates descending (newest first). Reverse it for chronologic left-to-right.
       const chronological = salesData.sales.slice().reverse();
       const labels = chronological.map(s => {
@@ -171,17 +188,21 @@ async function renderManagerDashboard() {
       });
       const data = chronological.map(s => parseFloat(s.revenue));
 
+      // A line needs a few days to mean anything; until then, bars read honestly.
+      const fewDays = data.length < 4;
       new Chart(ctx, {
-        type: 'line',
+        type: fewDays ? 'bar' : 'line',
         data: {
           labels,
           datasets: [{
             label: 'Daily Revenue',
             data,
             borderColor: '#6366f1',
-            backgroundColor: 'rgba(99, 102, 241, 0.1)',
-            borderWidth: 3,
-            fill: true,
+            backgroundColor: fewDays ? 'rgba(99, 102, 241, 0.75)' : 'rgba(99, 102, 241, 0.1)',
+            borderWidth: fewDays ? 0 : 3,
+            borderRadius: fewDays ? 6 : 0,
+            maxBarThickness: 56,
+            fill: !fewDays,
             tension: 0.4,
             pointBackgroundColor: '#6366f1',
             pointBorderColor: '#ffffff',
@@ -205,7 +226,7 @@ async function renderManagerDashboard() {
             y: {
               beginAtZero: true,
               grid: { color: 'rgba(128, 128, 128, 0.1)' },
-              ticks: { callback: (val) => '₦' + val.toLocaleString() }
+              ticks: { callback: (val) => '₦' + Number(val).toLocaleString('en-NG') }
             },
             x: {
               grid: { display: false }
@@ -217,7 +238,7 @@ async function renderManagerDashboard() {
 
     // Recent orders
     if (recentOrders.orders.length === 0) {
-      document.getElementById('recent-orders').innerHTML = '<p style="color:var(--color-text-muted);font-size:0.85rem;">No orders yet. Start selling!</p>';
+      document.getElementById('recent-orders').innerHTML = firstSalePrompt('No orders yet. Completed sales show up here.');
     } else {
       document.getElementById('recent-orders').innerHTML = `
         <table class="data-table">
@@ -268,7 +289,7 @@ async function renderCashierDashboard() {
   content.innerHTML = `
     <div class="animate-fade-in">
       <div class="page-header">
-        <h2>Dashboard</h2>
+        <h1>Dashboard</h1>
         <span style="font-size:0.85rem;color:var(--color-text-muted);">Cashier overview</span>
       </div>
 

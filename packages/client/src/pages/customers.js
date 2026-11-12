@@ -11,7 +11,7 @@ export async function renderCustomers() {
   content.innerHTML = `
     <div class="animate-fade-in">
       <div class="page-header">
-        <h2>Customers</h2>
+        <h1>Customers</h1>
         <button class="btn btn-primary" id="add-customer-btn">${icons.plus} Add Customer</button>
       </div>
       <input class="input" type="text" id="customer-search" placeholder="Search customers..." style="max-width:320px;margin-bottom:1rem;">
@@ -91,7 +91,7 @@ export async function renderCustomers() {
           <div class="form-group"><label class="label" for="customer-phone">Phone</label><input class="input" id="customer-phone" name="phone" value="${escapeAttribute(customer?.phone || '')}"></div>
           <div class="form-group"><label class="label" for="customer-address">Address</label><input class="input" id="customer-address" name="address" value="${escapeAttribute(customer?.address || '')}"></div>
           <div style="display:flex;gap:0.5rem;margin-top:1.25rem;">
-            <button type="button" class="btn btn-ghost" id="cancel-customer" style="flex:1;">Cancel</button>
+            <button type="button" class="btn btn-ghost" id="cancel-customer" data-dialog-close style="flex:1;">Cancel</button>
             <button type="submit" class="btn btn-primary" style="flex:2;">${isEdit ? 'Save Changes' : 'Add Customer'}</button>
           </div>
         </form>

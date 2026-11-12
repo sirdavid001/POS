@@ -69,11 +69,18 @@ const staticFooter = `
     <div class="site-shell footer-bottom"><span>© 2026 SIRDAVID MULTI-TRADE LTD. All rights reserved.</span></div>
   </footer>`;
 
+// The stylesheet names Inter everywhere; load it so every device shows the same type.
+const fontLinks = `
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..900&display=swap">`;
+
 function staticSeoShell() {
   return {
     name: 'quickpos-static-seo-shell',
     transformIndexHtml(html) {
       return html
+        .replace('</head>', `${fontLinks}\n</head>`)
         .replace('<header class="site-header" data-site-header></header>', staticHeader)
         .replace('<footer class="site-footer" data-site-footer></footer>', staticFooter);
     },
