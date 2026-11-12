@@ -5,7 +5,12 @@
  * 2. Camera-based scanning via html5-qrcode
  */
 
-import { Html5Qrcode } from 'html5-qrcode';
+// The camera library is large (~375 KB), so it loads only when someone opens the camera scanner.
+let html5QrcodeModule = null;
+function loadHtml5Qrcode() {
+  html5QrcodeModule ||= import('html5-qrcode');
+  return html5QrcodeModule.then((module) => module.Html5Qrcode);
+}
 
 // ===== USB / Bluetooth Hardware Scanner =====
 // These scanners type characters very fast and press Enter at the end.
@@ -174,9 +179,10 @@ export function openCameraScanner(onScan, options = {}) {
   document.addEventListener('keydown', escHandler);
 
   // Start camera scanner
-  _cameraScanner = new Html5Qrcode('camera-scanner-region');
-
-  _cameraScanner.start(
+  loadHtml5Qrcode().then((Html5Qrcode) => {
+    if (!overlay.isConnected) return undefined; // closed while the library loaded
+    _cameraScanner = new Html5Qrcode('camera-scanner-region');
+    return _cameraScanner.start(
     { facingMode: 'environment' },
     {
       fps: 10,
@@ -200,7 +206,8 @@ export function openCameraScanner(onScan, options = {}) {
       }, 600);
     },
     () => {} // ignore errors (no barcode found in frame)
-  ).catch((err) => {
+    );
+  }).catch((err) => {
     const region = document.getElementById('camera-scanner-region');
     if (region) {
       const details = cameraErrorDetails(err);

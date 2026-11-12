@@ -1,6 +1,13 @@
 import { api } from '../api.js';
 import { renderLayout } from './layout.js';
 import { escapeAttribute, escapeHTML, formatCurrency, formatDateTime, toast, downloadCSV } from '../utils.js';
+import { refreshOfflineSnapshot } from '../sync.js';
+
+function statusBadgeClass(status) {
+  if (status === 'completed') return 'success';
+  if (status === 'cancelled' || status === 'refunded') return 'danger';
+  return 'warning';
+}
 
 let currentOrdersData = [];
 
@@ -63,7 +70,7 @@ export async function renderOrders() {
           <td>${escapeHTML(o.customer_name || 'Walk-in')}</td>
           <td style="font-weight:600;">${formatCurrency(o.total)}</td>
           <td><span class="badge badge-info">${(o.payment_method || 'cash').toUpperCase()}</span></td>
-          <td><span class="badge badge-${o.status === 'completed' ? 'success' : o.status === 'cancelled' ? 'danger' : 'warning'}">${escapeHTML(o.status)}</span></td>
+          <td><span class="badge badge-${statusBadgeClass(o.status)}">${escapeHTML(o.status)}</span></td>
           <td style="font-size:0.8rem;color:var(--color-text-muted);">${formatDateTime(o.created_at)}</td>
           <td><button class="btn btn-ghost btn-sm view-order" data-id="${escapeAttribute(o.id)}">View</button></td>
         </tr>
@@ -73,7 +80,7 @@ export async function renderOrders() {
         btn.addEventListener('click', async () => {
           try {
             const res = await api.get('/orders/' + btn.dataset.id);
-            showOrderDetail(res.order);
+            showOrderDetail(res.order, loadOrders);
           } catch (err) { toast(err.message, 'error'); }
         });
       });
@@ -91,7 +98,7 @@ export async function renderOrders() {
       'Total Amount': o.total,
       'Payment Method': (o.payment_method || 'cash').toUpperCase(),
       'Status': o.status,
-      'Date': new Date(o.created_at).toLocaleString()
+      'Date': new Date(o.created_at).toLocaleString('en-NG')
     }));
     downloadCSV(formattedData, `QuickPOS_Orders_${new Date().toISOString().split('T')[0]}.csv`);
   });
@@ -99,7 +106,24 @@ export async function renderOrders() {
   await loadOrders();
 }
 
-function showOrderDetail(order) {
+function refundDetails(order) {
+  const refund = (order.payments || []).find((payment) => payment.status === 'refunded');
+  if (!refund) return '';
+  let meta = refund.metadata || {};
+  if (typeof meta === 'string') {
+    try { meta = JSON.parse(meta); } catch { meta = {}; }
+  }
+  return `
+    <div class="refund-note" role="note">
+      <strong>Refunded ${formatCurrency(Math.abs(Number(refund.amount)))}</strong>
+      <span>${escapeHTML(formatDateTime(meta.refunded_at || refund.created_at))}${meta.restocked === false ? ' · items not returned to stock' : ' · items returned to stock'}</span>
+      ${meta.reason ? `<span>Reason: ${escapeHTML(meta.reason)}</span>` : ''}
+    </div>
+  `;
+}
+
+function showOrderDetail(order, onChanged = () => {}) {
+  const canRefund = order.status === 'completed';
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
@@ -110,7 +134,7 @@ function showOrderDetail(order) {
         <div><span style="color:var(--color-text-muted);">Customer:</span> ${escapeHTML(order.customer_name || 'Walk-in')}</div>
         <div><span style="color:var(--color-text-muted);">Payment:</span> ${escapeHTML((order.payment_method || '').toUpperCase())}</div>
         ${order.payments?.[0]?.reference ? `<div><span style="color:var(--color-text-muted);">Reference:</span> ${escapeHTML(order.payments[0].reference)}</div>` : ''}
-        <div><span style="color:var(--color-text-muted);">Status:</span> <span class="badge badge-${order.status === 'completed' ? 'success' : 'warning'}">${escapeHTML(order.status)}</span></div>
+        <div><span style="color:var(--color-text-muted);">Status:</span> <span class="badge badge-${statusBadgeClass(order.status)}">${escapeHTML(order.status)}</span></div>
         <div style="grid-column:1/-1;"><span style="color:var(--color-text-muted);">Date:</span> ${formatDateTime(order.created_at)}</div>
       </div>
       <table class="data-table" style="margin-bottom:1rem;">
@@ -132,10 +156,75 @@ function showOrderDetail(order) {
         <div>Discount: -${formatCurrency(order.discount_amount)}</div>
         <div style="font-weight:800;font-size:1.1rem;margin-top:0.5rem;">Total: ${formatCurrency(order.total)}</div>
       </div>
-      <button class="btn btn-ghost" id="close-order-detail" data-dialog-close type="button" style="width:100%;margin-top:1rem;">Close</button>
+      ${refundDetails(order)}
+      ${canRefund ? `
+        <section class="refund-panel" id="refund-panel" aria-labelledby="refund-title" hidden>
+          <h4 id="refund-title">Refund this sale</h4>
+          <p>Give the customer back ${formatCurrency(order.total)} the way they paid (${escapeHTML((order.payment_method || 'cash').toLowerCase())}), then confirm. This can’t be undone.</p>
+          <label class="label" for="refund-reason">Reason</label>
+          <textarea class="input" id="refund-reason" rows="2" maxlength="500" placeholder="For example: customer returned the item unopened"></textarea>
+          <label class="refund-restock" for="refund-restock">
+            <input type="checkbox" id="refund-restock" checked>
+            <span>Return the items to stock</span>
+          </label>
+          <div class="refund-actions">
+            <button class="btn btn-ghost" type="button" id="refund-cancel">Keep sale</button>
+            <button class="btn btn-danger" type="button" id="refund-confirm">Refund ${formatCurrency(order.total)}</button>
+          </div>
+        </section>` : ''}
+      <div class="order-detail-actions">
+        ${canRefund ? '<button class="btn btn-ghost refund-start" type="button" id="refund-start">Refund sale</button>' : ''}
+        <button class="btn btn-ghost" id="close-order-detail" data-dialog-close type="button">Close</button>
+      </div>
     </div>
   `;
   document.body.appendChild(overlay);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
   overlay.querySelector('#close-order-detail').addEventListener('click', () => overlay.remove());
+
+  if (!canRefund) return;
+  const panel = overlay.querySelector('#refund-panel');
+  const startButton = overlay.querySelector('#refund-start');
+  const reasonInput = overlay.querySelector('#refund-reason');
+  const confirmButton = overlay.querySelector('#refund-confirm');
+
+  startButton.addEventListener('click', () => {
+    panel.hidden = false;
+    startButton.hidden = true;
+    reasonInput.focus();
+  });
+  overlay.querySelector('#refund-cancel').addEventListener('click', () => {
+    panel.hidden = true;
+    startButton.hidden = false;
+    startButton.focus();
+  });
+  confirmButton.addEventListener('click', async () => {
+    const reason = reasonInput.value.trim();
+    if (reason.length < 3) {
+      toast('Give a short reason for the refund', 'warning');
+      reasonInput.focus();
+      return;
+    }
+    if (!navigator.onLine) {
+      toast('Refunds need an internet connection so every device sees them.', 'warning', 5000);
+      return;
+    }
+    const label = confirmButton.textContent;
+    confirmButton.disabled = true;
+    confirmButton.textContent = 'Refunding…';
+    try {
+      await api.post(`/orders/${order.id}/refund`, {
+        reason,
+        restock: overlay.querySelector('#refund-restock').checked,
+      }, { skipOfflineQueue: true });
+      toast(`Refunded ${order.order_number}`, 'success');
+      overlay.remove();
+      refreshOfflineSnapshot({ force: true }).catch(() => {});
+      onChanged();
+    } catch (err) {
+      toast(err.message || 'Refund failed', 'error');
+      confirmButton.disabled = false;
+      confirmButton.textContent = label;
+    }
+  });
 }

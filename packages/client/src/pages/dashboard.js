@@ -1,7 +1,21 @@
 import { api } from '../api.js';
 import { renderLayout } from './layout.js';
 import { escapeHTML, formatCurrency, formatDateTime, icons } from '../utils.js';
-import Chart from 'chart.js/auto';
+import {
+  BarController,
+  BarElement,
+  CategoryScale,
+  Chart,
+  Filler,
+  LinearScale,
+  LineController,
+  LineElement,
+  PointElement,
+  Tooltip,
+} from 'chart.js';
+
+// Register only what the revenue chart uses instead of all of Chart.js.
+Chart.register(BarController, BarElement, CategoryScale, Filler, LinearScale, LineController, LineElement, PointElement, Tooltip);
 
 function orderCount(count) {
   const n = Number(count) || 0;

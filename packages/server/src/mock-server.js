@@ -274,6 +274,25 @@ app.get('/api/v1/orders/:id', auth, (req, res) => {
   res.json({ order });
 });
 
+app.post('/api/v1/orders/:id/refund', auth, (req, res) => {
+  const order = orders.find(o => o.id == req.params.id);
+  if (!order) return res.status(404).json({ error: 'Order not found' });
+  if (order.status === 'refunded') return res.status(409).json({ error: 'This sale has already been refunded' });
+  const reason = String(req.body?.reason || '').trim();
+  if (reason.length < 3) return res.status(400).json({ error: 'Give a short reason for the refund' });
+  const restock = req.body?.restock !== false;
+  if (restock) {
+    for (const item of order.items || []) {
+      const product = products.find(p => p.id === item.product_id);
+      if (!product) continue;
+      product.stock_quantity += item.quantity;
+      inventoryLogs.unshift({ id: inventoryLogs.length + 1, product_id: product.id, product_name: product.name, store_id: 1, user_id: req.user.id, user_name: req.user.name, type: 'in', quantity: item.quantity, reason: `Refund ${order.order_number}`, created_at: new Date().toISOString() });
+    }
+  }
+  order.status = 'refunded';
+  res.json({ order, refund: { amount: Number(order.total), reason, restocked: restock } });
+});
+
 // ===== Customers =====
 app.get('/api/v1/customers', auth, (req, res) => {
   let result = [...customers];

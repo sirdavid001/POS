@@ -1,6 +1,7 @@
 import { api } from '../api.js';
 import { canWriteBusinessData } from '../entitlement.js';
 import { renderLayout } from './layout.js';
+import { mountCustomerPicker } from '../customer-picker.js';
 import { escapeAttribute, escapeHTML, formatCurrency, toast, debounce, icons } from '../utils.js';
 import { startUSBScanner, stopUSBScanner, openCameraScanner, scanButtonHTML } from '../scanner.js';
 import {
@@ -14,6 +15,8 @@ import {
 
 let cart = [];
 let products = [];
+let categories = [];
+let activeCategory = '';
 let storeSettings = {
   name: 'QuickPOS Store',
   tax_rate: 0,
@@ -43,7 +46,7 @@ function renderCart() {
         ? `<img src="${escapeAttribute(item.image_url)}" alt="" style="width:36px;height:36px;object-fit:contain;border-radius:0.375rem;flex-shrink:0;background:rgba(128,128,128,0.08);">`
         : `<div style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:0.375rem;flex-shrink:0;background:rgba(128,128,128,0.08);font-size:1rem;">📦</div>`
       }
-      <div class="cart-item-name">${escapeHTML(item.name)}</div>
+      <div class="cart-item-name">${escapeHTML(item.name)}<span class="cart-item-unit">${formatCurrency(item.price)} each</span></div>
       <div class="cart-item-qty">
         <button type="button" data-cart-action="decrease" data-index="${i}" aria-label="Decrease ${escapeAttribute(item.name)} quantity">−</button>
         <span style="min-width:20px;text-align:center;font-weight:600;">${item.qty}</span>
@@ -197,12 +200,7 @@ function showPaymentModal() {
         <p class="field-help">Confirm the payment on the external terminal or bank app before completing this sale.</p>
       </div>
 
-      <div class="form-group">
-        <label class="label" for="customer-select">Customer (Optional)</label>
-        <select class="input" id="customer-select">
-          <option value="">Walk-in Customer</option>
-        </select>
-      </div>
+      <div class="form-group" id="customer-picker"></div>
 
       <div class="payment-actions">
         <button class="btn btn-ghost" id="cancel-payment" type="button" data-dialog-close style="flex:1;">Cancel</button>
@@ -221,16 +219,7 @@ function showPaymentModal() {
   };
   overlay.querySelector('[data-method="cash"]').focus();
 
-  // Load customers
-  api.get('/customers?limit=100').then(data => {
-    const select = document.getElementById('customer-select');
-    data.customers.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.id;
-      opt.textContent = c.name;
-      select.appendChild(opt);
-    });
-  }).catch(() => {});
+  const customerPicker = mountCustomerPicker(overlay.querySelector('#customer-picker'));
 
   // Discount and cash: everything shown is recomputed from these inputs.
   const discountInput = overlay.querySelector('#payment-discount');
@@ -347,7 +336,7 @@ function showPaymentModal() {
       })),
       payment_method: selectedMethod,
       payment_reference: paymentReference || undefined,
-      customer_id: document.getElementById('customer-select').value || null,
+      customer_id: customerPicker.customerId,
       discount_amount: discountAmount,
       client_order_id: createClientOrderId(),
     };
@@ -360,7 +349,7 @@ function showPaymentModal() {
       renderCart();
 
       // Show receipt modal
-      showReceiptModal(result.order, { cashReceived, cashChange });
+      showReceiptModal(result.order, { cashReceived, cashChange, customerName: customerPicker.customer?.name || result.order.customer_name || null });
 
       // Reload products to update stock
       loadProducts();
@@ -381,7 +370,17 @@ function showPaymentModal() {
   });
 }
 
-function showReceiptModal(order, { cashReceived = null, cashChange = null } = {}) {
+function receiptRow(label, value, extra = '') {
+  return `<div class="receipt-row"${extra}><span>${label}</span><span>${value}</span></div>`;
+}
+
+function showReceiptModal(order, { cashReceived = null, cashChange = null, customerName = null } = {}) {
+  const cashier = JSON.parse(localStorage.getItem('user') || '{}').name || order.cashier_name || '';
+  const customer = customerName || order.customer_name || '';
+  const taxRate = Number(storeSettings.tax_rate || 0);
+  const storeContact = [storeSettings.address, storeSettings.phone]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean);
   const discount = Number(order.discount_amount || 0);
   const discountLine = discount > 0
     ? `<div style="display:flex;justify-content:space-between;"><span>Discount:</span><span>−${formatCurrency(discount)}</span></div>`
@@ -402,6 +401,7 @@ function showReceiptModal(order, { cashReceived = null, cashChange = null } = {}
     <div class="modal receipt-printable" role="dialog" aria-modal="true" aria-labelledby="receipt-title" style="max-width:380px;font-family:monospace;">
       <div style="text-align:center;border-bottom:1px dashed var(--color-border);padding-bottom:1rem;margin-bottom:1rem;">
         <h3 id="receipt-title" style="font-size:1.1rem;">${shopName}</h3>
+        ${storeContact.map((line) => `<div class="receipt-contact">${escapeHTML(line)}</div>`).join('')}
         ${receiptHeader}
         <p style="font-size:0.75rem;color:var(--color-text-muted);">Receipt</p>
       </div>
@@ -410,6 +410,8 @@ function showReceiptModal(order, { cashReceived = null, cashChange = null } = {}
         <div style="display:flex;justify-content:space-between;"><span>Order #:</span><span style="font-weight:700;">${escapeHTML(order.order_number)}</span></div>
         <div style="display:flex;justify-content:space-between;"><span>Date:</span><span>${new Date(order.created_at).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' })}</span></div>
         <div style="display:flex;justify-content:space-between;"><span>Payment:</span><span>${escapeHTML(order.payment_method?.toUpperCase())}</span></div>
+        ${cashier ? receiptRow('Cashier:', escapeHTML(cashier)) : ''}
+        ${customer ? receiptRow('Customer:', escapeHTML(customer)) : ''}
         ${order.payment_reference ? `<div style="display:flex;justify-content:space-between;gap:1rem;"><span>Reference:</span><span>${escapeHTML(order.payment_reference)}</span></div>` : ''}
       </div>
 
@@ -424,7 +426,7 @@ function showReceiptModal(order, { cashReceived = null, cashChange = null } = {}
 
       <div style="font-size:0.85rem;">
         <div style="display:flex;justify-content:space-between;"><span>Subtotal:</span><span>${formatCurrency(order.subtotal)}</span></div>
-        <div style="display:flex;justify-content:space-between;"><span>Tax:</span><span>${formatCurrency(order.tax_amount)}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>${taxRate > 0 ? `Tax (${taxRate}%):` : 'Tax:'}</span><span>${formatCurrency(order.tax_amount)}</span></div>
         ${discountLine}
         <div style="display:flex;justify-content:space-between;font-weight:800;font-size:1.1rem;margin-top:0.5rem;border-top:1px dashed var(--color-border);padding-top:0.5rem;">
           <span>TOTAL:</span><span>${formatCurrency(order.total)}</span>
@@ -458,14 +460,33 @@ async function loadProducts(search = '') {
   }
 }
 
+function renderCategoryChips() {
+  const container = document.getElementById('category-chips');
+  if (!container) return;
+  const used = new Set(products.map((product) => String(product.category_id)));
+  const visible = categories.filter((category) => used.has(String(category.id)));
+  if (visible.length < 2) {
+    container.hidden = true;
+    return;
+  }
+  container.hidden = false;
+  container.innerHTML = [{ id: '', name: 'All' }, ...visible].map((category) => `
+    <button type="button" class="category-chip" data-category="${escapeAttribute(category.id)}" aria-pressed="${String(category.id) === String(activeCategory)}">${escapeHTML(category.name)}</button>
+  `).join('');
+}
+
 function renderProducts() {
   const grid = document.getElementById('product-grid');
-  if (products.length === 0) {
+  renderCategoryChips();
+  const shown = activeCategory
+    ? products.filter((product) => String(product.category_id) === String(activeCategory))
+    : products;
+  if (shown.length === 0) {
     grid.innerHTML = '<div class="empty-state"><p>No products found</p></div>';
     return;
   }
 
-  grid.innerHTML = products.map(p => `
+  grid.innerHTML = shown.map(p => `
     <button type="button" class="product-card" data-product-id="${escapeAttribute(p.id)}" aria-label="Add ${escapeAttribute(p.name)} to cart">
       ${p.image_url
         ? `<img src="${escapeAttribute(p.image_url)}" alt="" style="width:100%;height:90px;object-fit:contain;border-radius:0.5rem;margin-bottom:0.35rem;background:rgba(255,255,255,0.05);">`
@@ -482,12 +503,36 @@ function renderProducts() {
     card.addEventListener('click', () => {
       const id = card.dataset.productId;
       const product = products.find(p => String(p.id) === String(id));
-      if (product) addToCart(product);
+      if (product) {
+        addToCart(product);
+        card.classList.add('just-added');
+        setTimeout(() => card.classList.remove('just-added'), 350);
+      }
     });
   });
 }
 
 const debouncedSearch = debounce((term) => loadProducts(term));
+
+// Keyboard shortcuts for busy counters: F2 jumps to search, F9 opens payment.
+// Function keys never reach the barcode-scanner buffer, so scanning is unaffected.
+function handlePOSShortcuts(event) {
+  if (!window.location.hash.startsWith('#/pos')) return;
+  if (document.querySelector('.modal-overlay')) return;
+  if (event.key === 'F2') {
+    event.preventDefault();
+    const search = document.getElementById('product-search');
+    search?.focus();
+    search?.select();
+  } else if (event.key === 'F9') {
+    event.preventDefault();
+    checkoutCart();
+  }
+}
+if (!window._posShortcutsMounted) {
+  window._posShortcutsMounted = true;
+  document.addEventListener('keydown', handlePOSShortcuts);
+}
 
 export async function renderPOS() {
   // Cleanup previous scanner listeners
@@ -500,6 +545,7 @@ export async function renderPOS() {
       <div class="page-header" style="margin-bottom:1rem;">
         <h1>POS Terminal</h1>
         <div style="display:flex;align-items:center;gap:0.5rem;">
+          <span class="pos-shortcuts" aria-hidden="true"><kbd>F2</kbd> search · <kbd>F9</kbd> pay</span>
           ${scanButtonHTML('pos-camera-scan', { label: 'Scan', variant: 'btn-primary btn-sm' })}
         </div>
       </div>
@@ -508,10 +554,12 @@ export async function renderPOS() {
         <div>
           <div class="filter-row" style="margin-bottom:1rem;display:flex;gap:0.5rem;align-items:center;">
             <div style="flex:1;position:relative;">
-              <input class="input" type="text" id="product-search" placeholder="Search products by name, SKU, or barcode..." style="padding-left:2.5rem;">
+              <label class="sr-only" for="product-search">Search products</label>
+              <input class="input" type="search" id="product-search" placeholder="Search name, SKU or barcode…" autocomplete="off" spellcheck="false" style="padding-left:2.5rem;">
               <span style="position:absolute;left:0.75rem;top:50%;transform:translateY(-50%);color:var(--color-text-muted);width:18px;height:18px;">${icons.search}</span>
             </div>
           </div>
+          <div class="category-chips" id="category-chips" role="group" aria-label="Filter by category" hidden></div>
           <div class="product-grid" id="product-grid">
             <div style="grid-column:1/-1;display:flex;justify-content:center;padding:2rem;"><div class="spinner spinner-lg"></div></div>
           </div>
@@ -552,6 +600,19 @@ export async function renderPOS() {
       closeCartBtn.style.display = 'none';
     });
   }
+
+  // Category chips
+  document.getElementById('category-chips').addEventListener('click', (event) => {
+    const chip = event.target.closest('[data-category]');
+    if (!chip) return;
+    activeCategory = chip.dataset.category;
+    renderProducts();
+  });
+  activeCategory = '';
+  api.get('/categories').then((data) => {
+    categories = data.categories || [];
+    renderCategoryChips();
+  }).catch(() => {});
 
   // Search
   document.getElementById('product-search').addEventListener('input', (e) => {

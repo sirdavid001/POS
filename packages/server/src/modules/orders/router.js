@@ -5,7 +5,8 @@ import { requireActiveSubscription } from '../../middleware/subscription.js';
 import logger from '../../config/logger.js';
 import { broadcast } from '../../app.js';
 import { validate } from '../../middleware/validate.js';
-import { createOrderSchema } from './schema.js';
+import { createOrderSchema, refundOrderSchema } from './schema.js';
+import { refundOrder, RefundError } from './refund.js';
 import { pagination } from '../../utils/pagination.js';
 
 const router = Router();
@@ -293,6 +294,34 @@ router.get('/:id', authorize('admin', 'manager'), async (req, res, next) => {
       },
     });
   } catch (err) { next(err); }
+});
+
+// POST full refund of a completed sale (managers and admins)
+router.post('/:id/refund', authorize('admin', 'manager'), validate(refundOrderSchema), async (req, res, next) => {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    const result = await refundOrder(client, {
+      orderId: req.params.id,
+      storeId: req.user.store_id,
+      userId: req.user.id,
+      reason: req.body.reason,
+      restock: req.body.restock,
+    });
+    await client.query('COMMIT');
+    logger.info(`Order ${result.order.order_number} refunded by user ${req.user.id}`);
+    broadcast('ORDER_REFUNDED', {
+      order_number: result.order.order_number,
+      total: result.refund.amount,
+    }, req.user.store_id);
+    res.json(result);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    if (err instanceof RefundError) return res.status(err.statusCode).json({ error: err.message });
+    next(err);
+  } finally {
+    client.release();
+  }
 });
 
 export default router;

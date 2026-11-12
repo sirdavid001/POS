@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+export const refundOrderSchema = z.object({
+  params: z.object({
+    id: z.coerce.number().int().positive(),
+  }),
+  body: z.object({
+    reason: z.string().trim().min(3, 'Give a short reason for the refund').max(500),
+    restock: z.boolean().optional().default(true),
+  }),
+});
+
 const orderItemSchema = z.object({
   product_id: z.coerce.number().int().positive(),
   quantity: z.coerce.number().int().positive(),
