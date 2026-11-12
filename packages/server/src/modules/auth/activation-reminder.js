@@ -25,7 +25,7 @@ export function buildActivationReminder({ name, storeName, activationUrl, suppor
   };
 }
 
-export async function sendActivationReminder(storeId) {
+export async function sendActivationReminder(storeId, { notificationKey = 'registration_24h' } = {}) {
   const result = await query(
     `SELECT s.id, s.name AS store_name, COALESCE(s.email, owner.email) AS email,
             owner.name AS owner_name, ss.activation_fee_paid, ss.status
@@ -49,10 +49,10 @@ export async function sendActivationReminder(storeId) {
 
   const claimed = await query(
     `INSERT INTO subscription_notifications (store_id, notification_type, notification_key)
-     VALUES ($1, 'activation_reminder', 'registration_24h')
+     VALUES ($1, 'activation_reminder', $2)
      ON CONFLICT (store_id, notification_type, notification_key) DO NOTHING
      RETURNING id`,
-    [storeId]
+    [storeId, notificationKey]
   );
   if (!claimed.rows[0]) return { skipped: true, duplicate: true };
 

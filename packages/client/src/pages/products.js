@@ -334,13 +334,13 @@ function showProductModal(product, onSave) {
               <div id="image-preview" style="width:80px;height:80px;border-radius:0.5rem;border:1px dashed var(--color-border);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;background:rgba(255,255,255,0.05);">
                 ${product?.image_url
                   ? `<img src="${escapeAttribute(product.image_url)}" alt="" style="width:100%;height:100%;object-fit:contain;">`
-                  : `<span style="font-size:2rem;">📷</span>`
+                  : `<span class="image-placeholder-icon">${icons.camera}</span>`
                 }
               </div>
               <div style="flex:1;">
                 <input class="input" name="image_url" id="image-url-input" value="${escapeAttribute(product?.image_url || '')}" placeholder="Image URL (auto-filled from barcode lookup)" style="margin-bottom:0.35rem;font-size:0.8rem;">
                 <label class="btn btn-ghost btn-sm" style="cursor:pointer;font-size:0.75rem;" id="image-upload-label">
-                  📁 Upload Image
+                  ${icons.upload} Upload image
                   <input type="file" accept="image/*" id="image-upload-input" style="display:none;">
                 </label>
               </div>
@@ -362,7 +362,7 @@ function showProductModal(product, onSave) {
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="8" x2="13" y2="8"/><line x1="7" y1="16" x2="15" y2="16"/></svg>
               </button>
               <button type="button" class="btn btn-primary btn-sm" id="lookup-barcode-btn" title="Look up product info online" style="padding:0.5rem 0.75rem;font-size:0.75rem;">
-                🔍 Lookup
+                ${icons.search} Look up
               </button>
             </div>
           </div>
@@ -424,8 +424,8 @@ function showProductModal(product, onSave) {
     preview.replaceChildren();
     if (!url) {
       const placeholder = document.createElement('span');
-      placeholder.textContent = '📷';
-      placeholder.style.fontSize = '2rem';
+      placeholder.className = 'image-placeholder-icon';
+      placeholder.innerHTML = icons.camera;
       preview.appendChild(placeholder);
       return;
     }
@@ -531,7 +531,7 @@ function showProductModal(product, onSave) {
       } else {
         statusDiv.innerHTML = `
           <div style="padding:0.75rem;border-radius:0.5rem;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);font-size:0.8rem;color:var(--color-warning);">
-            ⚠ Product not found in online databases for barcode: ${escapeHTML(barcode)}. Enter details manually.
+            Product not found in online databases for barcode: ${escapeHTML(barcode)}. Enter details manually.
           </div>
         `;
         toast('Product not found online — fill in details manually', 'info');
@@ -539,7 +539,7 @@ function showProductModal(product, onSave) {
     } catch (err) {
       statusDiv.innerHTML = `
         <div style="padding:0.75rem;border-radius:0.5rem;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);font-size:0.8rem;color:var(--color-danger);">
-          ✕ Lookup failed: ${escapeHTML(err.message || 'Network error')}. Enter details manually.
+          Lookup failed: ${escapeHTML(err.message || 'Network error')}. Enter details manually.
         </div>
       `;
     }

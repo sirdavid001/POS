@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken';
 import { createServer } from 'http';
 import { WebSocket, WebSocketServer } from 'ws';
 import { computeInsightsFromOrders } from '../../shared/src/insights.js';
+import { registerMockPlatform } from './mock-platform.js';
 
 const app = express();
 const server = createServer(app);
@@ -646,6 +647,8 @@ app.get('/api/v1/sync/bootstrap', auth, (req, res) => {
 });
 
 // ===== Health =====
+registerMockPlatform(app, auth);
+
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 // ===== Start (local dev) =====

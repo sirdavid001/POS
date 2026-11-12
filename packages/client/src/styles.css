@@ -83,8 +83,11 @@ body {
 }
 .btn:focus-visible,
 .product-card:focus-visible,
-.nav-item:focus-visible {
-  outline: 3px solid oklch(0.65 0.18 260 / 0.5);
+.nav-item:focus-visible,
+.link-button:focus-visible,
+.category-chip:focus-visible,
+.settings-tabs [role="tab"]:focus-visible {
+  outline: 2px solid var(--color-primary-light);
   outline-offset: 2px;
 }
 .btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
@@ -116,7 +119,8 @@ body {
   transition: border-color 0.2s;
   outline: none;
 }
-.input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px oklch(0.55 0.2 260 / 0.15); }
+.input:focus { border-color: var(--color-primary); }
+.input:focus-visible { outline: 2px solid var(--color-primary-light); outline-offset: 1px; }
 .input::placeholder { color: var(--color-text-muted); }
 .field-help { margin-top: 0.4rem; color: var(--color-text-muted); font-size: 0.75rem; line-height: 1.45; }
 
@@ -160,6 +164,7 @@ select.input { appearance: none; cursor: pointer; }
 .badge-warning { background: oklch(0.75 0.16 85 / 0.15); color: var(--color-warning); }
 .badge-danger { background: oklch(0.6 0.22 25 / 0.15); color: var(--color-danger); }
 .badge-info { background: oklch(0.55 0.2 260 / 0.15); color: var(--color-primary-light); }
+.badge-neutral { background: var(--color-surface-3); color: var(--color-text-muted); }
 
 /* ===== Modal ===== */
 .modal-overlay {
@@ -384,8 +389,9 @@ select.input { appearance: none; cursor: pointer; }
   border: 1px solid var(--color-border);
   border-radius: 0.8rem;
   background: var(--color-surface-3);
-  font-size: 1.2rem;
+  color: var(--color-primary-light);
 }
+.permission-icon svg { width: 1.35rem; height: 1.35rem; }
 .permission-card h3 {
   font-size: 1.05rem;
 }
@@ -575,7 +581,7 @@ select.input { appearance: none; cursor: pointer; }
 }
 .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px oklch(0 0 0 / 0.2); }
 .stat-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-muted); }
-.stat-value { font-size: 1.75rem; font-weight: 800; margin-top: 0.5rem; }
+.stat-value { font-size: 1.75rem; font-weight: 800; margin-top: 0.5rem; font-variant-numeric: tabular-nums; }
 .stat-change { font-size: 0.75rem; margin-top: 0.25rem; color: var(--color-text-muted); line-height: 1.45; }
 
 .cashier-focus-list {
@@ -1044,7 +1050,7 @@ select.input { appearance: none; cursor: pointer; }
     overflow: hidden;
     border-radius: 1rem 1rem 0 0;
     box-shadow: 0 -8px 32px oklch(0 0 0 / 0.3);
-    animation: slideUp 0.3s ease-out;
+    animation: slideUp 0.2s ease-out;
   }
 
   /* Dashboard grids stack */
@@ -1441,7 +1447,7 @@ select.input { appearance: none; cursor: pointer; }
   .btn-ghost:hover { background: oklch(0.94 0.005 260); }
 
   .input { background: oklch(0.97 0.003 260); border-color: var(--color-border); color: var(--color-text); }
-  .input:focus { box-shadow: 0 0 0 3px oklch(0.5 0.22 260 / 0.12); }
+  .input:focus-visible { outline-color: var(--color-primary); }
 
   .sidebar { background: var(--color-surface-2); border-color: var(--color-border); box-shadow: 1px 0 3px oklch(0 0 0 / 0.04); }
   .nav-item:hover { background: oklch(0.95 0.003 260); }
@@ -1639,3 +1645,13 @@ select.input { appearance: none; cursor: pointer; }
     right: 0.75rem;
   }
 }
+
+/* Line icons that replaced emoji */
+.placeholder-icon svg { width: 1.1rem; height: 1.1rem; }
+.placeholder-icon-lg svg { width: 2rem; height: 2rem; }
+.image-placeholder-icon { display: grid; place-items: center; color: var(--color-text-muted); }
+.image-placeholder-icon svg { width: 1.75rem; height: 1.75rem; }
+.cart-title { display: inline-flex; align-items: center; gap: 0.45rem; }
+.cart-title svg { width: 1.1rem; height: 1.1rem; }
+#close-cart-mobile svg { width: 1rem; height: 1rem; }
+.mobile-cart-toggle svg { width: 1.5rem; height: 1.5rem; }

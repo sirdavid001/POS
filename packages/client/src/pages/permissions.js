@@ -1,9 +1,9 @@
 import { completePermissionSetup } from '../permissions.js';
-import { toast } from '../utils.js';
+import { icons, toast } from '../utils.js';
 
 function permissionStatusLabel(state) {
   if (state === 'granted') return 'Allowed';
-  if (state === 'denied') return 'Blocked';
+  if (state === 'denied') return 'Not allowed (optional)';
   if (state === 'prompt') return 'Needs approval';
   return 'Check required';
 }
@@ -67,8 +67,8 @@ export async function renderPermissionsPage() {
       <div class="permission-grid">
         <article class="permission-card" id="camera-permission-card">
           <div class="permission-card-top">
-            <span class="permission-icon">📷</span>
-            <span class="badge ${cameraState === 'granted' ? 'badge-success' : cameraState === 'denied' ? 'badge-danger' : 'badge-warning'}" id="camera-permission-status">
+            <span class="permission-icon" aria-hidden="true">${icons.camera}</span>
+            <span class="badge ${cameraState === 'granted' ? 'badge-success' : cameraState === 'denied' ? 'badge-neutral' : 'badge-warning'}" id="camera-permission-status">
               ${permissionStatusLabel(cameraState)}
             </span>
           </div>
@@ -84,7 +84,7 @@ export async function renderPermissionsPage() {
 
         <article class="permission-card">
           <div class="permission-card-top">
-            <span class="permission-icon">💾</span>
+            <span class="permission-icon" aria-hidden="true">${icons.storage}</span>
             <span class="badge ${storageReady ? 'badge-success' : 'badge-danger'}">${storageReady ? 'Ready' : 'Blocked'}</span>
           </div>
           <h3>Offline storage</h3>
@@ -94,7 +94,7 @@ export async function renderPermissionsPage() {
 
         <article class="permission-card">
           <div class="permission-card-top">
-            <span class="permission-icon">⌨️</span>
+            <span class="permission-icon" aria-hidden="true">${icons.keyboard}</span>
             <span class="badge badge-success">Ready</span>
           </div>
           <h3>USB scanner</h3>
@@ -104,7 +104,7 @@ export async function renderPermissionsPage() {
 
         <article class="permission-card">
           <div class="permission-card-top">
-            <span class="permission-icon">🖨️</span>
+            <span class="permission-icon" aria-hidden="true">${icons.printer}</span>
             <span class="badge badge-info">System dialog</span>
           </div>
           <h3>Receipt printing</h3>
@@ -133,8 +133,8 @@ export async function renderPermissionsPage() {
       if (help) help.textContent = 'Camera is ready for barcode scanning.';
       toast('Camera access allowed', 'success');
     } catch (error) {
-      status.className = 'badge badge-danger';
-      status.textContent = 'Blocked';
+      status.className = 'badge badge-neutral';
+      status.textContent = 'Not allowed (optional)';
       const message = cameraPermissionHelp(error);
       if (help) help.textContent = message;
       toast(message, 'error', 7000);

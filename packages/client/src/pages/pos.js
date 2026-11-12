@@ -44,7 +44,7 @@ function renderCart() {
     <div class="cart-item animate-fade-in">
       ${item.image_url
         ? `<img src="${escapeAttribute(item.image_url)}" alt="" style="width:36px;height:36px;object-fit:contain;border-radius:0.375rem;flex-shrink:0;background:rgba(128,128,128,0.08);">`
-        : `<div style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:0.375rem;flex-shrink:0;background:rgba(128,128,128,0.08);font-size:1rem;">📦</div>`
+        : `<div style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:0.375rem;flex-shrink:0;background:rgba(128,128,128,0.08);color:var(--color-text-muted);" class="placeholder-icon">${icons.package}</div>`
       }
       <div class="cart-item-name">${escapeHTML(item.name)}<span class="cart-item-unit">${formatCurrency(item.price)} each</span></div>
       <div class="cart-item-qty">
@@ -180,9 +180,9 @@ function showPaymentModal() {
 
       <span class="label" id="payment-method-label">Payment Method</span>
       <div role="group" aria-labelledby="payment-method-label" style="display:flex;gap:0.5rem;margin-bottom:1.5rem;">
-        <button type="button" class="btn btn-primary pay-method-btn active-method" aria-pressed="true" data-method="cash" style="flex:1;">💵 Cash</button>
-        <button type="button" class="btn btn-ghost pay-method-btn" aria-pressed="false" data-method="card" style="flex:1;">💳 Card</button>
-        <button type="button" class="btn btn-ghost pay-method-btn" aria-pressed="false" data-method="transfer" style="flex:1;">🏦 Transfer</button>
+        <button type="button" class="btn btn-primary pay-method-btn active-method" aria-pressed="true" data-method="cash" style="flex:1;">${icons.cash} Cash</button>
+        <button type="button" class="btn btn-ghost pay-method-btn" aria-pressed="false" data-method="card" style="flex:1;">${icons.card} Card</button>
+        <button type="button" class="btn btn-ghost pay-method-btn" aria-pressed="false" data-method="transfer" style="flex:1;">${icons.bank} Transfer</button>
       </div>
 
       <div class="form-group" id="cash-group">
@@ -438,7 +438,7 @@ function showReceiptModal(order, { cashReceived = null, cashChange = null, custo
       <div style="text-align:center;font-size:0.75rem;margin-top:1.5rem;color:var(--color-text-muted);white-space:pre-wrap;">${receiptFooter}</div>
 
       <div class="no-print" style="text-align:center;margin-top:1.5rem;">
-        <button class="btn btn-ghost btn-sm" id="print-receipt" type="button">🖨️ Print</button>
+        <button class="btn btn-ghost btn-sm" id="print-receipt" type="button">${icons.printer} Print</button>
         <button class="btn btn-primary btn-sm" id="close-receipt" type="button" data-dialog-close>Done</button>
       </div>
     </div>
@@ -491,7 +491,7 @@ function renderProducts() {
     <button type="button" class="product-card" data-product-id="${escapeAttribute(p.id)}" aria-label="Add ${escapeAttribute(p.name)} to cart">
       ${p.image_url
         ? `<img src="${escapeAttribute(p.image_url)}" alt="" style="width:100%;height:90px;object-fit:contain;border-radius:0.5rem;margin-bottom:0.35rem;background:rgba(255,255,255,0.05);">`
-        : `<div style="width:100%;height:90px;display:flex;align-items:center;justify-content:center;border-radius:0.5rem;margin-bottom:0.35rem;background:rgba(255,255,255,0.05);font-size:2rem;">📦</div>`
+        : `<div style="width:100%;height:90px;display:flex;align-items:center;justify-content:center;border-radius:0.5rem;margin-bottom:0.35rem;background:rgba(255,255,255,0.05);color:var(--color-text-muted);" class="placeholder-icon placeholder-icon-lg">${icons.package}</div>`
       }
       <div class="product-name">${escapeHTML(p.name)}</div>
       <div class="product-price">${formatCurrency(p.price)}</div>
@@ -567,7 +567,7 @@ export async function renderPOS() {
         </div>
 
         <div class="cart-panel mobile-hidden" id="cart-panel">
-          <div class="cart-header" style="display:flex;justify-content:space-between;align-items:center;">🛒 Cart <button class="btn btn-ghost btn-sm" id="close-cart-mobile" style="display:none;padding:0.25rem 0.5rem;">✕</button></div>
+          <div class="cart-header" style="display:flex;justify-content:space-between;align-items:center;"><span class="cart-title"><span aria-hidden="true">${icons.cart}</span> Cart</span> <button class="btn btn-ghost btn-sm" id="close-cart-mobile" type="button" aria-label="Close cart" style="display:none;padding:0.25rem 0.5rem;">${icons.close}</button></div>
           <div class="cart-items" id="cart-items">
             <div class="empty-state" style="padding:2rem;"><p>Cart is empty</p><p style="font-size:0.75rem;">Scan a barcode or click products</p></div>
           </div>
@@ -577,7 +577,7 @@ export async function renderPOS() {
 
       <!-- Mobile cart toggle FAB -->
       <button class="mobile-cart-toggle" id="mobile-cart-toggle" type="button" aria-label="Open cart">
-        🛒
+        ${icons.cart}
         <span class="cart-badge" id="mobile-cart-badge" hidden>0</span>
       </button>
     </div>

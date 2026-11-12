@@ -24,7 +24,7 @@ const API_BASE = resolveApiBase(import.meta.env.VITE_API_URL, {
 
 const SESSION_KEY = 'qp_control_access_token';
 const USER_KEY = 'qp_control_user';
-const views = ['overview', 'stores', 'payments'];
+const views = ['overview', 'stores', 'payments', 'activity'];
 
 const icons = {
   overview: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
@@ -35,6 +35,12 @@ const icons = {
   close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>',
   install: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14"/></svg>',
   refresh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 9a7 7 0 0 1 11.7-2L20 12M4 12l2.2 5a7 7 0 0 0 11.7-2"/></svg>',
+  activity: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>',
+  download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 20h14"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+  note: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h10l4 4v12H5z"/><path d="M15 4v4h4M8 13h8M8 17h5"/></svg>',
+  mail: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg>',
+  calendar: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
 };
 
 const state = {
@@ -42,6 +48,9 @@ const state = {
   user: null,
   overview: null,
   payments: null,
+  trends: null,
+  activity: null,
+  currentStoreId: null,
   search: '',
   status: 'all',
   page: 1,
@@ -159,6 +168,7 @@ class ControlApi {
 
   get(path) { return this.request(path); }
   patch(path, body) { return this.request(path, { method: 'PATCH', body: JSON.stringify(body) }); }
+  post(path, body) { return this.request(path, { method: 'POST', body: JSON.stringify(body) }); }
 }
 
 const api = new ControlApi();
@@ -195,14 +205,13 @@ function renderSignIn(message = '') {
         <p class="auth-note">The private address is not a security key. Access is enforced again by the QuickPOS server.</p>
       </section>
       <aside class="auth-context" aria-label="Workspace capabilities">
-        <div class="context-figure" aria-hidden="true">
-          <span></span><span></span><span></span>
-          <b>Live account controls</b>
-        </div>
-        <dl>
-          <div><dt>Registrations</dt><dd>See store owners as soon as they create an account.</dd></div>
-          <div><dt>Payments</dt><dd>Distinguish verified payment from an attempted checkout.</dd></div>
-          <div><dt>Access</dt><dd>Disable a customer sign-in and revoke active sessions when required.</dd></div>
+        <span class="section-label">QP Control</span>
+        <h2 class="context-title">Every QuickPOS store in one private workspace.</h2>
+        <dl class="context-list">
+          <div><span class="context-icon" aria-hidden="true">${icons.stores}</span><dt>Registrations</dt><dd>See store owners as soon as they create an account.</dd></div>
+          <div><span class="context-icon" aria-hidden="true">${icons.payments}</span><dt>Payments</dt><dd>Tell verified payments apart from checkout attempts.</dd></div>
+          <div><span class="context-icon" aria-hidden="true">${icons.activity}</span><dt>Growth</dt><dd>Track sign-ups, paid conversions and revenue month by month.</dd></div>
+          <div><span class="context-icon" aria-hidden="true">${icons.lock}</span><dt>Access and support</dt><dd>Disable a sign-in, extend access, resend emails and keep notes, with every action logged.</dd></div>
         </dl>
       </aside>
     </main>
@@ -229,6 +238,7 @@ function renderShell() {
           ${navButton('overview', 'Overview')}
           ${navButton('stores', 'Stores')}
           ${navButton('payments', 'Payments')}
+          ${navButton('activity', 'Activity')}
         </nav>
         <div class="sidebar-foot">
           <button type="button" class="install-button" data-install hidden>${icons.install}<span>Install app</span></button>
@@ -254,6 +264,7 @@ function renderShell() {
         ${navButton('overview', 'Overview')}
         ${navButton('stores', 'Stores')}
         ${navButton('payments', 'Payments')}
+        ${navButton('activity', 'Activity')}
       </nav>
     </div>
     <dialog class="detail-dialog" data-store-dialog aria-labelledby="store-dialog-title">
@@ -326,8 +337,209 @@ function totalsMarkup(totals = []) {
   return totals.map((total) => formatMoney(total.amount, total.currency)).join(' · ');
 }
 
+function monthName(month, style = 'short') {
+  const [year, monthIndex] = String(month).split('-').map(Number);
+  return new Intl.DateTimeFormat(undefined, { month: style, ...(style === 'long' ? { year: 'numeric' } : {}), timeZone: 'UTC' })
+    .format(new Date(Date.UTC(year, monthIndex - 1, 1)));
+}
+
+function revenueIn(entry, currency) {
+  return Number(entry.revenue?.find((item) => item.currency === currency)?.amount || 0);
+}
+
+function changeText(current, previous, previousMonth, format = (value) => String(value)) {
+  const diff = current - previous;
+  if (diff === 0) return `Same as ${monthName(previousMonth, 'long')}`;
+  return `${diff > 0 ? '+' : '−'}${format(Math.abs(diff))} vs ${monthName(previousMonth, 'long')}`;
+}
+
+function trendBars(months, valueOf, label, format) {
+  const values = months.map(valueOf);
+  const max = Math.max(...values, 1);
+  const width = 240;
+  const height = 64;
+  const slot = width / values.length;
+  const peakIndex = values.indexOf(Math.max(...values));
+  const bars = values.map((value, index) => {
+    const barHeight = value > 0 ? Math.max(3, Math.round((value / max) * (height - 4))) : 2;
+    const current = index === values.length - 1;
+    return `<rect x="${(index * slot + 2).toFixed(1)}" y="${height - barHeight}" width="${(slot - 4).toFixed(1)}" height="${barHeight}" rx="2" class="${current ? 'current' : ''}${value === 0 ? ' zero' : ''}"><title>${escapeHtml(monthName(months[index].month, 'long'))}: ${escapeHtml(format(value))}</title></rect>`;
+  }).join('');
+  const summary = values.some((value) => value > 0)
+    ? `${label} per month for the last ${values.length} months. Highest: ${format(values[peakIndex])} in ${monthName(months[peakIndex].month, 'long')}.`
+    : `${label} per month for the last ${values.length} months. None yet.`;
+  return `<svg class="trend-bars" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="${escapeHtml(summary)}">${bars}</svg>`;
+}
+
+function trendsMarkup(trends) {
+  const months = trends?.months || [];
+  if (months.length < 2) return '';
+  const current = months[months.length - 1];
+  const previous = months[months.length - 2];
+  const naira = (value) => formatMoney(value, 'NGN');
+  const otherCurrencies = [...new Set(months.flatMap((entry) => (entry.revenue || []).map((item) => item.currency)))].filter((code) => code !== 'NGN');
+  const otherTotals = otherCurrencies.map((code) => formatMoney(months.reduce((sum, entry) => sum + revenueIn(entry, code), 0), code));
+  const cards = [
+    { title: 'Sign-ups', value: (entry) => entry.signups, format: (value) => String(value), unit: (value) => (value === 1 ? 'new store' : 'new stores') },
+    { title: 'First payments', value: (entry) => entry.first_payments, format: (value) => String(value), unit: (value) => (value === 1 ? 'store paid' : 'stores paid') },
+    { title: 'Revenue (NGN)', value: (entry) => revenueIn(entry, 'NGN'), format: naira, unit: () => 'verified' },
+  ];
+  return `
+    <section class="data-section trends" aria-labelledby="trends-title">
+      <div class="section-heading"><div><span class="section-label">Last ${months.length} months</span><h2 id="trends-title">Growth</h2></div></div>
+      <div class="trend-grid">
+        ${cards.map((card) => `
+          <article class="trend-card">
+            <h3>${escapeHtml(card.title)}</h3>
+            <p class="trend-value">${escapeHtml(card.format(card.value(current)))} <span>${escapeHtml(card.unit(card.value(current)))} this month</span></p>
+            <p class="trend-change">${escapeHtml(changeText(card.value(current), card.value(previous), previous.month, card.format))}</p>
+            ${trendBars(months, card.value, card.title, card.format)}
+            <div class="trend-axis" aria-hidden="true"><span>${escapeHtml(monthName(months[0].month))}</span><span>${escapeHtml(monthName(current.month))}</span></div>
+          </article>`).join('')}
+      </div>
+      ${otherTotals.length ? `<p class="trend-note">Also verified in the same period: ${escapeHtml(otherTotals.join(' · '))}.</p>` : ''}
+      <details class="trend-table">
+        <summary>Show as a table</summary>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th scope="col">Month</th><th scope="col">Sign-ups</th><th scope="col">First payments</th><th scope="col">Revenue</th></tr></thead>
+            <tbody>
+              ${months.slice().reverse().map((entry) => `<tr><th scope="row">${escapeHtml(monthName(entry.month, 'long'))}</th><td>${escapeHtml(entry.signups)}</td><td>${escapeHtml(entry.first_payments)}</td><td>${escapeHtml((entry.revenue || []).length ? entry.revenue.map((item) => formatMoney(item.amount, item.currency)).join(' · ') : '—')}</td></tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+  `;
+}
+
+function csvCell(value) {
+  if (value == null) return '';
+  let text = String(value);
+  // Stop spreadsheet apps from running text that starts like a formula.
+  if (typeof value === 'string' && /^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function csvDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 16).replace('T', ' ');
+}
+
+function downloadCsv(filename, header, rows) {
+  const body = [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([`\uFEFF${body}`], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function exportCurrentList(kind, button) {
+  const params = new URLSearchParams({ search: state.search, status: state.status });
+  const today = new Date().toISOString().slice(0, 10);
+  const label = button.innerHTML;
+  button.disabled = true;
+  button.textContent = 'Preparing…';
+  try {
+    if (kind === 'stores') {
+      const data = await api.get(`/platform/export/stores?${params}`);
+      downloadCsv(`quickpos-stores-${today}.csv`,
+        ['Store ID', 'Store', 'Store email', 'Owner', 'Owner email', 'Owner sign-in', 'Registered', 'Subscription', 'Plan', 'Paid through', 'Activation paid', 'Last payment', 'Currency', 'Last payment date'],
+        (data.stores || []).map((store) => [
+          store.id, store.name, store.email, store.owner_name, store.owner_email,
+          store.owner_is_active === false ? 'Disabled' : 'Active', csvDate(store.created_at),
+          store.subscription_status, store.plan_code, csvDate(store.current_period_end),
+          store.activation_fee_paid ? 'Yes' : 'No', store.payment_amount, store.payment_currency, csvDate(store.payment_paid_at),
+        ]));
+      announce(data.truncated ? 'Exported the first 5,000 stores' : `Exported ${(data.stores || []).length} stores`);
+    } else {
+      const data = await api.get(`/platform/export/payments?${params}`);
+      downloadCsv(`quickpos-payments-${today}.csv`,
+        ['Payment ID', 'Store ID', 'Store', 'Store email', 'Provider', 'Reference', 'Transaction ID', 'Plan', 'Amount', 'Currency', 'Status', 'Paid at', 'Created at'],
+        (data.payments || []).map((payment) => [
+          payment.id, payment.store_id, payment.store_name, payment.store_email, payment.provider,
+          payment.provider_reference, payment.provider_transaction_id, payment.plan_code,
+          payment.amount, payment.currency, payment.status, csvDate(payment.paid_at), csvDate(payment.created_at),
+        ]));
+      announce(data.truncated ? 'Exported the first 5,000 payments' : `Exported ${(data.payments || []).length} payments`);
+    }
+  } catch (error) {
+    announce(`Export failed: ${error.message}`);
+    window.alert(`The export could not be prepared. ${error.message}`);
+  } finally {
+    button.disabled = false;
+    button.innerHTML = label;
+  }
+}
+
+const ACTIVITY_ICONS = {
+  user_access_changed: 'lock',
+  subscription_extended: 'calendar',
+  store_note_added: 'note',
+  email_resent: 'mail',
+};
+
+function activityText(entry) {
+  const who = entry.actor_name || entry.actor_email || 'A platform admin';
+  const store = entry.store_name || (entry.store_id ? `store #${entry.store_id}` : 'a store');
+  const values = entry.new_values || {};
+  if (entry.action === 'user_access_changed') {
+    const person = entry.target_user_name || entry.target_user_email || 'a user';
+    return `${who} ${values.is_active ? 'enabled' : 'disabled'} sign-in for ${person} at ${store}`;
+  }
+  if (entry.action === 'subscription_extended') {
+    return `${who} extended ${store} by ${values.days} day${Number(values.days) === 1 ? '' : 's'}, to ${formatDate(values.current_period_end)}`;
+  }
+  if (entry.action === 'store_note_added') return `${who} added a note to ${store}`;
+  if (entry.action === 'email_resent') {
+    return `${who} resent the ${values.type === 'welcome' ? 'welcome email' : 'activation reminder'} to ${store}`;
+  }
+  return `${who}: ${titleCase(entry.action)} (${store})`;
+}
+
+function activityDetail(entry) {
+  const values = entry.new_values || {};
+  if (entry.action === 'subscription_extended' && values.reason) return `Reason: ${values.reason}`;
+  if (entry.action === 'store_note_added' && values.note) return values.note;
+  return '';
+}
+
+function activityRow(entry, { showStore = true } = {}) {
+  const detail = activityDetail(entry);
+  return `
+    <li class="activity-row">
+      <span class="activity-icon" aria-hidden="true">${icons[ACTIVITY_ICONS[entry.action] || 'activity']}</span>
+      <div class="row-main">
+        <strong>${escapeHtml(activityText(entry))}</strong>
+        ${detail ? `<p class="activity-detail">${escapeHtml(detail)}</p>` : ''}
+        <span>${escapeHtml(formatDate(entry.created_at, true))}</span>
+      </div>
+      ${showStore && entry.store_id ? `<button class="button secondary activity-open" type="button" data-store-id="${escapeHtml(entry.store_id)}" aria-label="Open ${escapeHtml(entry.store_name || `store #${entry.store_id}`)}">Open store</button>` : ''}
+    </li>
+  `;
+}
+
+function activityMarkup(data) {
+  return `
+    <section class="page-intro"><div><span class="section-label">Audit trail</span><h2>Activity</h2></div><p>Every change made from QP Control: sign-in access, access extensions, resent emails and notes. Entries cannot be edited or removed.</p></section>
+    <section class="data-section data-section-full" aria-label="Admin activity">
+      ${(data.activity || []).length
+        ? `<ul class="data-list activity-list">${data.activity.map((entry) => activityRow(entry)).join('')}</ul>`
+        : emptyMarkup('No admin activity yet', 'Changes made from QP Control will be listed here.')}
+      ${paginationMarkup(data.pagination)}
+    </section>
+  `;
+}
+
 function overviewMarkup(data) {
   const summary = data.summary || {};
+  const registered = Number(summary.registered_stores || 0);
+  const conversion = registered ? Math.round((Number(summary.paid_stores || 0) / registered) * 100) : 0;
   return `
     <section class="dashboard-intro" aria-labelledby="dashboard-heading">
       <div><span class="section-label">Today’s control room</span><h2 id="dashboard-heading">Know who joined and who paid.</h2></div>
@@ -335,10 +547,11 @@ function overviewMarkup(data) {
     </section>
     <dl class="metrics" aria-label="Account summary">
       <div><dt>Registered stores</dt><dd>${escapeHtml(summary.registered_stores || 0)}</dd><span>${escapeHtml(summary.registered_last_7_days || 0)} in the last 7 days</span></div>
-      <div><dt>Stores with payment</dt><dd>${escapeHtml(summary.paid_stores || 0)}</dd><span>At least one verified payment</span></div>
+      <div><dt>Stores with payment</dt><dd>${escapeHtml(summary.paid_stores || 0)}</dd><span>${escapeHtml(conversion)}% of registered stores have paid</span></div>
       <div><dt>Awaiting payment</dt><dd>${escapeHtml(summary.pending_stores || 0)}</dd><span>Registered without a verified payment</span></div>
       <div class="metric-wide"><dt>Verified revenue</dt><dd>${escapeHtml(totalsMarkup(summary.payment_totals))}</dd><span>${escapeHtml((summary.payment_totals || []).reduce((sum, item) => sum + Number(item.count || 0), 0))} successful transactions</span></div>
     </dl>
+    ${trendsMarkup(state.trends)}
     <section class="data-section" aria-labelledby="recent-stores-title">
       <div class="section-heading"><div><span class="section-label">Newest accounts</span><h2 id="recent-stores-title">Recent registrations</h2></div><button type="button" class="text-button arrow-button" data-view="stores">See all stores ${icons.arrow}</button></div>
       ${(data.stores || []).length
@@ -373,6 +586,7 @@ function filterBar(kind) {
         </select>
       </label>
       <button class="button secondary filter-submit" type="submit">Apply</button>
+      <button class="button secondary filter-export" type="button" data-export="${kind}">${icons.download}<span>Export CSV</span></button>
     </form>
   `;
 }
@@ -422,7 +636,7 @@ function syncNavigation() {
     if (active) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   });
-  const titles = { overview: 'Overview', stores: 'Stores', payments: 'Payments' };
+  const titles = { overview: 'Overview', stores: 'Stores', payments: 'Payments', activity: 'Activity' };
   const title = document.querySelector('[data-page-title]');
   if (title) title.textContent = titles[state.view];
   document.title = `${titles[state.view]} · QP Control`;
@@ -431,7 +645,7 @@ function syncNavigation() {
 function syncUrlState() {
   const params = new URLSearchParams();
   if (state.view !== 'overview') {
-    if (state.search) params.set('search', state.search);
+    if (state.search && state.view !== 'activity') params.set('search', state.search);
     if (state.status !== 'all') params.set('status', state.status);
     if (state.page > 1) params.set('page', String(state.page));
   }
@@ -448,8 +662,15 @@ async function loadCurrentView({ focus = false } = {}) {
   syncNavigation();
   try {
     if (state.view === 'overview') {
-      const data = await api.get('/platform/overview?limit=10');
+      const [data, trends] = await Promise.all([
+        api.get('/platform/overview?limit=10'),
+        api.get('/platform/trends?months=12').catch((error) => {
+          if (error.status === 401 || error.status === 403) throw error;
+          return null;
+        }),
+      ]);
       state.overview = data;
+      state.trends = trends;
       content.innerHTML = overviewMarkup(data);
     } else if (state.view === 'stores') {
       const params = new URLSearchParams({
@@ -461,6 +682,11 @@ async function loadCurrentView({ focus = false } = {}) {
       const data = await api.get(`/platform/overview?${params}`);
       state.overview = data;
       content.innerHTML = storesMarkup(data);
+    } else if (state.view === 'activity') {
+      const params = new URLSearchParams({ page: String(state.page), limit: '20' });
+      const data = await api.get(`/platform/activity?${params}`);
+      state.activity = data;
+      content.innerHTML = activityMarkup(data);
     } else {
       const params = new URLSearchParams({
         search: state.search,
@@ -510,6 +736,7 @@ function storeDialogMarkup(data) {
       <div><span>Plan</span><strong>${escapeHtml(titleCase(store.plan_code || 'Not selected'))}</strong></div>
       <div><span>Paid through</span><strong>${escapeHtml(formatDate(store.current_period_end))}</strong></div>
     </div>
+    ${storeActionsMarkup(store)}
     <section class="dialog-section" aria-labelledby="store-users-title">
       <div class="section-heading"><div><span class="section-label">People</span><h3 id="store-users-title">Store accounts</h3></div></div>
       <ul class="user-list">
@@ -529,14 +756,144 @@ function storeDialogMarkup(data) {
         ? `<ul class="data-list payment-list">${data.payments.map((payment) => paymentRow({ ...payment, store_name: store.name }, true)).join('')}</ul>`
         : emptyMarkup('No payment recorded', 'This store has not completed a verified payment.')}
     </section>
+    <section class="dialog-section" aria-labelledby="store-notes-title">
+      <div class="section-heading"><div><span class="section-label">Private to platform admins</span><h3 id="store-notes-title">Notes</h3></div></div>
+      <form class="note-form" data-note-form novalidate>
+        <label for="store-note">Add a note</label>
+        <textarea id="store-note" name="note" rows="3" maxlength="1000" placeholder="What happened, what was agreed, what to follow up on"></textarea>
+        <p class="form-error" role="alert" data-note-error></p>
+        <button class="button secondary" type="submit">Save note</button>
+      </form>
+      ${(data.notes || []).length
+        ? `<ul class="note-list">${data.notes.map((note) => `<li><p>${escapeHtml(note.new_values?.note || '')}</p><span>${escapeHtml(note.actor_name || note.actor_email || 'Platform admin')} · ${escapeHtml(formatDate(note.created_at, true))}</span></li>`).join('')}</ul>`
+        : '<p class="muted-line">No notes yet.</p>'}
+    </section>
+    ${(data.activity || []).length ? `
+      <section class="dialog-section" aria-labelledby="store-activity-title">
+        <div class="section-heading"><div><span class="section-label">Audit trail</span><h3 id="store-activity-title">Recent admin activity</h3></div></div>
+        <ul class="data-list activity-list">${data.activity.map((entry) => activityRow(entry, { showStore: false })).join('')}</ul>
+      </section>` : ''}
   `;
+}
+
+function storeActionsMarkup(store) {
+  const permanent = store.subscription_status === 'grandfathered';
+  const canRemind = !store.activation_fee_paid && !permanent;
+  return `
+    <section class="dialog-section" aria-labelledby="store-actions-title">
+      <div class="section-heading"><div><span class="section-label">Support</span><h3 id="store-actions-title">Account actions</h3></div></div>
+      <div class="action-grid">
+        ${permanent
+          ? `<div class="action-card"><h4>${icons.calendar}Access</h4><p>This store has permanent access, so it cannot be extended.</p></div>`
+          : `<form class="action-card" data-extend-form novalidate>
+              <h4>${icons.calendar}Extend access</h4>
+              <p>Adds free days to the paid-through date. It does not mark the activation fee as paid, and it is logged.</p>
+              <label for="extend-days">Days to add</label>
+              <select id="extend-days" name="days">
+                ${[7, 14, 30, 60, 90].map((days) => `<option value="${days}" ${days === 30 ? 'selected' : ''}>${days} days</option>`).join('')}
+              </select>
+              <label for="extend-reason">Reason</label>
+              <input id="extend-reason" name="reason" type="text" maxlength="300" autocomplete="off" placeholder="e.g. Setup took longer than planned">
+              <p class="form-error" role="alert" data-extend-error></p>
+              <button class="button primary" type="submit">Extend access</button>
+            </form>`}
+        <div class="action-card">
+          <h4>${icons.mail}Resend emails</h4>
+          <p>Sends to ${escapeHtml(store.email || 'the store owner')}. Each email can be resent once an hour.</p>
+          <div class="action-buttons">
+            <button class="button secondary" type="button" data-resend-email="welcome">Resend welcome email</button>
+            ${canRemind ? '<button class="button secondary" type="button" data-resend-email="activation_reminder">Send activation reminder</button>' : ''}
+          </div>
+          <p class="action-status" role="status" tabindex="-1" data-action-status></p>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+async function reloadStoreDialog({ message = '', focus = '' } = {}) {
+  if (!state.currentStoreId) return;
+  const content = document.querySelector('[data-store-dialog-content]');
+  const data = await api.get(`/platform/stores/${encodeURIComponent(state.currentStoreId)}`);
+  content.innerHTML = storeDialogMarkup(data);
+  if (message) {
+    const status = content.querySelector('[data-action-status]');
+    if (status) status.textContent = message;
+    announce(message);
+  }
+  if (focus) content.querySelector(focus)?.focus();
+}
+
+async function handleNoteSubmit(form) {
+  const error = form.querySelector('[data-note-error]');
+  const submit = form.querySelector('button[type="submit"]');
+  const note = String(new FormData(form).get('note') || '').trim();
+  error.textContent = '';
+  if (!note) {
+    error.textContent = 'Write a note first.';
+    form.querySelector('textarea')?.focus();
+    return;
+  }
+  submit.disabled = true;
+  submit.textContent = 'Saving…';
+  try {
+    await api.post(`/platform/stores/${encodeURIComponent(state.currentStoreId)}/notes`, { note });
+    await reloadStoreDialog({ focus: '#store-note' });
+    announce('Note saved');
+  } catch (requestError) {
+    error.textContent = requestError.message;
+    submit.disabled = false;
+    submit.textContent = 'Save note';
+  }
+}
+
+function handleExtendSubmit(form) {
+  const error = form.querySelector('[data-extend-error]');
+  const values = new FormData(form);
+  const days = Number(values.get('days'));
+  const reason = String(values.get('reason') || '').trim();
+  error.textContent = '';
+  if (reason.length < 3) {
+    error.textContent = 'Give a short reason. It is saved in the activity log.';
+    form.querySelector('#extend-reason')?.focus();
+    return;
+  }
+  const storeName = document.getElementById('store-dialog-title')?.textContent || 'this store';
+  const storeId = state.currentStoreId;
+  askForConfirmation({
+    title: `Extend ${storeName} by ${days} days?`,
+    description: 'The store gets full access for these extra days, starting from today or its current paid-through date, whichever is later. The activation fee stays unpaid.',
+    confirmLabel: 'Extend access',
+    tone: 'primary',
+    action: async () => {
+      const result = await api.post(`/platform/stores/${encodeURIComponent(storeId)}/extend`, { days, reason });
+      await reloadStoreDialog({ message: `Access extended to ${formatDate(result.subscription?.current_period_end)}.`, focus: '[data-action-status]' });
+    },
+  });
+}
+
+async function handleResendEmail(button) {
+  const status = document.querySelector('[data-action-status]');
+  const type = button.dataset.resendEmail;
+  const label = type === 'welcome' ? 'Welcome email' : 'Activation reminder';
+  button.disabled = true;
+  if (status) status.textContent = 'Sending…';
+  try {
+    await api.post(`/platform/stores/${encodeURIComponent(state.currentStoreId)}/emails`, { type });
+    await reloadStoreDialog({ message: `${label} sent.`, focus: '[data-action-status]' });
+  } catch (error) {
+    if (status) status.textContent = error.message;
+    announce(error.message);
+    button.disabled = false;
+  }
 }
 
 async function openStore(storeId) {
   const dialog = document.querySelector('[data-store-dialog]');
   const content = document.querySelector('[data-store-dialog-content]');
+  state.currentStoreId = storeId;
   content.innerHTML = loadingMarkup('Loading store account');
-  dialog.showModal();
+  if (!dialog.open) dialog.showModal();
   try {
     const data = await api.get(`/platform/stores/${encodeURIComponent(storeId)}`);
     content.innerHTML = storeDialogMarkup(data);
@@ -545,13 +902,16 @@ async function openStore(storeId) {
   }
 }
 
-function askForConfirmation({ title, description, confirmLabel, action }) {
+function askForConfirmation({ title, description, confirmLabel, action, tone = 'danger' }) {
   state.pendingConfirmation = action;
   const dialog = document.querySelector('[data-confirm-dialog]');
   dialog.returnValue = '';
   dialog.querySelector('[data-confirm-title]').textContent = title;
   dialog.querySelector('[data-confirm-description]').textContent = description;
-  dialog.querySelector('[data-confirm-submit]').textContent = confirmLabel;
+  const submit = dialog.querySelector('[data-confirm-submit]');
+  submit.textContent = confirmLabel;
+  submit.className = `button ${tone === 'primary' ? 'primary' : 'danger'}`;
+  dialog.querySelector('.confirm-mark')?.classList.toggle('neutral', tone === 'primary');
   dialog.showModal();
 }
 
@@ -613,6 +973,18 @@ document.addEventListener('submit', (event) => {
     state.page = 1;
     syncUrlState();
     loadCurrentView();
+    return;
+  }
+  const noteForm = event.target.closest('[data-note-form]');
+  if (noteForm) {
+    event.preventDefault();
+    handleNoteSubmit(noteForm);
+    return;
+  }
+  const extendForm = event.target.closest('[data-extend-form]');
+  if (extendForm) {
+    event.preventDefault();
+    handleExtendSubmit(extendForm);
   }
 });
 
@@ -659,6 +1031,16 @@ document.addEventListener('click', async (event) => {
     event.target.closest('dialog')?.close();
     return;
   }
+  const exportButton = event.target.closest('[data-export]');
+  if (exportButton && !exportButton.disabled) {
+    await exportCurrentList(exportButton.dataset.export, exportButton);
+    return;
+  }
+  const resendButton = event.target.closest('[data-resend-email]');
+  if (resendButton && !resendButton.disabled) {
+    await handleResendEmail(resendButton);
+    return;
+  }
   const accessButton = event.target.closest('[data-user-access]');
   if (accessButton) {
     const nextActive = accessButton.dataset.nextActive === 'true';
@@ -671,11 +1053,7 @@ document.addEventListener('click', async (event) => {
       confirmLabel: nextActive ? 'Enable access' : 'Disable access',
       action: async () => {
         await api.patch(`/platform/users/${encodeURIComponent(accessButton.dataset.userAccess)}/access`, { is_active: nextActive });
-        const storeId = document.querySelector('[data-store-dialog] .section-label')?.textContent.replace(/\D/g, '');
-        if (storeId) {
-          const data = await api.get(`/platform/stores/${storeId}`);
-          document.querySelector('[data-store-dialog-content]').innerHTML = storeDialogMarkup(data);
-        }
+        if (state.currentStoreId) await reloadStoreDialog();
         announce(`${name} access ${nextActive ? 'enabled' : 'disabled'}`);
       },
     });

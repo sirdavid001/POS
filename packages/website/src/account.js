@@ -476,8 +476,8 @@ function renderRegister() {
     copy: 'Create the owner/admin account here, complete activation, then choose the correct app download for your device.',
     form: `
       <form class="account-form" id="site-register-form">
-        <label>Store name<input name="store_name" type="text" minlength="2" required placeholder="Your store name"></label>
-        <label>Owner name<input name="name" type="text" required placeholder="Full name"></label>
+        <label>Store name<input name="store_name" type="text" autocomplete="organization" minlength="2" required placeholder="Your store name"></label>
+        <label>Owner name<input name="name" type="text" autocomplete="name" required placeholder="Full name"></label>
         <label>Email address<input name="email" type="email" autocomplete="email" required placeholder="owner@yourstore.com"></label>
         <label>Phone<input name="phone" type="tel" autocomplete="tel" placeholder="+234..."></label>
         <label>Password<input name="password" type="password" autocomplete="new-password" minlength="8" required placeholder="At least 8 characters"></label>
@@ -974,7 +974,7 @@ function renderPortal({ overview, plans, providers, transactions, staff = [], bi
               <span class="account-badge">Admin only</span>
             </div>
             <form class="account-form account-form-grid" id="account-profile-form">
-              <label>Full name<input name="name" value="${escapeHtml(user.name || '')}" required></label>
+              <label>Full name<input name="name" autocomplete="name" value="${escapeHtml(user.name || '')}" required></label>
               <label>Email<input name="email" type="email" value="${escapeHtml(user.email || '')}" required></label>
               <label>Phone<input name="phone" value="${escapeHtml(user.phone || '')}" placeholder="+234..."></label>
               <label>New password<input name="password" type="password" minlength="8" autocomplete="new-password" placeholder="Leave blank to keep current password"></label>
@@ -991,7 +991,7 @@ function renderPortal({ overview, plans, providers, transactions, staff = [], bi
               <span class="account-badge ${unlocked ? 'success' : 'warning'}">${unlocked ? 'Active' : 'Editable before payment'}</span>
             </div>
             <form class="account-form account-form-grid" id="account-store-form">
-              <label>Store name<input name="name" value="${escapeHtml(store?.name || '')}" required minlength="2"></label>
+              <label>Store name<input name="name" autocomplete="organization" value="${escapeHtml(store?.name || '')}" required minlength="2"></label>
               <label>Store email<input name="email" type="email" value="${escapeHtml(store?.email || '')}"></label>
               <label>Phone<input name="phone" value="${escapeHtml(store?.phone || '')}"></label>
               <label>Currency<input name="currency" value="${escapeHtml(store?.currency || 'NGN')}" maxlength="10"></label>

@@ -111,6 +111,8 @@ export function renderLayout(activePage) {
         ? `${subscription.days_remaining ?? 0} day${subscription.days_remaining === 1 ? '' : 's'} left in your existing trial. Initial activation is required afterward.`
       : subscription.cancel_at_period_end && subscription.can_write
         ? `Renewal is cancelled. Access continues through ${new Date(subscription.current_period_end).toLocaleDateString('en-NG')}.`
+      : subscription.activation_required && subscription.can_write
+        ? `Full access is on through ${new Date(subscription.current_period_end).toLocaleDateString('en-NG')}. Activate QuickPOS for ₦20,000 to keep it after that.`
         : 'QuickPOS is read-only. Reports, exports, printing, and statement email are still available.';
     banner.innerHTML = `
       <div class="subscription-banner ${subscription.can_write ? 'trial' : 'expired'}">
@@ -135,7 +137,7 @@ export function renderLayout(activePage) {
     const stateClass = offline ? 'offline' : attention ? 'attention' : syncing || queued > 0 ? 'pending' : 'online';
     const lastSync = getLastSyncAt();
     const lastSyncCopy = lastSync
-      ? `Updated ${new Date(lastSync).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}`
+      ? `Updated ${new Date(lastSync).toLocaleString('en-NG', { dateStyle: 'short', timeStyle: 'short' })}`
       : 'Connect once to prepare offline data';
     status.className = `offline-status ${stateClass}`;
     status.innerHTML = `

@@ -51,15 +51,17 @@ The QuickPOS Team`;
   return { subject, html, text };
 }
 
-export async function sendWelcomeEmail({ storeId, to, name, storeName }) {
+export async function sendWelcomeEmail({ storeId, to, name, storeName, notificationKey = 'account_created' }) {
   if (!config.email.resendApiKey || !to) return { skipped: true };
 
+  // The key de-duplicates sends: one automatic welcome per store, and manual
+  // resends from the platform console use their own time-boxed key.
   const claimed = await query(
     `INSERT INTO subscription_notifications (store_id, notification_type, notification_key)
-     VALUES ($1, 'welcome', 'account_created')
+     VALUES ($1, 'welcome', $2)
      ON CONFLICT (store_id, notification_type, notification_key) DO NOTHING
      RETURNING id`,
-    [storeId]
+    [storeId, notificationKey]
   );
   if (!claimed.rows[0]) return { skipped: true, duplicate: true };
 

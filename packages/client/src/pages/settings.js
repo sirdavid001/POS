@@ -489,7 +489,7 @@ export async function renderSettings() {
           <div class="form-group">
             <label class="label" for="settings-role">Role *</label>
             <select id="settings-role" class="input" name="role" required>
-              ${allowedRoles.map(r => `<option value="${r}">${r === 'admin' ? '👑 Admin' : r === 'manager' ? '🏢 Manager' : '💳 Cashier'}</option>`).join('')}
+              ${allowedRoles.map(r => `<option value="${r}">${r === 'admin' ? 'Admin' : r === 'manager' ? 'Manager' : 'Cashier'}</option>`).join('')}
             </select>
             <p style="font-size:0.7rem;color:var(--color-text-muted);margin-top:0.35rem;">
               ${isAdmin ? 'You can assign any role.' : 'As a manager, you can only create cashier accounts.'}

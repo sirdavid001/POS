@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 
 const staticHeader = `
+  <a class="skip-link" href="#main-content">Skip to content</a>
   <header class="site-header" data-site-header>
     <div class="site-shell nav-shell">
       <a class="brand" href="/" aria-label="QuickPOS home">
@@ -82,6 +83,7 @@ function staticSeoShell() {
       return html
         .replace('</head>', `${fontLinks}\n</head>`)
         .replace('<header class="site-header" data-site-header></header>', staticHeader)
+        .replace(/<main(?=[\s>])/, '<main id="main-content" tabindex="-1"')
         .replace('<footer class="site-footer" data-site-footer></footer>', staticFooter);
     },
   };
