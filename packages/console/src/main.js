@@ -185,7 +185,10 @@ function renderSignIn(message = '') {
           <label for="signin-email">Email address</label>
           <input id="signin-email" name="email" type="email" autocomplete="username" inputmode="email" spellcheck="false" required>
           <label for="signin-password">Password</label>
-          <input id="signin-password" name="password" type="password" autocomplete="current-password" required>
+          <div class="password-field">
+            <input id="signin-password" name="password" type="password" autocomplete="current-password" required>
+            <button class="password-toggle" type="button" data-password-toggle aria-controls="signin-password" aria-pressed="false">Show password</button>
+          </div>
           <p class="form-error" role="alert" data-form-error>${escapeHtml(message)}</p>
           <button class="button primary" type="submit">Sign in securely</button>
         </form>
@@ -614,6 +617,17 @@ document.addEventListener('submit', (event) => {
 });
 
 document.addEventListener('click', async (event) => {
+  const passwordToggle = event.target.closest('[data-password-toggle]');
+  if (passwordToggle) {
+    const passwordInput = document.getElementById(passwordToggle.getAttribute('aria-controls'));
+    if (!passwordInput) return;
+    const shouldReveal = passwordInput.type === 'password';
+    passwordInput.type = shouldReveal ? 'text' : 'password';
+    passwordToggle.textContent = shouldReveal ? 'Hide password' : 'Show password';
+    passwordToggle.setAttribute('aria-pressed', String(shouldReveal));
+    announce(shouldReveal ? 'Password is visible' : 'Password is hidden');
+    return;
+  }
   const viewButton = event.target.closest('[data-view]');
   if (viewButton) {
     await changeView(viewButton.dataset.view);

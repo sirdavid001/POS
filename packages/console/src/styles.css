@@ -281,6 +281,35 @@ svg {
 .filter-bar input:focus,
 .filter-bar select:focus { border-color: var(--brand-strong); background: var(--surface-raised); }
 
+.password-field { position: relative; }
+.password-field input {
+  padding-inline-end: 132px;
+  caret-color: var(--text);
+  -webkit-text-fill-color: var(--text);
+}
+.password-field input[type="password"] {
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+.password-toggle {
+  position: absolute;
+  inset-block: 5px;
+  inset-inline-end: 5px;
+  display: inline-flex;
+  min-width: 116px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--text);
+  background: var(--surface-soft);
+  font-size: 12px;
+  font-weight: 760;
+  transition: border-color var(--motion-fast) var(--motion-curve), background-color var(--motion-fast) var(--motion-curve);
+}
+.password-toggle:hover { border-color: var(--line-strong); background: var(--surface-raised); }
+
 .signin-form .button { width: 100%; margin-top: 8px; }
 .form-error { min-height: 20px; margin: 2px 0 0; color: var(--danger); font-size: 13px; line-height: 1.5; }
 .auth-note { margin: 24px 0 0; color: var(--faint); font-size: 12px; line-height: 1.6; }
