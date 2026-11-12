@@ -1655,3 +1655,48 @@ select.input { appearance: none; cursor: pointer; }
 .cart-title svg { width: 1.1rem; height: 1.1rem; }
 #close-cart-mobile svg { width: 1rem; height: 1rem; }
 .mobile-cart-toggle svg { width: 1.5rem; height: 1.5rem; }
+
+/* Live support chat */
+.support-chat-link { position: relative; margin-bottom: 0.25rem; }
+.chat-badge { display: inline-grid; min-width: 1.25rem; height: 1.25rem; place-items: center; margin-left: auto; padding: 0 0.35rem; border-radius: 999px; background: var(--color-danger); color: #fff; font-size: 0.7rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.chat-badge[hidden] { display: none; }
+.mobile-topbar-chat { position: relative; margin-left: auto; min-width: 44px; min-height: 44px; padding: 0.5rem; }
+.mobile-topbar-chat svg { width: 1.25rem; height: 1.25rem; }
+.mobile-topbar-chat .chat-badge { position: absolute; top: 2px; right: 0; margin: 0; }
+.chat-overlay { align-items: stretch; justify-content: flex-end; padding: 0; }
+.chat-panel { display: flex; width: min(420px, 100%); max-width: 420px; height: 100%; max-height: none; flex-direction: column; padding: 0; border-radius: 0; overflow: hidden; }
+.chat-header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.75rem; padding: 1rem 1rem 0.85rem; border-bottom: 1px solid var(--color-border); }
+.chat-header h2 { margin: 0; font-size: 1rem; }
+.chat-header p { margin: 0.15rem 0 0; color: var(--color-text-muted); font-size: 0.75rem; line-height: 1.4; }
+.chat-header p[data-tone="warning"] { color: var(--color-warning); }
+.chat-header svg { width: 1.1rem; height: 1.1rem; }
+.chat-avatar { display: grid; width: 2.5rem; height: 2.5rem; place-items: center; border-radius: 0.8rem; color: var(--color-primary-light); background: oklch(0.55 0.2 260 / 0.14); }
+.chat-avatar svg { width: 1.3rem; height: 1.3rem; }
+.chat-log { display: flex; flex: 1; flex-direction: column; gap: 0.75rem; margin: 0; padding: 1rem; overflow-y: auto; list-style: none; overscroll-behavior: contain; }
+.chat-message { display: grid; max-width: 85%; gap: 0.25rem; }
+.chat-message.mine { align-self: flex-end; justify-items: end; }
+.chat-message.theirs { align-self: flex-start; }
+.chat-bubble { padding: 0.6rem 0.85rem; border-radius: 1rem; font-size: 0.875rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat-message.mine .chat-bubble { border-bottom-right-radius: 0.3rem; color: #fff; background: var(--color-primary); }
+.chat-message.theirs .chat-bubble { border-bottom-left-radius: 0.3rem; background: var(--color-surface-3); }
+.chat-meta { color: var(--color-text-muted); font-size: 0.7rem; }
+.chat-system { align-self: center; max-width: 90%; color: var(--color-text-muted); font-size: 0.75rem; text-align: center; }
+.chat-empty { display: grid; gap: 0.35rem; margin: auto 0; padding: 1.5rem; color: var(--color-text-muted); font-size: 0.85rem; line-height: 1.55; text-align: center; }
+.chat-empty strong { color: var(--color-text); font-size: 1rem; }
+.chat-composer { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 0.5rem; padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom)); border-top: 1px solid var(--color-border); }
+.chat-composer textarea { min-height: 2.75rem; max-height: 8rem; resize: vertical; line-height: 1.45; }
+.chat-composer .btn { min-height: 2.75rem; }
+.chat-hint { grid-column: 1 / -1; margin: 0; color: var(--color-text-muted); font-size: 0.7rem; }
+
+/* Platform announcements */
+.announcement-banner { display: flex; align-items: flex-start; gap: 0.75rem; margin: 0 0 0.75rem; padding: 0.75rem 1rem; border: 1px solid oklch(0.55 0.2 260 / 0.35); border-radius: 0.75rem; background: oklch(0.55 0.2 260 / 0.1); }
+.announcement-banner.warning { border-color: oklch(0.75 0.16 85 / 0.45); background: oklch(0.75 0.16 85 / 0.12); }
+.announcement-banner.success { border-color: oklch(0.65 0.2 145 / 0.4); background: oklch(0.65 0.2 145 / 0.1); }
+.announcement-banner > div { display: grid; flex: 1; gap: 0.15rem; min-width: 0; font-size: 0.85rem; line-height: 1.5; }
+.announcement-banner strong { font-size: 0.9rem; }
+.announcement-banner .btn { flex: 0 0 auto; min-width: 2.25rem; padding: 0.25rem 0.5rem; }
+.announcement-banner .btn svg { width: 1rem; height: 1rem; }
+@media (prefers-reduced-motion: no-preference) {
+  .chat-overlay .chat-panel { animation: chatSlideIn 0.2s ease-out; }
+}
+@keyframes chatSlideIn { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }

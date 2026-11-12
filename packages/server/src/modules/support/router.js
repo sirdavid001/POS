@@ -4,6 +4,8 @@ import config from '../../config/index.js';
 import logger from '../../config/logger.js';
 import { validate } from '../../middleware/validate.js';
 import { supportContactSchema } from './schema.js';
+import { activeAnnouncements, storeChatRouter } from './chat.js';
+import { authenticate } from '../../middleware/auth.js';
 import {
   escapeEmailHtml,
   renderEmailDetails,
@@ -100,5 +102,8 @@ router.post('/contact', validate(supportContactSchema), async (req, res, next) =
     next(error);
   }
 });
+
+router.use('/chat', storeChatRouter);
+router.get('/announcements', authenticate, activeAnnouncements);
 
 export default router;

@@ -3,6 +3,7 @@ import { escapeHTML, icons } from '../utils.js';
 import { getSubscription } from '../entitlement.js';
 import { getLastSyncAt, getOfflineQueueCount, getOfflineQueueSummary } from '../offline.js';
 import { attemptSync } from '../sync.js';
+import { mountAnnouncements, mountSupportChat, supportChatButtonMarkup } from '../support-chat.js';
 
 const ACCOUNT_PORTAL_URL = 'https://quickpos.com.ng/account#billing';
 
@@ -48,6 +49,7 @@ export function renderLayout(activePage) {
         </nav>
         <div class="sidebar-footer">
           <div class="offline-status" id="offline-status"></div>
+          ${supportChatButtonMarkup('sidebar')}
           <button id="logout-btn" class="nav-item" type="button" style="color:var(--color-danger);">
             <span class="nav-icon" aria-hidden="true">${icons.logout}</span>
             <span>Logout</span>
@@ -61,7 +63,9 @@ export function renderLayout(activePage) {
             <span aria-hidden="true">${icons.menu}</span>
           </button>
           <span class="mobile-topbar-title">${escapeHTML(pageLabel)}</span>
+          ${supportChatButtonMarkup('topbar')}
         </header>
+        <div id="announcement-banner"></div>
         <div id="subscription-banner"></div>
         <div id="page-content" tabindex="-1">
           <div style="display:flex;align-items:center;justify-content:center;height:60vh;">
@@ -71,6 +75,9 @@ export function renderLayout(activePage) {
       </main>
     </div>
   `;
+
+  mountSupportChat(app);
+  mountAnnouncements(document.getElementById('announcement-banner'));
 
   // Skip link: move focus to the page without touching the hash router.
   app.querySelector('[data-skip-link]').addEventListener('click', (event) => {
