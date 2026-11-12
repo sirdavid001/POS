@@ -54,3 +54,27 @@ export const authorize = (...allowedRoles) => {
     next();
   };
 };
+
+// Platform administration is deliberately separate from a customer's store
+// admin role. A store owner cannot gain cross-store access through their role.
+export const requirePlatformAdmin = async (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  try {
+    const result = await query(
+      `SELECT user_id, granted_at
+       FROM platform_admins
+       WHERE user_id = $1`,
+      [req.user.id]
+    );
+    if (!result.rows[0]) {
+      return res.status(403).json({ error: 'Platform access required' });
+    }
+    req.platformAdmin = result.rows[0];
+    next();
+  } catch (error) {
+    next(error);
+  }
+};

@@ -10,6 +10,7 @@
     "db:migrate": "node src/db/migrate.js",
     "db:seed": "node src/db/seed.js",
     "admin:ensure": "node src/db/ensure-admin.js",
+    "platform-admin:grant": "node src/db/grant-platform-admin.js",
     "test": "vitest run"
   },
   "dependencies": {

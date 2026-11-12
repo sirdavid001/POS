@@ -7,6 +7,7 @@ import { up as migration006 } from './migrations/006_order_integrity.js';
 import { up as migration007 } from './migrations/007_tenant_integrity.js';
 import { up as migration008 } from './migrations/008_rate_limits.js';
 import { up as migration009 } from './migrations/009_refresh_token_uniqueness.js';
+import { up as migration010 } from './migrations/010_platform_admins.js';
 import { getClient, query } from '../config/database.js';
 import logger from '../config/logger.js';
 
@@ -20,6 +21,7 @@ const migrations = [
   ['007_tenant_integrity', migration007],
   ['008_rate_limits', migration008],
   ['009_refresh_token_uniqueness', migration009],
+  ['010_platform_admins', migration010],
 ];
 
 async function runMigrations() {

@@ -231,6 +231,7 @@ if (footer) {
         <a href="/supermarket-pos-software">Supermarket POS software</a>
         <a href="/boutique-pos-software">Boutique and fashion POS</a>
         <a href="/android-pos-app">Android POS app</a>
+        <a href="/windows-pos-software">Windows POS software</a>
         <a href="/best-pos-software-nigeria">Best POS software in Nigeria</a>
         <a href="/pos-machine-vs-pos-software-nigeria">POS machine vs POS software</a>
       </div>

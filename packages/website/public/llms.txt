@@ -29,6 +29,7 @@ Key facts:
 - [Supermarket POS software](https://quickpos.com.ng/supermarket-pos-software): For supermarkets, mini marts, and provision stores
 - [Boutique and fashion POS](https://quickpos.com.ng/boutique-pos-software): For boutiques, fashion, and clothing stores
 - [Android POS app](https://quickpos.com.ng/android-pos-app): Run a store from an Android phone or tablet
+- [Windows POS software](https://quickpos.com.ng/windows-pos-software): Run QuickPOS on a Windows PC, laptop, or POS terminal
 - [Inventory and sales software](https://quickpos.com.ng/inventory-and-sales-software): Stock records tied to every sale
 - [Offline POS software](https://quickpos.com.ng/offline-pos-software): What works offline and what needs a connection
 - [Barcode POS system](https://quickpos.com.ng/barcode-pos-system): Camera, USB, and Bluetooth barcode checkout

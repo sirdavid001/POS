@@ -47,6 +47,7 @@ const staticFooter = `
         <a href="/supermarket-pos-software">Supermarket POS software</a>
         <a href="/boutique-pos-software">Boutique and fashion POS</a>
         <a href="/android-pos-app">Android POS app</a>
+        <a href="/windows-pos-software">Windows POS software</a>
         <a href="/best-pos-software-nigeria">Best POS software in Nigeria</a>
         <a href="/pos-machine-vs-pos-software-nigeria">POS machine vs POS software</a>
       </div>
@@ -112,6 +113,7 @@ export default defineConfig({
         supermarketPosSoftware: resolve(import.meta.dirname, 'supermarket-pos-software.html'),
         boutiquePosSoftware: resolve(import.meta.dirname, 'boutique-pos-software.html'),
         androidPosApp: resolve(import.meta.dirname, 'android-pos-app.html'),
+        windowsPosSoftware: resolve(import.meta.dirname, 'windows-pos-software.html'),
         bestPosSoftwareNigeria: resolve(import.meta.dirname, 'best-pos-software-nigeria.html'),
         posMachineVsPosSoftwareNigeria: resolve(
           import.meta.dirname,

@@ -32,11 +32,20 @@ export default [
     files: [
       'packages/client/src/**/*.js',
       'packages/website/src/**/*.js',
+      'packages/console/src/**/*.js',
     ],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
       globals: globals.browser,
+    },
+  },
+  {
+    files: ['packages/console/public/service-worker.js'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'script',
+      globals: globals.serviceworker,
     },
   },
   {
