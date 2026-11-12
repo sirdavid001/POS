@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { renderLayout } from './layout.js';
-import { escapeHTML, formatCurrency, formatDateTime, icons } from '../utils.js';
+import { currencySymbol, escapeHTML, formatCurrency, formatDateTime, icons } from '../utils.js';
 import {
   BarController,
   BarElement,
@@ -130,11 +130,11 @@ async function renderManagerDashboard() {
       <div class="responsive-grid-2" style="margin-bottom:1.5rem;">
         <div class="glass-card" style="padding:1.25rem;">
           <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">Recent Orders</h3>
-          <div id="recent-orders"><div class="spinner"></div></div>
+          <div id="recent-orders" class="table-scroll-wrapper"><div class="spinner"></div></div>
         </div>
         <div class="glass-card" style="padding:1.25rem;">
           <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">Top Selling Products</h3>
-          <div id="top-products"><div class="spinner"></div></div>
+          <div id="top-products" class="table-scroll-wrapper"><div class="spinner"></div></div>
         </div>
       </div>
 
@@ -240,7 +240,7 @@ async function renderManagerDashboard() {
             y: {
               beginAtZero: true,
               grid: { color: 'rgba(128, 128, 128, 0.1)' },
-              ticks: { callback: (val) => '₦' + Number(val).toLocaleString('en-NG') }
+              ticks: { callback: (val) => currencySymbol() + Number(val).toLocaleString('en-NG') }
             },
             x: {
               grid: { display: false }

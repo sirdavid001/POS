@@ -29,8 +29,59 @@ export function toast(message, type = 'info', duration = 3000) {
 }
 
 // Currency formatter (Nigerian Naira)
+// Money follows the store's currency. Naira output is unchanged from earlier versions.
+const CURRENCY_LOCALES = { NGN: 'en-NG', USD: 'en-US', GBP: 'en-GB', EUR: 'en-IE', GHS: 'en-GH', KES: 'en-KE', ZAR: 'en-ZA', XOF: 'fr-SN' };
+export const SUPPORTED_CURRENCIES = [
+  ['NGN', 'Nigerian naira (₦)'],
+  ['USD', 'US dollar ($)'],
+  ['GBP', 'British pound (£)'],
+  ['EUR', 'Euro (€)'],
+  ['GHS', 'Ghanaian cedi (GH₵)'],
+  ['KES', 'Kenyan shilling (KSh)'],
+  ['ZAR', 'South African rand (R)'],
+  ['XOF', 'West African CFA franc (CFA)'],
+];
+const CURRENCY_KEY = 'quickpos_store_currency';
+
+function readStoredCurrency() {
+  try {
+    const code = localStorage.getItem(CURRENCY_KEY);
+    return CURRENCY_LOCALES[code] ? code : 'NGN';
+  } catch {
+    return 'NGN';
+  }
+}
+
+let storeCurrency = readStoredCurrency();
+const formatters = new Map();
+
+export function setStoreCurrency(code) {
+  const next = String(code || '').toUpperCase();
+  if (!CURRENCY_LOCALES[next] || next === storeCurrency) return;
+  storeCurrency = next;
+  try { localStorage.setItem(CURRENCY_KEY, next); } catch {}
+}
+
+function moneyFormatter() {
+  if (!formatters.has(storeCurrency)) {
+    formatters.set(storeCurrency, new Intl.NumberFormat(CURRENCY_LOCALES[storeCurrency], {
+      style: 'currency', currency: storeCurrency, currencyDisplay: 'narrowSymbol',
+      minimumFractionDigits: 2, maximumFractionDigits: 2,
+    }));
+  }
+  return formatters.get(storeCurrency);
+}
+
+export function currencySymbol() {
+  if (storeCurrency === 'NGN') return '₦';
+  return moneyFormatter().formatToParts(0).find((part) => part.type === 'currency')?.value || storeCurrency;
+}
+
 export function formatCurrency(amount) {
-  return '₦' + Number(amount).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (storeCurrency === 'NGN') {
+    return '₦' + Number(amount).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  return moneyFormatter().format(Number(amount) || 0);
 }
 
 // Date formatter

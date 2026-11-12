@@ -8,6 +8,13 @@ import { pagination } from '../../utils/pagination.js';
 
 const router = Router();
 router.use(authenticate);
+
+// Fixed ORDER BY clauses; the query string only picks one, it is never interpolated.
+const CUSTOMER_SORTS = {
+  name: 'c.name ASC',
+  spent: 'total_spent DESC, c.name ASC',
+  recent: 's.last_visit DESC NULLS LAST, c.name ASC',
+};
 router.use(requireActiveSubscription());
 
 // GET all customers
@@ -15,17 +22,27 @@ router.get('/', async (req, res, next) => {
   try {
     const { search } = req.query;
     const { limit, offset } = pagination(req.query);
+    const order = CUSTOMER_SORTS[req.query.sort] || CUSTOMER_SORTS.name;
 
-    let sql = 'SELECT * FROM customers WHERE store_id = $1';
+    // Lifetime totals from completed sales, so owners can find their best customers.
+    let sql = `SELECT c.*, COALESCE(s.order_count, 0) AS order_count,
+                      COALESCE(s.total_spent, 0) AS total_spent, s.last_visit
+               FROM customers c
+               LEFT JOIN LATERAL (
+                 SELECT COUNT(*) AS order_count, SUM(o.total) AS total_spent, MAX(o.created_at) AS last_visit
+                 FROM orders o
+                 WHERE o.customer_id = c.id AND o.store_id = c.store_id AND o.status = 'completed'
+               ) s ON true
+               WHERE c.store_id = $1`;
     const params = [req.user.store_id];
     let idx = 2;
 
     if (search) {
-      sql += ` AND (name ILIKE $${idx} OR email ILIKE $${idx} OR phone ILIKE $${idx})`;
+      sql += ` AND (c.name ILIKE $${idx} OR c.email ILIKE $${idx} OR c.phone ILIKE $${idx})`;
       params.push(`%${search}%`); idx++;
     }
 
-    sql += ` ORDER BY name LIMIT $${idx} OFFSET $${idx + 1}`;
+    sql += ` ORDER BY ${order} LIMIT $${idx} OFFSET $${idx + 1}`;
     params.push(limit, offset);
 
     const result = await query(sql, params);
@@ -47,12 +64,35 @@ router.get('/:id', async (req, res, next) => {
     const custResult = await query('SELECT * FROM customers WHERE id = $1 AND store_id = $2', [req.params.id, req.user.store_id]);
     if (custResult.rows.length === 0) return res.status(404).json({ error: 'Customer not found' });
 
-    const ordersResult = await query(
-      'SELECT * FROM orders WHERE customer_id = $1 AND store_id = $2 ORDER BY created_at DESC LIMIT 20',
-      [req.params.id, req.user.store_id]
-    );
+    const [ordersResult, statsResult, favouritesResult] = await Promise.all([
+      query(
+        'SELECT * FROM orders WHERE customer_id = $1 AND store_id = $2 ORDER BY created_at DESC LIMIT 20',
+        [req.params.id, req.user.store_id]
+      ),
+      query(
+        `SELECT COUNT(*) AS order_count, COALESCE(SUM(total), 0) AS total_spent,
+                MIN(created_at) AS first_visit, MAX(created_at) AS last_visit
+         FROM orders WHERE customer_id = $1 AND store_id = $2 AND status = 'completed'`,
+        [req.params.id, req.user.store_id]
+      ),
+      query(
+        `SELECT oi.product_name, SUM(oi.quantity) AS quantity, SUM(oi.total) AS revenue
+         FROM order_items oi
+         JOIN orders o ON o.id = oi.order_id AND o.store_id = oi.store_id
+         WHERE o.customer_id = $1 AND o.store_id = $2 AND o.status = 'completed'
+         GROUP BY oi.product_name
+         ORDER BY quantity DESC
+         LIMIT 5`,
+        [req.params.id, req.user.store_id]
+      ),
+    ]);
 
-    res.json({ customer: custResult.rows[0], orders: ordersResult.rows });
+    res.json({
+      customer: custResult.rows[0],
+      orders: ordersResult.rows,
+      stats: statsResult.rows[0],
+      favourite_products: favouritesResult.rows,
+    });
   } catch (err) { next(err); }
 });
 

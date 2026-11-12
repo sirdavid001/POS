@@ -2,7 +2,7 @@ import { api } from '../api.js';
 import { canWriteBusinessData } from '../entitlement.js';
 import { renderLayout } from './layout.js';
 import { mountCustomerPicker } from '../customer-picker.js';
-import { escapeAttribute, escapeHTML, formatCurrency, toast, debounce, icons } from '../utils.js';
+import { currencySymbol, escapeAttribute, escapeHTML, formatCurrency, toast, debounce, icons } from '../utils.js';
 import { startUSBScanner, stopUSBScanner, openCameraScanner, scanButtonHTML } from '../scanner.js';
 import {
   calculateCartTotals,
@@ -171,7 +171,7 @@ function showPaymentModal() {
         <div class="discount-row">
           <input class="input" id="payment-discount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" autocomplete="off">
           <select class="input" id="payment-discount-unit" aria-label="Discount type">
-            <option value="amount">₦ off</option>
+            <option value="amount">${currencySymbol()} off</option>
             <option value="percent">% off</option>
           </select>
         </div>
@@ -400,6 +400,7 @@ function showReceiptModal(order, { cashReceived = null, cashChange = null, custo
   overlay.innerHTML = `
     <div class="modal receipt-printable" role="dialog" aria-modal="true" aria-labelledby="receipt-title" style="max-width:380px;font-family:monospace;">
       <div style="text-align:center;border-bottom:1px dashed var(--color-border);padding-bottom:1rem;margin-bottom:1rem;">
+        ${storeSettings.logo_url ? `<img class="receipt-logo" src="${escapeAttribute(storeSettings.logo_url)}" alt="" width="56" height="56">` : ''}
         <h3 id="receipt-title" style="font-size:1.1rem;">${shopName}</h3>
         ${storeContact.map((line) => `<div class="receipt-contact">${escapeHTML(line)}</div>`).join('')}
         ${receiptHeader}

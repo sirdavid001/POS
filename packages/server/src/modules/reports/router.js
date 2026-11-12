@@ -10,6 +10,7 @@ import {
   sendStatementEmail,
 } from './statement.js';
 import { positiveInteger } from '../../utils/pagination.js';
+import { getInsights, insightsRange } from './insights.js';
 
 const router = Router();
 router.use(authenticate);
@@ -134,6 +135,21 @@ router.get('/sales', async (req, res, next) => {
 
     const result = await query(sql, params);
     res.json({ sales: result.rows });
+  } catch (err) { next(err); }
+});
+
+// Owner insights for a date range: totals vs the previous period, payment methods,
+// cashiers, refunds and estimated profit by product.
+router.get('/insights', async (req, res, next) => {
+  try {
+    const range = insightsRange(req.query.start, req.query.end);
+    if (!range) {
+      return res.status(400).json({ error: 'Choose a start and end date (YYYY-MM-DD), with the end on or after the start' });
+    }
+    if (range.days > 366) {
+      return res.status(400).json({ error: 'Choose a range of one year or less' });
+    }
+    res.json(await getInsights(query, req.user.store_id, range));
   } catch (err) { next(err); }
 });
 

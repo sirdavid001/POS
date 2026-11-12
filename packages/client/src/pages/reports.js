@@ -1,161 +1,278 @@
 import { api } from '../api.js';
 import { renderLayout } from './layout.js';
-import { escapeHTML, formatCurrency, toast } from '../utils.js';
+import { downloadCSV, escapeHTML, formatCurrency, toast } from '../utils.js';
 import { showStoreStatementModal } from './store-statement.js';
+
+const PRESETS = [
+  ['today', 'Today'],
+  ['yesterday', 'Yesterday'],
+  ['7d', 'Last 7 days'],
+  ['30d', 'Last 30 days'],
+  ['month', 'This month'],
+  ['last-month', 'Last month'],
+];
+
+function dayKey(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function presetRange(preset, now = new Date()) {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const daysAgo = (n) => new Date(today.getFullYear(), today.getMonth(), today.getDate() - n);
+  switch (preset) {
+    case 'yesterday': return { start: dayKey(daysAgo(1)), end: dayKey(daysAgo(1)) };
+    case '7d': return { start: dayKey(daysAgo(6)), end: dayKey(today) };
+    case '30d': return { start: dayKey(daysAgo(29)), end: dayKey(today) };
+    case 'month': return { start: dayKey(new Date(today.getFullYear(), today.getMonth(), 1)), end: dayKey(today) };
+    case 'last-month': return {
+      start: dayKey(new Date(today.getFullYear(), today.getMonth() - 1, 1)),
+      end: dayKey(new Date(today.getFullYear(), today.getMonth(), 0)),
+    };
+    default: return { start: dayKey(today), end: dayKey(today) };
+  }
+}
+
+function presetFor(start, end) {
+  return PRESETS.find(([id]) => {
+    const range = presetRange(id);
+    return range.start === start && range.end === end;
+  })?.[0] || 'custom';
+}
+
+const formatDay = (key) => new Date(`${key}T00:00:00`).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
+const formatPercent = (value) => `${Number(value).toLocaleString('en-NG', { maximumFractionDigits: 1 })}%`;
+const plural = (n, word) => `${Number(n).toLocaleString('en-NG')} ${word}${Number(n) === 1 ? '' : 's'}`;
+const titleCase = (value) => String(value || '').replace(/(^|_)(\w)/g, (_, gap, letter) => (gap ? ' ' : '') + letter.toUpperCase());
+
+function changeLine(current, previous, label) {
+  if (!previous) return current ? `No sales in the previous ${label}` : `No sales in this or the previous ${label}`;
+  const change = ((current - previous) / previous) * 100;
+  const direction = change > 0.05 ? 'up' : change < -0.05 ? 'down' : 'flat';
+  const arrow = direction === 'up' ? '▲' : direction === 'down' ? '▼' : '■';
+  return `<span class="trend trend-${direction}"><span aria-hidden="true">${arrow}</span> ${formatPercent(Math.abs(change))}</span> vs previous ${label} (${formatCurrency(previous)})`;
+}
+
+function shareTable(rows, labelKey, labelHeading, total) {
+  if (!rows.length) return '<p class="report-empty">No sales in this range.</p>';
+  return `
+    <table class="data-table report-table">
+      <thead><tr><th>${labelHeading}</th><th class="num">Orders</th><th class="num">Revenue</th><th class="num">Share</th></tr></thead>
+      <tbody>
+        ${rows.map((row) => {
+          const share = total ? (row.revenue / total) * 100 : 0;
+          return `
+            <tr>
+              <td>${escapeHTML(labelKey === 'method' ? titleCase(row.method) : row[labelKey])}</td>
+              <td class="num">${row.orders.toLocaleString('en-NG')}</td>
+              <td class="num">${formatCurrency(row.revenue)}</td>
+              <td class="num"><span class="share-bar" aria-hidden="true"><span style="width:${share.toFixed(1)}%"></span></span>${formatPercent(share)}</td>
+            </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
 
 export async function renderReports() {
   const content = renderLayout('reports');
+  const hashParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
+  let range = hashParams.get('start') && hashParams.get('end')
+    ? { start: hashParams.get('start'), end: hashParams.get('end') }
+    : presetRange('month');
+  let insights = null;
 
   content.innerHTML = `
     <div class="animate-fade-in">
       <div class="page-header">
         <h1>Reports</h1>
-        <button class="btn btn-ghost" id="export-csv-btn">📥 Export CSV</button>
-      </div>
-
-      <div style="display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">
-        <select class="input" id="report-period" style="max-width:160px;">
-          <option value="daily">Daily</option>
-          <option value="weekly">Weekly</option>
-          <option value="monthly">Monthly</option>
-        </select>
-        <input class="input" type="date" id="report-start" style="max-width:180px;">
-        <input class="input" type="date" id="report-end" style="max-width:180px;">
-        <button class="btn btn-primary" id="load-report-btn">Generate</button>
-      </div>
-
-      <div class="glass-card" style="padding:1.25rem;margin-bottom:1.5rem;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
-          <div>
-            <h3 style="font-size:1rem;font-weight:700;">Store Sales Statement</h3>
-            <p style="font-size:0.8rem;color:var(--color-text-muted);margin-top:0.25rem;">
-              Generate the owner's complete transaction statement for the selected date range.
-            </p>
-          </div>
-          <button class="btn btn-primary" id="open-statement-btn">Open Statement</button>
+        <div class="report-header-actions">
+          <button class="btn btn-ghost btn-sm" type="button" id="export-csv-btn">Export CSV</button>
+          <button class="btn btn-primary btn-sm" type="button" id="open-statement-btn">Store statement</button>
         </div>
       </div>
 
-      <div class="stat-grid" id="report-stats">
+      <section class="report-range glass-card" aria-label="Date range">
+        <div class="report-presets" role="group" aria-label="Quick ranges">
+          ${PRESETS.map(([id, label]) => `<button type="button" class="category-chip" data-preset="${id}" aria-pressed="false">${label}</button>`).join('')}
+        </div>
+        <form class="report-custom" id="report-custom">
+          <label class="sr-only" for="report-start">Start date</label>
+          <input class="input" type="date" id="report-start" required>
+          <span aria-hidden="true">to</span>
+          <label class="sr-only" for="report-end">End date</label>
+          <input class="input" type="date" id="report-end" required>
+          <button class="btn btn-ghost btn-sm" type="submit">Apply</button>
+        </form>
+        <p class="report-range-label" id="report-range-label" aria-live="polite"></p>
+      </section>
+
+      <div class="stat-grid" id="report-stats" aria-busy="true">
         <div class="stat-card"><div class="spinner"></div></div>
       </div>
 
-      <div class="responsive-grid-2">
-        <div class="glass-card" style="padding:1.25rem;">
-          <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">Sales Breakdown</h3>
-          <div id="sales-breakdown"><div class="spinner"></div></div>
-        </div>
-        <div class="glass-card" style="padding:1.25rem;">
-          <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">Top Products</h3>
-          <div id="report-top-products"><div class="spinner"></div></div>
-        </div>
+      <div class="responsive-grid-2 report-grid">
+        <section class="glass-card report-card" aria-labelledby="pay-heading">
+          <h2 id="pay-heading">Sales by payment method</h2>
+          <div class="table-scroll-wrapper" id="report-payments"><div class="spinner"></div></div>
+        </section>
+        <section class="glass-card report-card" aria-labelledby="cashier-heading">
+          <h2 id="cashier-heading">Sales by cashier</h2>
+          <div class="table-scroll-wrapper" id="report-cashiers"><div class="spinner"></div></div>
+        </section>
       </div>
+
+      <section class="glass-card report-card" aria-labelledby="product-heading">
+        <div class="report-card-head">
+          <h2 id="product-heading">Profit by product</h2>
+          <p id="report-profit-note"></p>
+        </div>
+        <div class="table-scroll-wrapper" id="report-products"><div class="spinner"></div></div>
+      </section>
+
+      <section class="glass-card report-card" aria-labelledby="daily-heading">
+        <h2 id="daily-heading">Sales by day</h2>
+        <div class="table-scroll-wrapper" id="sales-breakdown"><div class="spinner"></div></div>
+      </section>
     </div>
   `;
 
-  const openStatementButton = document.getElementById('open-statement-btn');
+  const startInput = document.getElementById('report-start');
+  const endInput = document.getElementById('report-end');
 
-  openStatementButton.addEventListener('click', () => {
-    showStoreStatementModal({
-      start_date: document.getElementById('report-start').value,
-      end_date: document.getElementById('report-end').value,
-    });
-  });
-
-  async function loadReport() {
-    try {
-      const period = document.getElementById('report-period').value;
-      const startDate = document.getElementById('report-start').value;
-      const endDate = document.getElementById('report-end').value;
-
-      let url = `/reports/sales?period=${period}`;
-      if (startDate) url += `&start_date=${startDate}`;
-      if (endDate) url += `&end_date=${endDate}`;
-
-      const [salesData, revenue, topProducts] = await Promise.all([
-        api.get(url),
-        api.get('/reports/revenue'),
-        api.get('/reports/top-products?limit=10'),
-      ]);
-
-      // Stats
-      document.getElementById('report-stats').innerHTML = `
-        <div class="stat-card">
-          <div class="stat-label">Today</div>
-          <div class="stat-value" style="color:var(--color-accent);">${formatCurrency(revenue.today.revenue)}</div>
-          <div class="stat-change" style="color:var(--color-text-muted);">${Number(revenue.today.orders) || 0} order${Number(revenue.today.orders) === 1 ? '' : 's'}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">This Month</div>
-          <div class="stat-value">${formatCurrency(revenue.thisMonth.revenue)}</div>
-          <div class="stat-change" style="color:var(--color-text-muted);">${Number(revenue.thisMonth.orders) || 0} order${Number(revenue.thisMonth.orders) === 1 ? '' : 's'}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">All Time Revenue</div>
-          <div class="stat-value">${formatCurrency(revenue.allTime.revenue)}</div>
-        </div>
-      `;
-
-      // Sales breakdown table
-      if (salesData.sales.length === 0) {
-        document.getElementById('sales-breakdown').innerHTML = '<p style="color:var(--color-text-muted);">No data for selected period.</p>';
-      } else {
-        document.getElementById('sales-breakdown').innerHTML = `
-          <table class="data-table">
-            <thead><tr><th>Period</th><th>Orders</th><th>Revenue</th><th>Avg Order</th></tr></thead>
-            <tbody>
-              ${salesData.sales.map(s => `
-                <tr>
-                  <td style="font-weight:600;">${escapeHTML(s.period)}</td>
-                  <td>${s.total_orders}</td>
-                  <td style="color:var(--color-accent);">${formatCurrency(s.revenue)}</td>
-                  <td>${formatCurrency(s.avg_order_value)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
-      }
-
-      // Top products
-      if (topProducts.products.length === 0) {
-        document.getElementById('report-top-products').innerHTML = '<p style="color:var(--color-text-muted);">No sales data.</p>';
-      } else {
-        document.getElementById('report-top-products').innerHTML = topProducts.products.map((p, i) => `
-          <div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;border-bottom:1px solid var(--color-border);">
-            <span class="badge badge-info" style="min-width:30px;justify-content:center;">#${i + 1}</span>
-            <span style="flex:1;font-size:0.85rem;">${escapeHTML(p.product_name)}</span>
-            <span style="font-size:0.8rem;color:var(--color-text-muted);">${p.total_quantity} sold</span>
-            <span style="font-weight:700;font-size:0.85rem;">${formatCurrency(p.total_revenue)}</span>
-          </div>
-        `).join('');
-      }
-    } catch { toast('Failed to load report', 'error'); }
+  function syncRangeControls() {
+    startInput.value = range.start;
+    endInput.value = range.end;
+    const preset = presetFor(range.start, range.end);
+    document.querySelectorAll('[data-preset]').forEach((chip) => chip.setAttribute('aria-pressed', String(chip.dataset.preset === preset)));
+    document.getElementById('report-range-label').textContent = range.start === range.end
+      ? formatDay(range.start)
+      : `${formatDay(range.start)} – ${formatDay(range.end)}`;
+    history.replaceState(null, '', `#/reports?start=${range.start}&end=${range.end}`);
   }
 
-  document.getElementById('load-report-btn').addEventListener('click', loadReport);
+  function renderInsights(data) {
+    const { summary, previous, refunds, profit } = data;
+    const days = data.range.days;
+    const periodLabel = days === 1 ? 'day' : `${days} days`;
+    document.getElementById('report-stats').removeAttribute('aria-busy');
+    document.getElementById('report-stats').innerHTML = `
+      <div class="stat-card">
+        <div class="stat-label">Revenue</div>
+        <div class="stat-value">${formatCurrency(summary.revenue)}</div>
+        <div class="stat-change">${changeLine(summary.revenue, previous.revenue, periodLabel)}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Orders</div>
+        <div class="stat-value">${summary.orders.toLocaleString('en-NG')}</div>
+        <div class="stat-change">${summary.orders ? `Average ${formatCurrency(summary.average_order)} · ${plural(summary.items_sold, 'item')} sold` : 'No completed sales'}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Gross profit (estimate)</div>
+        <div class="stat-value">${profit.costed_share > 0 ? formatCurrency(profit.gross_profit) : '—'}</div>
+        <div class="stat-change">${profit.costed_share > 0
+          ? `${profit.margin !== null ? `${formatPercent(profit.margin)} margin · ` : ''}from ${formatPercent(profit.costed_share)} of sales with a cost price`
+          : 'Add cost prices to products to see profit'}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Refunds</div>
+        <div class="stat-value">${formatCurrency(refunds.total)}</div>
+        <div class="stat-change">${refunds.count ? plural(refunds.count, 'refund') : 'No refunds'} · ${formatCurrency(summary.discounts)} in discounts</div>
+      </div>
+    `;
 
-  // CSV export
-  document.getElementById('export-csv-btn').addEventListener('click', async () => {
+    document.getElementById('report-payments').innerHTML = shareTable(data.payment_methods, 'method', 'Method', summary.revenue);
+    document.getElementById('report-cashiers').innerHTML = shareTable(data.cashiers, 'cashier', 'Cashier', summary.revenue);
+
+    document.getElementById('report-profit-note').textContent = profit.costed_share < 100 && summary.orders
+      ? 'Profit uses each product’s current cost price. Products without a cost price show a dash.'
+      : 'Profit uses each product’s current cost price.';
+    document.getElementById('report-products').innerHTML = data.products.length ? `
+      <table class="data-table report-table">
+        <thead><tr><th>Product</th><th class="num">Qty</th><th class="num">Revenue</th><th class="num">Cost</th><th class="num">Profit</th><th class="num">Margin</th></tr></thead>
+        <tbody>
+          ${data.products.map((row) => `
+            <tr>
+              <td>${escapeHTML(row.product_name)}</td>
+              <td class="num">${row.quantity.toLocaleString('en-NG')}</td>
+              <td class="num">${formatCurrency(row.revenue)}</td>
+              <td class="num">${row.cost === null ? '—' : formatCurrency(row.cost)}</td>
+              <td class="num ${row.profit !== null && row.profit < 0 ? 'negative' : ''}">${row.profit === null ? '—' : formatCurrency(row.profit)}</td>
+              <td class="num">${row.profit === null || !row.revenue ? '—' : formatPercent((row.profit / row.revenue) * 100)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>` : '<p class="report-empty">No products sold in this range.</p>';
+  }
+
+  async function loadDaily() {
+    const target = document.getElementById('sales-breakdown');
     try {
-      const period = document.getElementById('report-period').value;
-      const data = await api.get(`/reports/sales?period=${period}`);
+      const data = await api.get(`/reports/sales?period=daily&start_date=${range.start}&end_date=${range.end}T23:59:59`);
+      const rows = (data.sales || []).filter((row) => row.period >= range.start && row.period <= range.end);
+      target.innerHTML = rows.length ? `
+        <table class="data-table report-table">
+          <thead><tr><th>Day</th><th class="num">Orders</th><th class="num">Revenue</th><th class="num">Discounts</th><th class="num">Avg order</th></tr></thead>
+          <tbody>
+            ${rows.map((row) => `
+              <tr>
+                <td>${escapeHTML(formatDay(row.period))}</td>
+                <td class="num">${Number(row.total_orders).toLocaleString('en-NG')}</td>
+                <td class="num">${formatCurrency(row.revenue)}</td>
+                <td class="num">${formatCurrency(row.total_discounts || 0)}</td>
+                <td class="num">${formatCurrency(row.avg_order_value)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>` : '<p class="report-empty">No sales in this range.</p>';
+    } catch {
+      target.innerHTML = '<p class="report-empty">Daily sales are not available right now.</p>';
+    }
+  }
 
-      let csv = 'Period,Orders,Revenue,Discounts,Tax,Avg Order Value\n';
-      data.sales.forEach(s => {
-        csv += `${s.period},${s.total_orders},${s.revenue},${s.total_discounts},${s.total_tax},${s.avg_order_value}\n`;
-      });
+  async function load() {
+    syncRangeControls();
+    document.getElementById('report-stats').setAttribute('aria-busy', 'true');
+    try {
+      insights = await api.get(`/reports/insights?start=${range.start}&end=${range.end}`);
+      if (!insights?.summary) throw new Error('Reports for this range are not saved on this device yet.');
+      renderInsights(insights);
+    } catch (err) {
+      insights = null;
+      document.getElementById('report-stats').innerHTML = `<div class="stat-card report-error" role="alert">${escapeHTML(err.message || 'Could not load reports')}. Check the connection and try again.</div>`;
+      ['report-payments', 'report-cashiers', 'report-products'].forEach((id) => { document.getElementById(id).innerHTML = ''; });
+    }
+    loadDaily();
+  }
 
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `pos-report-${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast('Report exported', 'success');
-    } catch { toast('Export failed', 'error'); }
+  document.querySelectorAll('[data-preset]').forEach((chip) => chip.addEventListener('click', () => {
+    range = presetRange(chip.dataset.preset);
+    load();
+  }));
+  document.getElementById('report-custom').addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (!startInput.value || !endInput.value || endInput.value < startInput.value) {
+      toast('Choose an end date on or after the start date', 'warning');
+      return;
+    }
+    range = { start: startInput.value, end: endInput.value };
+    load();
   });
 
-  await loadReport();
+  document.getElementById('open-statement-btn').addEventListener('click', () => {
+    showStoreStatementModal({ start_date: range.start, end_date: range.end });
+  });
+
+  document.getElementById('export-csv-btn').addEventListener('click', () => {
+    if (!insights?.products?.length) {
+      toast('No sales to export for this range', 'warning');
+      return;
+    }
+    downloadCSV(insights.products.map((row) => ({
+      Product: row.product_name,
+      Quantity: row.quantity,
+      Revenue: row.revenue,
+      Cost: row.cost ?? '',
+      Profit: row.profit ?? '',
+    })), `QuickPOS_Report_${range.start}_to_${range.end}.csv`);
+  });
+
+  await load();
 }

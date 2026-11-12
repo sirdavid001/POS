@@ -6,6 +6,7 @@ import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import { createServer } from 'http';
 import { WebSocket, WebSocketServer } from 'ws';
+import { computeInsightsFromOrders } from '../../shared/src/insights.js';
 
 const app = express();
 const server = createServer(app);
@@ -294,13 +295,52 @@ app.post('/api/v1/orders/:id/refund', auth, (req, res) => {
 });
 
 // ===== Customers =====
+function customerStats(customerId) {
+  const completed = orders.filter(o => o.customer_id == customerId && o.status === 'completed');
+  return {
+    order_count: completed.length,
+    total_spent: completed.reduce((sum, o) => sum + Number(o.total), 0).toFixed(2),
+    last_visit: completed[0]?.created_at || null,
+    first_visit: completed[completed.length - 1]?.created_at || null,
+  };
+}
+
 app.get('/api/v1/customers', auth, (req, res) => {
-  let result = [...customers];
+  let result = customers.map(c => ({ ...c, ...customerStats(c.id) }));
   if (req.query.search) {
     const s = req.query.search.toLowerCase();
-    result = result.filter(c => c.name.toLowerCase().includes(s) || c.email?.toLowerCase().includes(s));
+    result = result.filter(c => c.name.toLowerCase().includes(s) || c.email?.toLowerCase().includes(s) || c.phone?.includes(s));
   }
+  if (req.query.sort === 'spent') result.sort((a, b) => Number(b.total_spent) - Number(a.total_spent));
+  else if (req.query.sort === 'recent') result.sort((a, b) => String(b.last_visit || '').localeCompare(String(a.last_visit || '')));
+  else result.sort((a, b) => a.name.localeCompare(b.name));
   res.json({ customers: result, total: result.length });
+});
+
+app.patch('/api/v1/customers/:id', auth, (req, res) => {
+  const customer = customers.find(c => c.id == req.params.id);
+  if (!customer) return res.status(404).json({ error: 'Customer not found' });
+  Object.assign(customer, req.body, { updated_at: new Date().toISOString() });
+  res.json({ customer });
+});
+
+app.get('/api/v1/customers/:id', auth, (req, res) => {
+  const customer = customers.find(c => c.id == req.params.id);
+  if (!customer) return res.status(404).json({ error: 'Customer not found' });
+  const history = orders.filter(o => o.customer_id == customer.id);
+  const favourites = new Map();
+  history.filter(o => o.status === 'completed').forEach(o => (o.items || []).forEach(item => {
+    const row = favourites.get(item.product_name) || { product_name: item.product_name, quantity: 0, revenue: 0 };
+    row.quantity += item.quantity;
+    row.revenue += Number(item.total);
+    favourites.set(item.product_name, row);
+  }));
+  res.json({
+    customer,
+    orders: history.slice(0, 20),
+    stats: customerStats(customer.id),
+    favourite_products: [...favourites.values()].sort((a, b) => b.quantity - a.quantity).slice(0, 5),
+  });
 });
 
 app.post('/api/v1/customers', auth, (req, res) => {
@@ -335,9 +375,29 @@ app.post('/api/v1/inventory/suppliers', auth, (req, res) => {
   res.status(201).json({ supplier });
 });
 
+app.patch('/api/v1/inventory/suppliers/:id', auth, (req, res) => {
+  const supplier = suppliers.find(s => s.id == req.params.id);
+  if (!supplier) return res.status(404).json({ error: 'Supplier not found' });
+  Object.assign(supplier, req.body, { updated_at: new Date().toISOString() });
+  res.json({ supplier });
+});
+
+app.delete('/api/v1/inventory/suppliers/:id', auth, (req, res) => {
+  const index = suppliers.findIndex(s => s.id == req.params.id);
+  if (index === -1) return res.status(404).json({ error: 'Supplier not found' });
+  suppliers.splice(index, 1);
+  res.json({ message: 'Supplier deleted' });
+});
+
 app.get('/api/v1/inventory/purchase-orders', auth, (req, res) => res.json({ purchaseOrders: [] }));
 
 // ===== Reports =====
+app.get('/api/v1/reports/insights', auth, (req, res) => {
+  const result = computeInsightsFromOrders({ orders, products, start: req.query.start, end: req.query.end });
+  if (!result) return res.status(400).json({ error: 'Choose a start and end date (YYYY-MM-DD), with the end on or after the start' });
+  res.json(result);
+});
+
 app.get('/api/v1/reports/revenue', auth, (req, res) => {
   const todayOrders = orders.filter(o => o.status === 'completed');
   const totalRevenue = todayOrders.reduce((s, o) => s + parseFloat(o.total), 0);

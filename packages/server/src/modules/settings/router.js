@@ -20,6 +20,21 @@ router.get('/store', async (req, res, next) => {
 router.patch('/store', authorize('admin'), async (req, res, next) => {
   try {
     const { name, address, phone, email, tax_rate, currency, logo_url, receipt_header, receipt_footer } = req.body;
+    // Logo: empty string removes it; otherwise an HTTPS URL or a small inline image.
+    if (logo_url !== undefined && logo_url !== null && logo_url !== '') {
+      const value = String(logo_url);
+      const isInlineImage = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value) && value.length <= 300000;
+      const isHttps = /^https:\/\/[^\s]+$/i.test(value) && value.length <= 2048;
+      if (!isInlineImage && !isHttps) {
+        return res.status(400).json({ error: 'Logo must be a PNG, JPG or WebP image under 200 KB' });
+      }
+    }
+    if (tax_rate !== undefined && tax_rate !== null && (!Number.isFinite(Number(tax_rate)) || Number(tax_rate) < 0 || Number(tax_rate) > 100)) {
+      return res.status(400).json({ error: 'Tax rate must be between 0 and 100' });
+    }
+    if (currency !== undefined && currency !== null && !/^[A-Z]{3}$/.test(String(currency))) {
+      return res.status(400).json({ error: 'Currency must be a three-letter code such as NGN' });
+    }
     const result = await query(
       `UPDATE stores SET
         name = COALESCE($1,name), address = COALESCE($2,address), phone = COALESCE($3,phone),

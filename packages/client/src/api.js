@@ -109,7 +109,9 @@ class ApiClient {
           return enqueueOfflineRequest({ method, path, data });
         }
       }
-      throw new Error(`Server returned an invalid response (HTTP ${response.status}). Please check your connection.`);
+      throw new Error(response.status >= 500
+        ? `The QuickPOS server had a problem (HTTP ${response.status}). Try again in a moment.`
+        : `The QuickPOS server could not handle this request (HTTP ${response.status}).`);
     }
 
     if (json.subscription) {

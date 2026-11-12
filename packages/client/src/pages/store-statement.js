@@ -33,7 +33,15 @@ function triggerDownload(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
+function thisMonth() {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const key = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  return { start_date: key(new Date(now.getFullYear(), now.getMonth(), 1)), end_date: key(now) };
+}
+
 export function showStoreStatementModal(initialFilters = {}) {
+  if (!initialFilters.start_date && !initialFilters.end_date) initialFilters = thisMonth();
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
@@ -56,7 +64,7 @@ export function showStoreStatementModal(initialFilters = {}) {
             <label class="label" for="statement-end">End Date</label>
             <input class="input" type="date" id="statement-end" value="${escapeHtml(initialFilters.end_date || '')}">
           </div>
-          <button class="btn btn-primary" id="generate-statement">Generate</button>
+          <button class="btn btn-primary" id="generate-statement" type="button">Generate</button>
         </div>
       </div>
 
@@ -66,9 +74,9 @@ export function showStoreStatementModal(initialFilters = {}) {
 
       <div class="no-print" style="border-top:1px solid var(--color-border);margin-top:1rem;padding-top:1rem;">
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;">
-          <button class="btn btn-ghost" id="print-statement">Print</button>
-          <button class="btn btn-ghost" id="download-statement-pdf">Download PDF</button>
-          <button class="btn btn-ghost" id="download-statement-excel">Download Excel</button>
+          <button class="btn btn-ghost" id="print-statement" type="button" data-needs-statement disabled>Print</button>
+          <button class="btn btn-ghost" id="download-statement-pdf" type="button" data-needs-statement disabled>Download PDF</button>
+          <button class="btn btn-ghost" id="download-statement-excel" type="button" data-needs-statement disabled>Download Excel</button>
         </div>
         <div class="statement-email-controls">
           <div>
@@ -82,7 +90,7 @@ export function showStoreStatementModal(initialFilters = {}) {
               <option value="xlsx">Excel</option>
             </select>
           </div>
-          <button class="btn btn-primary" id="email-statement">Send Email</button>
+          <button class="btn btn-primary" id="email-statement" type="button" data-needs-statement disabled>Send Email</button>
         </div>
       </div>
     </div>
@@ -164,8 +172,13 @@ export function showStoreStatementModal(initialFilters = {}) {
     `;
   }
 
+  function setActionsReady(ready) {
+    overlay.querySelectorAll('[data-needs-statement]').forEach((button) => { button.disabled = !ready; });
+  }
+
   async function loadStatement() {
     if (!validateDates()) return;
+    setActionsReady(false);
     documentEl.innerHTML = '<div style="display:flex;justify-content:center;padding:3rem;"><div class="spinner spinner-lg"></div></div>';
 
     try {
@@ -175,9 +188,11 @@ export function showStoreStatementModal(initialFilters = {}) {
         emailInput.value = currentStatement.store.email;
       }
       renderStatement(currentStatement);
+      setActionsReady(true);
     } catch (err) {
       currentStatement = null;
-      documentEl.innerHTML = `<div class="empty-state"><p>${escapeHtml(err.message || 'Failed to load statement')}</p></div>`;
+      documentEl.innerHTML = `<div class="empty-state" role="alert"><p>Could not load the statement: ${escapeHtml(err.message || 'unknown error')}</p><button class="btn btn-ghost btn-sm" type="button" id="retry-statement" style="margin-top:0.75rem;">Try again</button></div>`;
+      documentEl.querySelector('#retry-statement')?.addEventListener('click', loadStatement);
     }
   }
 
@@ -213,7 +228,7 @@ export function showStoreStatementModal(initialFilters = {}) {
     if (!email) return toast('Enter the owner email address', 'error');
 
     button.disabled = true;
-    button.textContent = 'Sending...';
+    button.textContent = 'Sending…';
     try {
       await api.post('/reports/statement/email', {
         email,

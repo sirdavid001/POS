@@ -1,6 +1,32 @@
 import { api } from '../api.js';
 import { renderLayout } from './layout.js';
-import { escapeAttribute, escapeHTML, toast } from '../utils.js';
+import { SUPPORTED_CURRENCIES, escapeAttribute, escapeHTML, formatCurrency, icons, setStoreCurrency, toast } from '../utils.js';
+
+// Shrinks an uploaded logo to at most 240px so it stays small enough to store and print.
+async function resizeLogo(file) {
+  if (!/^image\/(png|jpeg|webp)$/.test(file.type)) throw new Error('Choose a PNG, JPG or WebP image');
+  if (file.size > 5 * 1024 * 1024) throw new Error('Choose an image under 5 MB');
+  const url = URL.createObjectURL(file);
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('That image could not be read'));
+      img.src = url;
+    });
+    const scale = Math.min(1, 240 / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+    let dataUrl = canvas.toDataURL('image/webp', 0.9);
+    if (!dataUrl.startsWith('data:image/webp')) dataUrl = canvas.toDataURL('image/png');
+    if (dataUrl.length > 240000) throw new Error('That logo is too detailed. Try a simpler or smaller image.');
+    return dataUrl;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 
 export async function renderSettings() {
   const content = renderLayout('settings');
@@ -8,77 +34,109 @@ export async function renderSettings() {
   const isAdmin = user.role === 'admin';
   const isManager = user.role === 'manager';
 
+  const tabs = [
+    ...(isAdmin ? [['store', 'Store'], ['receipt', 'Receipt']] : []),
+    ['staff', 'Staff'],
+    ['permissions', 'Permissions'],
+    ['legal', 'Legal & privacy'],
+  ];
+  const requestedTab = new URLSearchParams(window.location.hash.split('?')[1] || '').get('tab');
+  let activeTab = tabs.some(([id]) => id === requestedTab) ? requestedTab : tabs[0][0];
+  const yes = 'Yes';
+  const no = '<span class="muted-cell">No</span>';
+
   content.innerHTML = `
     <div class="animate-fade-in">
       <div class="page-header"><h1>Settings</h1></div>
 
-      <div class="responsive-grid-2 settings-grid-responsive">
-        ${isAdmin ? `
-        <div class="glass-card" style="padding:1.5rem;">
-          <h3 style="font-size:1rem;font-weight:700;margin-bottom:1.25rem;">🏪 Store Information</h3>
-          <form id="store-form">
-            <div class="form-group"><label class="label" for="s-name">Store Name</label><input class="input" name="name" id="s-name"></div>
-            <div class="form-group"><label class="label" for="s-address">Address</label><input class="input" name="address" id="s-address"></div>
-            <div class="form-group"><label class="label" for="s-phone">Phone</label><input class="input" name="phone" id="s-phone"></div>
-            <div class="form-group"><label class="label" for="s-email">Email</label><input class="input" type="email" name="email" id="s-email"></div>
-            <div class="form-grid-2">
-              <div class="form-group"><label class="label" for="s-tax">Tax Rate (%)</label><input class="input" type="number" step="0.01" name="tax_rate" id="s-tax"></div>
-              <div class="form-group"><label class="label" for="s-currency">Currency</label><input class="input" name="currency" id="s-currency"></div>
-            </div>
-            <div class="form-group"><label class="label" for="s-rh">Receipt Header</label><textarea class="input" name="receipt_header" id="s-rh" rows="2" style="resize:vertical;"></textarea></div>
-            <div class="form-group"><label class="label" for="s-rf">Receipt Footer</label><textarea class="input" name="receipt_footer" id="s-rf" rows="2" style="resize:vertical;"></textarea></div>
-            <button type="submit" class="btn btn-primary" style="width:100%;">Save Settings</button>
-          </form>
-        </div>
-        ` : ''}
-
-        <div class="glass-card" style="padding:1.5rem;grid-column:1/-1;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
-            <h3 style="font-size:1rem;font-weight:700;">👥 Staff Management</h3>
-            <button class="btn btn-primary btn-sm" id="add-staff-btn">+ Add Staff</button>
-          </div>
-
-          <!-- Permission info -->
-          <div style="padding:0.5rem 0.75rem;border-radius:0.5rem;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.15);margin-bottom:1rem;font-size:0.75rem;color:var(--color-text-muted);">
-            ${isAdmin
-              ? '🔑 <strong>Admin:</strong> You can create admins, managers, and cashiers. Full control over all staff.'
-              : '🔑 <strong>Manager:</strong> You can create and manage cashier accounts only.'
-            }
-          </div>
-
-          <div id="staff-list"><div class="spinner" style="margin:1rem auto;"></div></div>
-        </div>
+      <div class="settings-tabs" role="tablist" aria-label="Settings sections">
+        ${tabs.map(([id, label]) => `<button type="button" role="tab" id="tab-${id}" data-tab="${id}" aria-controls="panel-${id}" aria-selected="${id === activeTab}" tabindex="${id === activeTab ? 0 : -1}">${label}</button>`).join('')}
       </div>
 
-      <!-- Role Permissions Reference -->
-      <div class="glass-card" style="padding:1.5rem;margin-top:1.5rem;">
-        <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;">📋 Role Permissions</h3>
-        <div style="overflow-x:auto;">
-          <table class="data-table" style="font-size:0.8rem;">
+      ${isAdmin ? `
+      <form id="store-form" class="settings-form" novalidate>
+        <section class="glass-card settings-panel" role="tabpanel" id="panel-store" aria-labelledby="tab-store" tabindex="0">
+          <h2>Store details</h2>
+          <p class="settings-help">These details appear on receipts and owner statements.</p>
+          <div class="form-group">
+            <span class="label" id="logo-label">Logo</span>
+            <div class="logo-row">
+              <div class="logo-preview" id="logo-preview" aria-labelledby="logo-label"></div>
+              <div class="logo-actions">
+                <label class="btn btn-ghost btn-sm" for="logo-file">Upload logo</label>
+                <input class="sr-only" type="file" id="logo-file" accept="image/png,image/jpeg,image/webp">
+                <button type="button" class="btn btn-ghost btn-sm" id="logo-remove">Remove</button>
+                <p class="field-help">PNG, JPG or WebP. It is resized to fit receipts.</p>
+              </div>
+            </div>
+          </div>
+          <div class="form-group"><label class="label" for="s-name">Store name</label><input class="input" name="name" id="s-name" autocomplete="organization" required></div>
+          <div class="form-group"><label class="label" for="s-address">Address</label><input class="input" name="address" id="s-address" autocomplete="street-address"></div>
+          <div class="form-grid-2">
+            <div class="form-group"><label class="label" for="s-phone">Phone</label><input class="input" type="tel" inputmode="tel" name="phone" id="s-phone" autocomplete="tel"></div>
+            <div class="form-group"><label class="label" for="s-email">Email</label><input class="input" type="email" name="email" id="s-email" autocomplete="email" spellcheck="false"></div>
+          </div>
+          <div class="form-grid-2">
+            <div class="form-group"><label class="label" for="s-tax">Tax rate (%)</label><input class="input" type="number" inputmode="decimal" min="0" max="100" step="0.01" name="tax_rate" id="s-tax"></div>
+            <div class="form-group">
+              <label class="label" for="s-currency">Currency</label>
+              <select class="input" name="currency" id="s-currency">
+                ${SUPPORTED_CURRENCIES.map(([code, label]) => `<option value="${code}">${escapeHTML(label)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">Save store details</button>
+        </section>
+
+        <section class="glass-card settings-panel" role="tabpanel" id="panel-receipt" aria-labelledby="tab-receipt" tabindex="0">
+          <h2>Receipt</h2>
+          <p class="settings-help">Add a greeting at the top and your returns policy or social handles at the bottom. The preview updates as you type.</p>
+          <div class="receipt-editor">
+            <div>
+              <div class="form-group"><label class="label" for="s-rh">Top message</label><textarea class="input" name="receipt_header" id="s-rh" rows="3" maxlength="500" placeholder="For example: Thank you for shopping with us" style="resize:vertical;"></textarea></div>
+              <div class="form-group"><label class="label" for="s-rf">Bottom message</label><textarea class="input" name="receipt_footer" id="s-rf" rows="3" maxlength="500" placeholder="For example: Goods bought in good condition can be returned within 7 days" style="resize:vertical;"></textarea></div>
+              <button type="submit" class="btn btn-primary">Save receipt</button>
+            </div>
+            <div class="receipt-preview" id="receipt-preview" aria-label="Receipt preview"></div>
+          </div>
+        </section>
+      </form>
+      ` : ''}
+
+      <section class="glass-card settings-panel" role="tabpanel" id="panel-staff" aria-labelledby="tab-staff" tabindex="0">
+        <div class="report-card-head">
+          <h2>Staff</h2>
+          <button class="btn btn-primary btn-sm" id="add-staff-btn" type="button">${icons.plus} Add staff</button>
+        </div>
+        <p class="settings-help">${isAdmin
+          ? 'You can create admins, managers and cashiers, and change their access.'
+          : 'As a manager you can create and manage cashier accounts.'}</p>
+        <div id="staff-list"><div class="spinner" style="margin:1rem auto;"></div></div>
+      </section>
+
+      <section class="glass-card settings-panel" role="tabpanel" id="panel-permissions" aria-labelledby="tab-permissions" tabindex="0">
+        <h2>What each role can do</h2>
+        <div class="table-scroll-wrapper">
+          <table class="data-table permissions-table">
             <thead>
-              <tr>
-                <th>Feature</th>
-                ${isAdmin ? '<th style="text-align:center;">👑 Admin</th>' : ''}
-                <th style="text-align:center;">🏢 Manager</th>
-                <th style="text-align:center;">💳 Cashier</th>
-              </tr>
+              <tr><th>Area</th>${isAdmin ? '<th>Admin</th>' : ''}<th>Manager</th><th>Cashier</th></tr>
             </thead>
             <tbody>
-              <tr><td>Dashboard</td>${isAdmin ? '<td style="text-align:center;">✅</td>' : ''}<td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
-              <tr><td>POS Terminal</td>${isAdmin ? '<td style="text-align:center;">✅</td>' : ''}<td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
-              <tr><td>Products (CRUD)</td>${isAdmin ? '<td style="text-align:center;">✅</td>' : ''}<td style="text-align:center;">✅</td><td style="text-align:center;">❌</td></tr>
-              <tr><td>Inventory</td>${isAdmin ? '<td style="text-align:center;">✅</td>' : ''}<td style="text-align:center;">✅</td><td style="text-align:center;">❌</td></tr>
-              <tr><td>Customers</td>${isAdmin ? '<td style="text-align:center;">✅ Full</td>' : ''}<td style="text-align:center;">✅ No delete</td><td style="text-align:center;">View + Add</td></tr>
-              <tr><td>Orders</td>${isAdmin ? '<td style="text-align:center;">✅ All orders</td>' : ''}<td style="text-align:center;">✅ All orders</td><td style="text-align:center;">POS receipts only</td></tr>
-              <tr><td>Reports</td>${isAdmin ? '<td style="text-align:center;">✅ + Export</td>' : ''}<td style="text-align:center;">✅ + Export</td><td style="text-align:center;">❌</td></tr>
-              <tr><td>Store Settings</td>${isAdmin ? '<td style="text-align:center;">✅</td>' : ''}<td style="text-align:center;">❌</td><td style="text-align:center;">❌</td></tr>
-              <tr><td>Staff Management</td>${isAdmin ? '<td style="text-align:center;">✅ All roles</td>' : ''}<td style="text-align:center;">Cashiers only</td><td style="text-align:center;">❌</td></tr>
+              <tr><td>Dashboard</td>${isAdmin ? `<td>${yes}</td>` : ''}<td>${yes}</td><td>${yes}</td></tr>
+              <tr><td>POS terminal</td>${isAdmin ? `<td>${yes}</td>` : ''}<td>${yes}</td><td>${yes}</td></tr>
+              <tr><td>Products</td>${isAdmin ? `<td>${yes}</td>` : ''}<td>${yes}</td><td>${no}</td></tr>
+              <tr><td>Inventory</td>${isAdmin ? `<td>${yes}</td>` : ''}<td>${yes}</td><td>${no}</td></tr>
+              <tr><td>Customers</td>${isAdmin ? `<td>${yes}</td>` : ''}<td>Yes, except delete</td><td>View and add</td></tr>
+              <tr><td>Orders and refunds</td>${isAdmin ? `<td>${yes}</td>` : ''}<td>${yes}</td><td>Own receipts only</td></tr>
+              <tr><td>Reports and exports</td>${isAdmin ? `<td>${yes}</td>` : ''}<td>${yes}</td><td>${no}</td></tr>
+              <tr><td>Store settings</td>${isAdmin ? `<td>${yes}</td>` : ''}<td>${no}</td><td>${no}</td></tr>
+              <tr><td>Staff</td>${isAdmin ? '<td>All roles</td>' : ''}<td>Cashiers only</td><td>${no}</td></tr>
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
 
-      <section class="glass-card settings-legal-card">
+      <section class="glass-card settings-legal-card settings-panel" role="tabpanel" id="panel-legal" aria-labelledby="tab-legal" tabindex="0">
         <div class="settings-legal-copy">
           <span class="settings-legal-kicker">Legal &amp; Privacy</span>
           <h3>Know the terms behind your store account</h3>
@@ -106,30 +164,126 @@ export async function renderSettings() {
     </div>
   `;
 
-  // Load store settings (admin only)
+  // Tabs: one panel at a time, arrow keys move between tabs, the URL remembers the tab.
+  const tabButtons = [...content.querySelectorAll('[role="tab"]')];
+  function showTab(id, { focus = false } = {}) {
+    activeTab = id;
+    tabButtons.forEach((button) => {
+      const selected = button.dataset.tab === id;
+      button.setAttribute('aria-selected', String(selected));
+      button.tabIndex = selected ? 0 : -1;
+      if (selected && focus) button.focus();
+    });
+    content.querySelectorAll('.settings-panel').forEach((panel) => { panel.hidden = panel.id !== `panel-${id}`; });
+    history.replaceState(null, '', `#/settings?tab=${id}`);
+  }
+  tabButtons.forEach((button, index) => {
+    button.addEventListener('click', () => showTab(button.dataset.tab));
+    button.addEventListener('keydown', (event) => {
+      const moves = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: tabButtons.length - 1 };
+      if (!(event.key in moves)) return;
+      event.preventDefault();
+      const next = tabButtons[(moves[event.key] + tabButtons.length) % tabButtons.length];
+      showTab(next.dataset.tab, { focus: true });
+    });
+  });
+  showTab(activeTab);
+
+  // Store details, logo and receipt (admin only)
   if (isAdmin) {
+    const form = document.getElementById('store-form');
+    let logoUrl = '';
+
+    function renderLogo() {
+      const preview = document.getElementById('logo-preview');
+      preview.innerHTML = logoUrl
+        ? `<img src="${escapeAttribute(logoUrl)}" alt="Store logo" width="64" height="64">`
+        : '<span>No logo</span>';
+      document.getElementById('logo-remove').hidden = !logoUrl;
+    }
+
+    function renderReceiptPreview() {
+      const value = (name) => form.elements[name].value.trim();
+      const rate = Number(value('tax_rate')) || 0;
+      const subtotal = 3500;
+      const tax = Math.round(subtotal * rate) / 100;
+      document.getElementById('receipt-preview').innerHTML = `
+        <div class="receipt-sample">
+          ${logoUrl ? `<img src="${escapeAttribute(logoUrl)}" alt="" width="48" height="48">` : ''}
+          <strong>${escapeHTML(value('name') || 'Your store')}</strong>
+          ${value('address') ? `<span>${escapeHTML(value('address'))}</span>` : ''}
+          ${value('phone') ? `<span>${escapeHTML(value('phone'))}</span>` : ''}
+          ${value('receipt_header') ? `<p>${escapeHTML(value('receipt_header'))}</p>` : ''}
+          <div class="receipt-sample-line"><span>Sample item × 1</span><span>${formatCurrency(subtotal)}</span></div>
+          ${rate ? `<div class="receipt-sample-line"><span>Tax (${rate}%)</span><span>${formatCurrency(tax)}</span></div>` : ''}
+          <div class="receipt-sample-line receipt-sample-total"><span>TOTAL</span><span>${formatCurrency(subtotal + tax)}</span></div>
+          ${value('receipt_footer') ? `<p>${escapeHTML(value('receipt_footer'))}</p>` : ''}
+        </div>`;
+    }
+
     try {
       const { store } = await api.get('/settings/store');
       document.getElementById('s-name').value = store.name || '';
       document.getElementById('s-address').value = store.address || '';
       document.getElementById('s-phone').value = store.phone || '';
       document.getElementById('s-email').value = store.email || '';
-      document.getElementById('s-tax').value = store.tax_rate || '';
-      document.getElementById('s-currency').value = store.currency || 'NGN';
+      document.getElementById('s-tax').value = store.tax_rate ?? '';
+      const currency = String(store.currency || 'NGN').toUpperCase();
+      const currencySelect = document.getElementById('s-currency');
+      if (![...currencySelect.options].some((option) => option.value === currency)) {
+        currencySelect.add(new Option(currency, currency));
+      }
+      currencySelect.value = currency;
       document.getElementById('s-rh').value = store.receipt_header || '';
       document.getElementById('s-rf').value = store.receipt_footer || '';
+      logoUrl = store.logo_url || '';
     } catch { toast('Failed to load settings', 'error'); }
+    renderLogo();
+    renderReceiptPreview();
+    form.addEventListener('input', renderReceiptPreview);
 
-    document.getElementById('store-form').addEventListener('submit', async (e) => {
+    document.getElementById('logo-file').addEventListener('change', async (event) => {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+      if (!file) return;
+      try {
+        logoUrl = await resizeLogo(file);
+        renderLogo();
+        renderReceiptPreview();
+        toast('Logo ready. Save store details to keep it.', 'info');
+      } catch (err) { toast(err.message, 'error'); }
+    });
+    document.getElementById('logo-remove').addEventListener('click', () => {
+      logoUrl = '';
+      renderLogo();
+      renderReceiptPreview();
+    });
+
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const form = new FormData(e.target);
+      const data = new FormData(form);
+      if (!String(data.get('name') || '').trim()) {
+        showTab('store');
+        toast('Enter the store name', 'warning');
+        document.getElementById('s-name').focus();
+        return;
+      }
+      const taxRate = data.get('tax_rate') === '' ? 0 : parseFloat(data.get('tax_rate'));
+      if (!Number.isFinite(taxRate) || taxRate < 0 || taxRate > 100) {
+        showTab('store');
+        toast('Tax rate must be between 0 and 100', 'warning');
+        document.getElementById('s-tax').focus();
+        return;
+      }
       try {
         await api.patch('/settings/store', {
-          name: form.get('name'), address: form.get('address'),
-          phone: form.get('phone'), email: form.get('email'),
-          tax_rate: parseFloat(form.get('tax_rate')), currency: form.get('currency'),
-          receipt_header: form.get('receipt_header'), receipt_footer: form.get('receipt_footer'),
+          name: data.get('name'), address: data.get('address'),
+          phone: data.get('phone'), email: data.get('email'),
+          tax_rate: taxRate, currency: data.get('currency'),
+          logo_url: logoUrl,
+          receipt_header: data.get('receipt_header'), receipt_footer: data.get('receipt_footer'),
         });
+        setStoreCurrency(data.get('currency'));
         toast('Settings saved', 'success');
       } catch (err) { toast(err.message, 'error'); }
     });
@@ -155,7 +309,7 @@ export async function renderSettings() {
       ` : ''}${staff.map(u => {
         const isSelf = u.id === user.id;
         const roleBadge = u.role === 'admin' ? 'badge-info' : u.role === 'manager' ? 'badge-warning' : 'badge-success';
-        const roleIcon = u.role === 'admin' ? '👑' : u.role === 'manager' ? '🏢' : '💳';
+        const initial = escapeHTML(String(u.name || u.email || '?').trim().charAt(0).toUpperCase());
         const canModify = isAdmin || (isManager && u.role === 'cashier');
         const canEdit = canModify && !isSelf;
         const canChangeRole = isAdmin && !isSelf;
@@ -165,7 +319,7 @@ export async function renderSettings() {
         return `
           <div style="display:flex;align-items:center;justify-content:space-between;padding:0.75rem 0;border-bottom:1px solid var(--color-border);">
             <div style="display:flex;align-items:center;gap:0.75rem;">
-              <div style="width:36px;height:36px;border-radius:50%;background:var(--color-surface-3);display:flex;align-items:center;justify-content:center;font-size:1rem;">${roleIcon}</div>
+              <div style="width:36px;height:36px;border-radius:50%;background:var(--color-surface-3);display:flex;align-items:center;justify-content:center;font-size:0.9rem;font-weight:700;" aria-hidden="true">${initial}</div>
               <div>
                 <div style="font-weight:600;font-size:0.9rem;">${escapeHTML(u.name)} ${isSelf ? '<span style="font-size:0.7rem;color:var(--color-primary);">(You)</span>' : ''}</div>
                 <div style="font-size:0.75rem;color:var(--color-text-muted);">${escapeHTML(u.email)}</div>
@@ -183,8 +337,8 @@ export async function renderSettings() {
                 <span class="badge ${roleBadge}">${escapeHTML(u.role)}</span>
               `}
               <button type="button" class="badge ${u.is_active ? 'badge-success' : 'badge-danger'} staff-status" style="cursor:${canToggle ? 'pointer' : 'default'};" ${canToggle ? `data-user-id="${escapeAttribute(u.id)}" data-action="toggle-active" data-active="${u.is_active}"` : 'disabled'}>${u.is_active ? 'Active' : 'Inactive'}</button>
-              ${canEdit ? `<button class="btn btn-ghost btn-sm" data-user-id="${escapeAttribute(u.id)}" data-user-name="${escapeAttribute(u.name)}" data-user-email="${escapeAttribute(u.email)}" data-action="edit-staff" style="padding:0.25rem 0.5rem;font-size:0.75rem;" aria-label="Edit ${escapeAttribute(u.name)} credentials">✏️</button>` : ''}
-              ${canDelete ? `<button class="btn btn-ghost btn-sm" data-user-id="${escapeAttribute(u.id)}" data-action="delete" style="color:var(--color-danger);padding:0.25rem 0.5rem;font-size:0.75rem;" aria-label="Archive ${escapeAttribute(u.name)}">×</button>` : ''}
+              ${canEdit ? `<button class="btn btn-ghost btn-sm" data-user-id="${escapeAttribute(u.id)}" data-user-name="${escapeAttribute(u.name)}" data-user-email="${escapeAttribute(u.email)}" data-action="edit-staff" style="padding:0.25rem 0.5rem;font-size:0.75rem;" aria-label="Edit ${escapeAttribute(u.name)} credentials">Edit</button>` : ''}
+              ${canDelete ? `<button class="btn btn-ghost btn-sm" data-user-id="${escapeAttribute(u.id)}" data-action="delete" style="color:var(--color-danger);padding:0.25rem 0.5rem;font-size:0.75rem;" aria-label="Remove ${escapeAttribute(u.name)}">Remove</button>` : ''}
             </div>
           </div>
         `;

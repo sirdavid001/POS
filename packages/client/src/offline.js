@@ -1,3 +1,6 @@
+import { computeInsightsFromOrders } from '../../shared/src/insights.js';
+import { setStoreCurrency } from './utils.js';
+
 const CACHE_ROOT = 'quickpos_cache:';
 const SNAPSHOT_ROOT = 'quickpos_snapshot:';
 const QUEUE_ROOT = 'quickpos_offline_queue:';
@@ -119,6 +122,7 @@ function readSnapshot(resource, fallback = resource === 'store' ? null : []) {
 
 function writeSnapshot(resource, value) {
   storageSet(snapshotKey(resource), value);
+  if (resource === 'store' && value?.currency) setStoreCurrency(value.currency);
 }
 
 function mergeEntities(existing = [], incoming = []) {
@@ -656,6 +660,9 @@ function deriveSnapshotResponse(path) {
   if (pathname === '/reports/sales' && orders.length) return { sales: offlineSalesReport(orders, params) };
   if (pathname === '/reports/recent-orders' && orders.length) return { orders: orders.slice(0, 10).map((order) => ({ ...order, cashier: order.cashier_name })) };
   if (pathname === '/reports/top-products' && orders.length) return { products: topProducts(orders, Number(params.get('limit') || 10)) };
+  if (pathname === '/reports/insights' && orders.length) {
+    return computeInsightsFromOrders({ orders, products, start: params.get('start'), end: params.get('end') });
+  }
   return null;
 }
 
