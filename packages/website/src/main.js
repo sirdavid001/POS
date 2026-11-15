@@ -194,6 +194,18 @@ function accountRoute() {
 }
 
 const header = document.querySelector('[data-site-header]');
+const mainContent = document.querySelector('main');
+
+if (header && mainContent && !document.querySelector('.skip-link')) {
+  if (!mainContent.id) mainContent.id = 'main-content';
+  mainContent.tabIndex = -1;
+  const skipLink = document.createElement('a');
+  skipLink.className = 'skip-link';
+  skipLink.href = `#${mainContent.id}`;
+  skipLink.textContent = 'Skip to main content';
+  header.before(skipLink);
+}
+
 function renderSiteHeader() {
   if (!header) return;
   const session = readSiteSession();
@@ -288,37 +300,24 @@ if (header) {
 const footer = document.querySelector('[data-site-footer]');
 if (footer) {
   footer.innerHTML = `
+    <div class="site-shell footer-brand-row">
+      <a class="brand" href="/" aria-label="QuickPOS home"><img class="brand-mark" src="/brand/quickpos-mark.svg" width="34" height="34" alt=""><span translate="no">QuickPOS</span></a>
+      <p>Retail point of sale software for growing stores.</p>
+    </div>
     <div class="site-shell footer-grid">
       <div>
-        <a class="brand" href="/"><img class="brand-mark" src="/brand/quickpos-mark.svg" alt=""><span>QuickPOS</span></a>
-        <p>Retail point of sale software for growing stores.</p>
-        <p>Operated by <strong>SIRDAVID MULTI-TRADE LTD</strong><br>RC 9387137</p>
-      </div>
-      <div>
-        <strong>Solutions</strong>
-        <a href="/pos-for-small-business">POS for small business</a>
-        <a href="/retail-pos-software">Retail POS software</a>
-        <a href="/inventory-and-sales-software">Inventory and sales software</a>
-        <a href="/offline-pos-software">Offline POS software</a>
-        <a href="/barcode-pos-system">Barcode POS system</a>
-        <a href="/retail-sales-reporting-software">Sales reporting software</a>
-        <a href="/features">All features</a>
-      </div>
-      <div>
-        <strong>Store types and guides</strong>
-        <a href="/supermarket-pos-software">Supermarket POS software</a>
-        <a href="/boutique-pos-software">Boutique and fashion POS</a>
-        <a href="/android-pos-app">Android POS app</a>
-        <a href="/windows-pos-software">Windows POS software</a>
-        <a href="/best-pos-software-nigeria">Best POS software in Nigeria</a>
-        <a href="/pos-machine-vs-pos-software-nigeria">POS machine vs POS software</a>
-      </div>
-      <div>
-        <strong>Start and support</strong>
+        <strong>Product</strong>
+        <a href="/features">Features</a>
         <a href="/pricing">Pricing</a>
         <a href="/downloads">Downloads</a>
+        <a href="/retail-pos-software">Retail POS software</a>
+      </div>
+      <div>
+        <strong>Help</strong>
+        <a href="/account#signin">Store account</a>
         <a href="/faq">FAQ</a>
         <a href="/support">Support</a>
+        <a href="/best-pos-software-nigeria">POS buying guide</a>
       </div>
       <div>
         <strong>Company</strong>
@@ -330,6 +329,7 @@ if (footer) {
     </div>
     <div class="site-shell footer-bottom">
       <span>© ${new Date().getFullYear()} SIRDAVID MULTI-TRADE LTD. All rights reserved.</span>
+      <span>RC 9387137</span>
     </div>
   `;
 }
