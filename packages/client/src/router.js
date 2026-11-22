@@ -1,6 +1,8 @@
 // Simple hash-based SPA router
 import { hasCompletedPermissionSetup } from './permissions.js';
 import { closeAllDialogs } from './dialog.js';
+import { needsInitialActivation } from './entitlement.js';
+import { renderActivationGate } from './pages/activation.js';
 
 class Router {
   constructor() {
@@ -37,14 +39,24 @@ class Router {
       return;
     }
 
-    if (user && !hasCompletedPermissionSetup() && hash !== '/permissions') {
-      window.location.hash = '#/permissions';
+    // Redirect signed-in users away from sign-in without stranding sign-out on the same hash.
+    if (user && ['/login', '/forgot-password'].includes(hash)) {
+      window.location.hash = '#/dashboard';
       return;
     }
 
-    // Redirect to dashboard if already logged in and trying to access login
-    if (user && ['/login', '/forgot-password'].includes(hash)) {
-      window.location.hash = '#/dashboard';
+    // Leave account recovery reachable, but never render a store screen while activation is due.
+    if (user && hash !== '/reset-password' && needsInitialActivation()) {
+      if (this.currentPage !== 'activation') {
+        closeAllDialogs();
+        this.currentPage = 'activation';
+        renderActivationGate(() => this.navigate());
+      }
+      return;
+    }
+
+    if (user && !hasCompletedPermissionSetup() && hash !== '/permissions') {
+      window.location.hash = '#/permissions';
       return;
     }
 

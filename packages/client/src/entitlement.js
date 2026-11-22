@@ -37,3 +37,7 @@ export function getSubscription() {
 export function canWriteBusinessData() {
   return Boolean(getSubscription()?.can_write);
 }
+
+export function needsInitialActivation(subscription = getSubscription()) {
+  return Boolean(subscription?.activation_required && !subscription.can_write && !subscription.offline_expired);
+}

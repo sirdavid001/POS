@@ -1,11 +1,9 @@
-import { api } from '../api.js';
 import { escapeHTML, icons } from '../utils.js';
 import { getSubscription } from '../entitlement.js';
-import { getLastSyncAt, getOfflineQueueCount, getOfflineQueueSummary } from '../offline.js';
+import { getLastSyncAt, getOfflineQueueSummary } from '../offline.js';
 import { attemptSync } from '../sync.js';
 import { mountAnnouncements, mountSupportChat, supportChatButtonMarkup } from '../support-chat.js';
-
-const ACCOUNT_PORTAL_URL = 'https://quickpos.com.ng/account#billing';
+import { ACCOUNT_PORTAL_URL, signOut } from './activation.js';
 
 // Render the sidebar + main content shell
 export function renderLayout(activePage) {
@@ -86,22 +84,16 @@ export function renderLayout(activePage) {
   });
 
   // Logout handler
-  document.getElementById('logout-btn').addEventListener('click', async () => {
-    const pending = getOfflineQueueCount();
-    if (pending > 0 && !confirm(`${pending} offline change${pending === 1 ? ' is' : 's are'} still saved on this device. Sign out anyway?`)) {
-      return;
-    }
-    try {
-      if (navigator.onLine) await api.post('/auth/logout', { refreshToken: api.refreshToken });
-    } catch {}
-    api.clearTokens();
-    window.location.hash = '#/login';
-  });
+  document.getElementById('logout-btn').addEventListener('click', signOut);
 
   function renderSubscriptionBanner() {
     const subscription = getSubscription();
     const banner = document.getElementById('subscription-banner');
-    if (!banner || !subscription || subscription.status === 'grandfathered') return;
+    if (!banner) return;
+    if (!subscription || subscription.status === 'grandfathered') {
+      banner.replaceChildren();
+      return;
+    }
 
     const show =
       subscription.activation_required ||
@@ -112,19 +104,27 @@ export function renderLayout(activePage) {
       banner.innerHTML = '';
       return;
     }
-    const message = subscription.activation_required && subscription.status === 'pending_activation'
-      ? 'Activate QuickPOS for ₦20,000 to unlock all features for five months.'
+    const isOwner = user.role === 'admin';
+    const message = subscription.offline_expired
+      ? 'Connect to the internet to verify your current access.'
       : subscription.status === 'trialing'
         ? `${subscription.days_remaining ?? 0} day${subscription.days_remaining === 1 ? '' : 's'} left in your existing trial. Initial activation is required afterward.`
       : subscription.cancel_at_period_end && subscription.can_write
         ? `Renewal is cancelled. Access continues through ${new Date(subscription.current_period_end).toLocaleDateString('en-NG')}.`
       : subscription.activation_required && subscription.can_write
-        ? `Full access is on through ${new Date(subscription.current_period_end).toLocaleDateString('en-NG')}. Activate QuickPOS for ₦20,000 to keep it after that.`
+        ? `Full access is on through ${new Date(subscription.current_period_end).toLocaleDateString('en-NG')}. Review activation options in Billing to keep access after that.`
         : 'QuickPOS is read-only. Reports, exports, printing, and statement email are still available.';
+    const title = subscription.offline_expired ? 'Reconnect to verify access' : !subscription.can_write
+      ? 'Billing action required'
+      : subscription.cancel_at_period_end
+        ? 'Renewal is off'
+        : subscription.status === 'trialing'
+          ? 'Trial access'
+          : 'Activation reminder';
     banner.innerHTML = `
       <div class="subscription-banner ${subscription.can_write ? 'trial' : 'expired'}">
-        <span>${message}</span>
-        ${user.role === 'admin' ? `<a href="${ACCOUNT_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary">Open account portal</a>` : ''}
+        <div><strong>${title}</strong><span>${message}</span></div>
+        ${isOwner && !subscription.offline_expired ? `<a href="${ACCOUNT_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary">Manage billing</a>` : ''}
       </div>
     `;
   }

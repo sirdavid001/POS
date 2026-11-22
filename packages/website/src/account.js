@@ -9,7 +9,6 @@ import {
 import { resolveApiBase } from '../../shared/src/api.js';
 
 const root = document.querySelector('[data-account-root]');
-let activationPoll = null;
 
 const API_BASE = resolveApiBase(import.meta.env.VITE_API_URL, {
   development: import.meta.env.DEV,
@@ -389,23 +388,23 @@ function setFlash(message, type = 'info') {
   const target = document.querySelector('[data-account-alert]');
   if (!target) return;
   target.innerHTML = message
-    ? `<div class="account-alert ${type}">${escapeHtml(message)}</div>`
+    ? `<div class="account-alert ${type}" role="${type === 'error' ? 'alert' : 'status'}" aria-live="${type === 'error' ? 'assertive' : 'polite'}">${escapeHtml(message)}</div>`
     : '';
 }
 
-function renderAuthShell({ eyebrow, title, copy, form, footer }) {
+function renderAuthShell({ eyebrow, title, copy, intro, form, footer }) {
   root.innerHTML = `
     <section class="page-hero account-hero">
       <div class="site-shell account-auth-grid">
         <div class="page-intro">
           <span class="eyebrow">${eyebrow}</span>
-          <h1>${title}</h1>
+          <h1 tabindex="-1">${title}</h1>
           <p>${copy}</p>
-          <div class="trust-row">
+          ${intro ?? `<div class="trust-row">
             <span>One QuickPOS account</span>
             <span>Same login in the POS app</span>
             <span>Admin billing portal</span>
-          </div>
+          </div>`}
         </div>
         <article class="account-auth-card">
           <img src="/brand/quickpos-mark.svg" alt="" width="52" height="52">
@@ -418,15 +417,15 @@ function renderAuthShell({ eyebrow, title, copy, form, footer }) {
   `;
 }
 
-function renderSignIn() {
+function renderSignIn({ createdEmail = '', message = '' } = {}) {
   renderAuthShell({
     eyebrow: 'Owner portal',
     title: 'Sign in to manage your store account.',
     copy: 'Use the same email address and password on this website and in the QuickPOS app. Both connect to the same store account, subscription, and database.',
     form: `
       <form class="account-form" id="site-login-form">
-        <label>Email address<input name="email" type="email" autocomplete="email" required placeholder="owner@yourstore.com"></label>
-        <label>Password<input name="password" type="password" autocomplete="current-password" required placeholder="Your password"></label>
+        <label>Email address<input name="email" type="email" inputmode="email" autocomplete="username" spellcheck="false" required value="${escapeHtml(createdEmail)}" placeholder="owner@yourstore.com"></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" required placeholder="Your password…"></label>
         <button class="button" type="submit" id="site-login-submit">Sign in</button>
       </form>
     `,
@@ -436,16 +435,17 @@ function renderSignIn() {
       <a href="#forgot-password">Forgot password?</a>
     `,
   });
+  if (message) setFlash(message);
 
   document.getElementById('site-login-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const button = document.getElementById('site-login-submit');
     const form = new FormData(event.target);
     button.disabled = true;
-    button.textContent = 'Signing in...';
+    button.textContent = 'Signing in…';
     try {
       const data = await siteApi.post('/auth/login', {
-        email: form.get('email'),
+        email: normalizeEmail(form.get('email')),
         password: form.get('password'),
       });
       if (data.user?.role !== 'admin') {
@@ -459,8 +459,16 @@ function renderSignIn() {
         return;
       }
       siteApi.setSession(data);
-      window.location.hash = '#portal';
-      await loadPortal('Signed in successfully.');
+      const { mode, params } = routeInfo();
+      if (returnedPayment(params)) {
+        await bootstrap();
+        return;
+      }
+      const section = PORTAL_SECTIONS.includes(mode)
+        ? mode
+        : data.subscription?.activation_required ? 'billing' : 'overview';
+      window.history.replaceState({}, '', `#${section}`);
+      await loadPortal('', { focus: true });
     } catch (error) {
       setFlash(error.message || 'Could not sign in', 'error');
       button.disabled = false;
@@ -469,23 +477,52 @@ function renderSignIn() {
   });
 }
 
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function activationSteps({ registered = false, billing = false } = {}) {
+  return `
+    <ol class="activation-steps" aria-label="Store setup checklist" role="list">
+      <li${registered ? ' data-complete' : ' aria-current="step"'}>
+        <span aria-hidden="true">${registered ? '✓' : '1'}</span>
+        <div><strong>${registered ? 'Store account created' : 'Create your store account'}</strong>
+        <p>${registered ? 'You can use this login in the app.' : 'No payment is collected at signup.'}</p></div>
+      </li>
+      <li${billing ? ' aria-current="step"' : ''}>
+        <span aria-hidden="true">2</span>
+        <div><strong>Activate your store</strong><p>One payment covers your first five months.</p></div>
+      </li>
+      <li>
+        <span aria-hidden="true">3</span>
+        <div><strong>Download QuickPOS</strong><p>Install the app after payment is confirmed.</p></div>
+      </li>
+    </ol>
+  `;
+}
+
 function renderRegister() {
   renderAuthShell({
     eyebrow: 'Create account',
-    title: 'Set up your store before downloading the app.',
-    copy: 'Create the owner/admin account here, complete activation, then choose the correct app download for your device.',
+    title: 'Create your QuickPOS store account.',
+    copy: 'Start with your store and owner details. You can review the activation price before deciding to pay.',
+    intro: `${activationSteps()}<a class="activation-text-link" href="/pricing">View pricing</a>`,
     form: `
       <form class="account-form" id="site-register-form">
-        <label>Store name<input name="store_name" type="text" autocomplete="organization" minlength="2" required placeholder="Your store name"></label>
+        <label>Store name<input name="store_name" type="text" autocomplete="organization" minlength="2" maxlength="255" required placeholder="Your store name"></label>
         <label>Owner name<input name="name" type="text" autocomplete="name" required placeholder="Full name"></label>
-        <label>Email address<input name="email" type="email" autocomplete="email" required placeholder="owner@yourstore.com"></label>
-        <label>Phone<input name="phone" type="tel" autocomplete="tel" placeholder="+234..."></label>
-        <label>Password<input name="password" type="password" autocomplete="new-password" minlength="8" required placeholder="At least 8 characters"></label>
+        <label>Email address<input name="email" type="email" inputmode="email" autocomplete="email" spellcheck="false" required placeholder="owner@yourstore.com"></label>
+        <label>Password<input name="password" type="password" autocomplete="new-password" minlength="8" required placeholder="At least 8 characters…"></label>
+        <details class="account-optional-field">
+          <summary>Add a phone number (optional)</summary>
+          <label>Phone number<input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+234…"></label>
+        </details>
         <label class="account-check">
           <input type="checkbox" name="consent" required>
           <span>I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer">Terms</a> and acknowledge the <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</span>
         </label>
-        <button class="button" type="submit" id="site-register-submit">Create account</button>
+        <button class="button" type="submit" id="site-register-submit">Create store account</button>
+        <p class="activation-note">Next: review your activation price and payment options.</p>
       </form>
     `,
     footer: 'Already have an account? <a href="#signin">Sign in</a>',
@@ -495,30 +532,54 @@ function renderRegister() {
     event.preventDefault();
     const button = document.getElementById('site-register-submit');
     const form = new FormData(event.target);
-    const email = form.get('email');
+    const email = normalizeEmail(form.get('email'));
     const password = form.get('password');
     button.disabled = true;
-    button.textContent = 'Creating...';
+    button.textContent = 'Creating…';
 
     try {
+      const storeName = String(form.get('store_name') || '').trim();
+      const ownerName = String(form.get('name') || '').trim();
+      if (storeName.length < 2 || !ownerName) {
+        const field = event.target.elements.namedItem(storeName.length < 2 ? 'store_name' : 'name');
+        field.setCustomValidity(storeName.length < 2 ? 'Enter at least two characters for your store name.' : 'Enter the store owner’s name.');
+        field.reportValidity();
+        return;
+      }
       await siteApi.post('/auth/register', {
-        store_name: form.get('store_name'),
-        name: form.get('name'),
+        store_name: storeName,
+        name: ownerName,
         email,
         phone: form.get('phone') || undefined,
         password,
-        terms_accepted: true,
-        privacy_acknowledged: true,
+        terms_accepted: form.has('consent'),
+        privacy_acknowledged: form.has('consent'),
       });
-      const data = await siteApi.post('/auth/login', { email, password });
-      siteApi.setSession(data);
-      window.location.hash = '#portal';
-      await loadPortal('Store account created. Complete activation to unlock downloads.');
     } catch (error) {
       setFlash(error.message || 'Could not create account', 'error');
+      return;
+    } finally {
       button.disabled = false;
-      button.textContent = 'Create account';
+      button.textContent = 'Create store account';
     }
+
+    button.disabled = true;
+    button.textContent = 'Opening your store…';
+    try {
+      const data = await siteApi.post('/auth/login', { email, password });
+      siteApi.setSession(data);
+    } catch {
+      window.history.replaceState({}, '', '#billing');
+      renderSignIn({ createdEmail: email, message: 'Your store account was created. Sign in to review your activation options.' });
+      root.querySelector('h1')?.focus();
+      return;
+    }
+    window.history.replaceState({}, '', '#billing');
+    await loadPortal('', { focus: true });
+  });
+
+  root.querySelectorAll('#site-register-form [name="store_name"], #site-register-form [name="name"]').forEach((field) => {
+    field.addEventListener('input', () => field.setCustomValidity(''));
   });
 }
 
@@ -529,7 +590,7 @@ function renderForgotPassword() {
     copy: 'Enter the email used for your QuickPOS account. If it exists, we will send a reset link.',
     form: `
       <form class="account-form" id="site-forgot-form">
-        <label>Email address<input name="email" type="email" autocomplete="email" required placeholder="owner@yourstore.com"></label>
+        <label>Email address<input name="email" type="email" inputmode="email" autocomplete="username" spellcheck="false" required placeholder="owner@yourstore.com"></label>
         <button class="button" type="submit" id="site-forgot-submit">Send reset link</button>
       </form>
     `,
@@ -541,7 +602,7 @@ function renderForgotPassword() {
     const button = document.getElementById('site-forgot-submit');
     const form = new FormData(event.target);
     button.disabled = true;
-    button.textContent = 'Sending...';
+    button.textContent = 'Sending…';
     try {
       const result = await siteApi.post('/auth/forgot-password', {
         email: form.get('email'),
@@ -566,8 +627,8 @@ function renderResetPassword() {
     copy: 'Choose a new password for the same account you use on the website portal and in the POS app.',
     form: token ? `
       <form class="account-form" id="site-reset-form">
-        <label>New password<input name="password" type="password" autocomplete="new-password" minlength="8" required placeholder="At least 8 characters"></label>
-        <label>Confirm password<input name="confirm_password" type="password" autocomplete="new-password" minlength="8" required placeholder="Repeat password"></label>
+        <label>New password<input name="password" type="password" autocomplete="new-password" minlength="8" required placeholder="At least 8 characters…"></label>
+        <label>Confirm password<input name="confirm_password" type="password" autocomplete="new-password" minlength="8" required placeholder="Repeat password…"></label>
         <button class="button" type="submit" id="site-reset-submit">Reset password</button>
       </form>
     ` : `
@@ -583,13 +644,16 @@ function renderResetPassword() {
     const form = new FormData(event.target);
     const password = form.get('password');
     const confirmation = form.get('confirm_password');
+    const confirmationField = event.target.elements.confirm_password;
     const button = document.getElementById('site-reset-submit');
+    confirmationField.setCustomValidity('');
     if (password !== confirmation) {
-      setFlash('Passwords do not match.', 'error');
+      confirmationField.setCustomValidity('Passwords do not match. Enter the same password in both fields.');
+      confirmationField.reportValidity();
       return;
     }
     button.disabled = true;
-    button.textContent = 'Resetting...';
+    button.textContent = 'Resetting…';
     try {
       const result = await siteApi.post('/auth/reset-password', { token, password });
       siteApi.clearSession();
@@ -603,6 +667,10 @@ function renderResetPassword() {
       button.disabled = false;
       button.textContent = 'Reset password';
     }
+  });
+
+  document.querySelector('#site-reset-form [name="confirm_password"]')?.addEventListener('input', (event) => {
+    event.target.setCustomValidity('');
   });
 }
 
@@ -659,12 +727,14 @@ function statusCopy(subscription) {
   return 'We are reviewing your subscription access. Refresh shortly or contact support if this continues.';
 }
 
-function planDescription(plan) {
-  if (plan.code === 'activation_5m') return 'Required once for new stores, with five months of full access';
-  if (plan.code === 'monthly') return 'Flexible monthly renewal after activation';
-  if (plan.code === 'quarterly') return 'Save compared with monthly billing';
-  if (plan.code === 'yearly') return 'Best value for established stores';
-  return 'All QuickPOS features included';
+function billingNextAction(subscription) {
+  if (!subscription) return 'Wait for the account check to finish';
+  if (subscription.status === 'grandfathered') return 'No payment action required';
+  if (subscription.activation_required) return 'Complete the one-time activation';
+  if (['past_due', 'expired'].includes(subscription.status)) return 'Choose a plan and renew access';
+  if (subscription.cancel_at_period_end || subscription.status === 'cancelled') return 'Choose a plan when you want to renew';
+  if (subscription.status === 'trialing') return 'Activate before the trial ends';
+  return 'Review renewal options when you are ready';
 }
 
 function planCadence(plan) {
@@ -673,13 +743,6 @@ function planCadence(plan) {
   if (plan.code === 'quarterly') return 'every 3 months';
   if (plan.code === 'yearly') return 'per year';
   return plan.recurring ? 'recurring' : 'one-time payment';
-}
-
-function planHighlight(plan) {
-  if (plan.code === 'activation_5m') return 'Includes five months of access';
-  if (plan.code === 'yearly') return 'Lowest effective monthly cost';
-  if (plan.code === 'quarterly') return 'Fewer renewals, better value';
-  return 'Cancel renewal at any time';
 }
 
 function downloadsUnlocked(subscription) {
@@ -709,7 +772,7 @@ function activatePortalSection(section, { focus = false } = {}) {
 
   const activePanel = document.querySelector(`[data-account-panel="${activeSection}"]`);
   if (focus && activePanel) {
-    activePanel.querySelector('h2')?.focus({ preventScroll: true });
+    activePanel.querySelector('h2')?.focus();
   }
 
   if (activeSection === 'downloads') loadDownloads();
@@ -760,126 +823,163 @@ function renderTransactions(transactions = []) {
   `;
 }
 
-function priceForPlan(plan, selectedCurrency) {
-  return {
-    currency: selectedCurrency,
-    amount: plan.prices?.[selectedCurrency] ?? null,
-  };
+const CHECKOUT_PROVIDERS = { paystack: 'Paystack', flutterwave: 'Flutterwave' };
+
+function paymentChoices(plans, activation, currency) {
+  return plans
+    .filter((plan) => (plan.code === 'activation_5m') === activation)
+    .map((plan) => {
+      const amount = Number(plan.prices?.[currency]);
+      const priced = Number.isFinite(amount) && amount > 0;
+      return {
+        ...plan,
+        price: priced ? formatCurrency(amount, currency) : '',
+        providers: priced ? Object.keys(CHECKOUT_PROVIDERS).filter((provider) =>
+          plan.provider_availability?.[provider] &&
+          plan.provider_availability?.currencies?.[provider]?.includes(currency)
+        ) : [],
+      };
+    });
 }
 
-function visiblePlansForSubscription(plans = [], subscription = {}) {
-  const needsActivation = Boolean(subscription.activation_required);
-  return plans.filter((plan) =>
-    needsActivation ? plan.code === 'activation_5m' : plan.code !== 'activation_5m'
-  );
-}
+function renderBillingCheckout(plans, subscription, billingCurrency) {
+  const activation = Boolean(subscription?.activation_required);
+  const currency = detectPreferredCurrency(billingCurrency);
+  const choices = paymentChoices(plans, activation, currency);
+  const canCheckout = choices.some((plan) => plan.providers.length);
+  const activationTermActive = subscription?.plan_code === 'activation_5m' && subscription.can_write && !activation;
+  const activePaidTerm = subscription?.can_write && subscription.provider &&
+    !activation && Date.parse(subscription.current_period_end) > Date.parse(subscription.server_time || new Date().toISOString());
 
-function renderPlanCards(plans = [], providers = {}, subscription = {}, billingCurrency = '') {
-  const activationPeriodActive =
-    subscription.plan_code === 'activation_5m' &&
-    subscription.can_write;
-  const visiblePlans = visiblePlansForSubscription(plans, subscription);
-  const configuredProviderCount = Object.values(providers || {})
-    .filter((provider) => provider.available).length;
-  const selectedCurrency = detectPreferredCurrency(billingCurrency);
+  if (activationTermActive || activePaidTerm) {
+    return `
+      <div class="account-notice billing-alert">
+        Access is active through ${formatDate(subscription.current_period_end)}.
+        You can choose a new plan after this billing period ends.
+      </div>
+    `;
+  }
+  if (!subscription || subscription.status === 'grandfathered') return '';
 
+  const single = choices.length === 1 ? choices[0] : null;
+  const checkoutDetails = (plan) => `data-provider-options="${plan.providers.join(' ')}" data-total="${escapeHtml(plan.price)}" data-cadence="${escapeHtml(planCadence(plan))}" data-recurring="${Boolean(plan.recurring)}"`;
   return `
-    ${configuredProviderCount === 0 ? `
-      <div class="account-notice billing-alert">
-        Online checkout is temporarily unavailable. Contact support for activation assistance.
-      </div>
-    ` : ''}
-    ${activationPeriodActive ? `
-      <div class="account-notice billing-alert">
-        Your five-month activation period is active through ${formatDate(subscription.current_period_end)}.
-        Renewal checkout becomes available after this period.
-      </div>
-    ` : ''}
-    <div class="billing-checkout-panel">
-      <div class="billing-checkout-heading">
-        <div>
-          <span class="section-kicker">Checkout preferences</span>
-          <h3>Choose how you want to pay</h3>
-          <p>Review the automatically selected billing currency and terms, then continue with your preferred payment provider.</p>
-        </div>
-        <span class="billing-secure-badge">Secure hosted checkout</span>
-      </div>
-      <div class="account-currency-row">
-        <div class="account-currency-field">
-          <span>Payment currency</span>
-          <strong>${selectedCurrency}</strong>
-          <input id="account-payment-currency" type="hidden" value="${selectedCurrency}">
-        </div>
-        <div class="billing-currency-copy">
-          <strong>${selectedCurrency} billing is set from your current country</strong>
-          <p>Customers in Nigeria pay in NGN. Customers outside Nigeria pay in USD. Checkout verifies this again before creating the payment.</p>
-        </div>
-      </div>
-      <label class="account-check billing-ack">
-        <input type="checkbox" id="account-billing-ack">
-        <span>I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> and acknowledge the <a href="/refund" target="_blank" rel="noopener noreferrer">Refund Policy</a>.</span>
-      </label>
-    </div>
-    <div class="billing-plans-heading">
-      <div>
-        <span class="section-kicker">${subscription.activation_required ? 'Activation' : 'Subscription plans'}</span>
-        <h3>${subscription.activation_required ? 'Complete your store setup' : 'Select your next billing period'}</h3>
-      </div>
-      <span>${visiblePlans.length} ${visiblePlans.length === 1 ? 'option' : 'options'} available</span>
-    </div>
-    <div class="account-plan-grid ${visiblePlans.length === 1 ? 'single-plan' : ''}">
-      ${visiblePlans.map((plan) => `
-        <article class="account-plan-card ${plan.code === 'yearly' ? 'featured' : ''}">
-          <div class="account-plan-heading">
-            <span class="plan-kicker">${plan.code === 'activation_5m' ? 'Required once' : plan.recurring ? 'Recurring plan' : 'Plan'}</span>
-            ${plan.code === 'yearly' ? '<span class="account-plan-badge">Best value</span>' : ''}
-          </div>
-          <div>
-            <h3>${escapeHtml(plan.name)}</h3>
-            <p class="account-plan-highlight">${planHighlight(plan)}</p>
-          </div>
-          ${(() => {
-            const price = priceForPlan(plan, selectedCurrency);
-            return `
-              <div class="account-plan-price">
-                <strong>${price.amount == null ? `${price.currency} unavailable` : formatCurrency(price.amount, price.currency)}</strong>
-                <span>${planCadence(plan)}</span>
+    <div class="billing-purchase-layout ${activation ? 'has-activation' : ''}">
+      <section class="billing-purchase" aria-labelledby="billing-purchase-title">
+        <h3 id="billing-purchase-title">${activation ? 'Activation checkout' : 'Renewal checkout'}</h3>
+        ${!canCheckout ? `
+          ${single?.price ? `<p class="billing-total"><strong>${escapeHtml(single.price)}</strong> <span>${currency} · ${planCadence(single)}</span></p>` : ''}
+          <p>Online checkout isn’t available in ${currency} for your plan right now.</p>
+          <a class="activation-text-link" href="/support">Contact QuickPOS support</a>
+        ` : `
+          <form class="billing-payment-form" id="account-checkout-form" data-currency="${currency}" data-form-experience="off" novalidate>
+            ${single ? `
+              <input type="hidden" name="plan_code" value="${escapeHtml(single.code)}" ${checkoutDetails(single)}>
+            ` : `
+              <div class="billing-field">
+                <label for="account-checkout-plan">Billing plan</label>
+                <select id="account-checkout-plan" name="plan_code" required aria-describedby="account-plan-error">
+                  <option value="" selected disabled>Choose a billing plan</option>
+                  ${choices.map((plan) => `
+                    <option value="${escapeHtml(plan.code)}" ${checkoutDetails(plan)} ${plan.providers.length ? '' : 'disabled'}>
+                      ${escapeHtml(plan.name)}${plan.price ? ` · ${escapeHtml(plan.price)} ${planCadence(plan)}` : ''}${plan.providers.length ? '' : ` (unavailable in ${currency})`}
+                    </option>
+                  `).join('')}
+                </select>
+                <p class="billing-field-error" id="account-plan-error" hidden></p>
               </div>
-            `;
-          })()}
-          <p class="account-plan-description">${planDescription(plan)}</p>
-          <div class="account-plan-includes">
-            <span>Unlimited staff and devices</span>
-            <span>POS, inventory, reports, and updates</span>
-          </div>
-          <div class="account-provider-label">Choose payment provider</div>
-          <div class="account-provider-actions">
-            <div class="account-provider-option">
-              <button class="payment-provider-button paystack" type="button" data-checkout-provider="paystack" data-plan="${plan.code}" data-currencies="${(plan.provider_availability?.currencies?.paystack || []).join(',')}" data-enabled="${Boolean(plan.provider_availability?.paystack && !activationPeriodActive)}" disabled>
-                <span>Continue with</span>
-                <strong>Paystack</strong>
-              </button>
-              <small data-provider-status="paystack">Checking availability...</small>
+            `}
+            <div class="billing-price-summary" aria-live="polite" aria-atomic="true">
+              <p class="billing-total"><strong data-checkout-total>${single ? escapeHtml(single.price) : '—'}</strong> <span data-checkout-cadence>${currency}${single ? ` · ${planCadence(single)}` : ''}</span></p>
+              <p class="activation-note" data-checkout-renewal>${activation ? 'Five months of full access. Does not auto-renew.' : 'Choose a plan to see the amount and renewal schedule.'}</p>
             </div>
-            <div class="account-provider-option">
-              <button class="payment-provider-button flutterwave" type="button" data-checkout-provider="flutterwave" data-plan="${plan.code}" data-currencies="${(plan.provider_availability?.currencies?.flutterwave || []).join(',')}" data-enabled="${Boolean(plan.provider_availability?.flutterwave && !activationPeriodActive)}" disabled>
-                <span>Continue with</span>
-                <strong>Flutterwave</strong>
-              </button>
-              <small data-provider-status="flutterwave">Checking availability...</small>
+            <fieldset class="billing-provider-fieldset" aria-describedby="account-provider-error">
+              <legend>Payment provider</legend>
+              <div class="billing-provider-choices">
+                ${Object.entries(CHECKOUT_PROVIDERS).map(([provider, label]) => `
+                  <label class="billing-provider-choice">
+                    <input type="radio" name="provider" value="${provider}" ${single?.providers.includes(provider) ? '' : 'disabled'} ${single?.providers.length === 1 && single.providers[0] === provider ? 'checked' : ''}>
+                    <span><strong>${label}</strong><small data-billing-provider-status></small></span>
+                  </label>
+                `).join('')}
+              </div>
+              <p class="billing-field-error" id="account-provider-error" hidden></p>
+            </fieldset>
+            <div class="billing-consent">
+              <label class="account-check billing-ack">
+                <input type="checkbox" id="account-billing-ack" name="legal_acknowledged" required aria-describedby="account-consent-error">
+                <span>I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> and acknowledge the <a href="/refund" target="_blank" rel="noopener noreferrer">Refund Policy</a>.</span>
+              </label>
+              <p class="billing-field-error" id="account-consent-error" hidden></p>
             </div>
-          </div>
-        </article>
-      `).join('')}
+            <p class="billing-field-error" data-checkout-error role="alert" tabindex="-1" hidden></p>
+            <button class="button" type="submit">Continue to secure payment</button>
+            <p class="activation-note">You’ll review and complete payment on your provider’s secure page.</p>
+          </form>
+        `}
+      </section>
+      ${activation ? `<section class="billing-setup" aria-label="Setup progress">
+        <h3>Get ready to sell</h3>
+        ${activationSteps({ registered: true, billing: true })}
+      </section>` : ''}
     </div>
   `;
 }
 
-function renderPortal({ overview, plans, providers, transactions, staff = [], billingCurrency }, flash = '') {
+function needsInitialActivation(subscription) {
+  return Boolean(subscription?.activation_required && !subscription.can_write);
+}
+
+function keepActivationRoute() {
+  const { mode, params } = routeInfo();
+  if (mode === 'billing') return;
+  const query = params.toString();
+  window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}#billing`);
+}
+
+function renderActivationGate(store, checkout, flash) {
+  keepActivationRoute();
+  root.innerHTML = `
+    <section class="section account-section" data-account-gate aria-labelledby="activation-gate-title">
+      <div class="site-shell account-gate-shell">
+        <header class="account-gate-heading">
+          <div class="page-intro">
+            <span class="eyebrow">Setup · Step 2 of 3</span>
+            <h1 id="activation-gate-title" tabindex="-1">Activate your store</h1>
+            <p>${escapeHtml(store?.name || 'Your store')} is registered. Complete the one-time payment to unlock the portal and start using QuickPOS.</p>
+          </div>
+          <button class="button button-secondary" type="button" id="account-logout">Sign out</button>
+        </header>
+        <div data-account-alert></div>
+        ${checkout}
+        <p class="account-gate-help">Need a hand? <a class="activation-text-link" href="/support">Contact QuickPOS support</a>.</p>
+      </div>
+    </section>
+  `;
+  if (flash) setFlash(typeof flash === 'string' ? flash : flash.message, typeof flash === 'string' ? 'success' : flash.type);
+  attachSignOutHandler();
+  attachBillingHandlers();
+  document.getElementById('activation-gate-title')?.focus({ preventScroll: true });
+}
+
+function renderPortal({ overview, plans, transactions, staff = [], billingCurrency }, flash = '', { focus = false } = {}) {
   const { user, store } = overview;
   const subscription = overview.subscription;
   const unlocked = downloadsUnlocked(subscription);
   const activeSection = portalSectionFromRoute();
+  const activation = Boolean(subscription?.activation_required);
+  const pendingPayment = Boolean(returnedPayment(routeInfo().params));
+  const checkout = pendingPayment ? `
+    <div class="account-notice billing-alert">
+      <p>Check this payment before starting another. If you see a charge and your store is still locked, contact support.</p>
+      <button class="button" type="button" data-check-payment>Check payment status</button>
+      <a class="activation-text-link" href="/support">Contact support</a>
+    </div>
+  ` : renderBillingCheckout(plans, subscription, billingCurrency);
+  if (needsInitialActivation(subscription)) {
+    renderActivationGate(store, checkout, flash);
+    return;
+  }
   const confirmedTransactions = transactions.filter((transaction) => transaction.status === 'success');
 
   root.innerHTML = `
@@ -887,8 +987,8 @@ function renderPortal({ overview, plans, providers, transactions, staff = [], bi
       <div class="site-shell account-portal-hero">
         <div class="page-intro">
           <span class="eyebrow">Account portal</span>
-          <h1>Manage setup, staff, billing, and downloads.</h1>
-          <p>This is the website side of QuickPOS. It does not open the POS app or show app screens.</p>
+          <h1>Manage your QuickPOS account.</h1>
+          <p>Update store details, control staff access, manage billing, and download verified applications.</p>
           <div class="trust-row">
             <span>Admin-only portal</span>
             <span>Separate website session</span>
@@ -897,7 +997,7 @@ function renderPortal({ overview, plans, providers, transactions, staff = [], bi
         </div>
         <aside class="account-status-card">
           <span class="account-badge ${unlocked ? 'success' : 'warning'}">${escapeHtml(subscriptionStatusLabel(subscription))}</span>
-          <h2>${unlocked ? 'Downloads unlocked' : 'Activation required'}</h2>
+          <h2>${unlocked ? 'Downloads unlocked' : activation ? 'Store setup incomplete' : 'Access limited'}</h2>
           <p>${escapeHtml(statusCopy(subscription))}</p>
           <button class="button button-secondary" type="button" id="account-logout">Sign out</button>
         </aside>
@@ -920,7 +1020,7 @@ function renderPortal({ overview, plans, providers, transactions, staff = [], bi
         </aside>
 
         <div class="account-main">
-          <div data-account-alert>${flash ? `<div class="account-alert success">${escapeHtml(flash)}</div>` : ''}</div>
+          <div data-account-alert></div>
 
           <section class="account-panel" data-account-panel="overview" ${activeSection === 'overview' ? '' : 'hidden'}>
             <div class="account-panel-heading">
@@ -930,7 +1030,12 @@ function renderPortal({ overview, plans, providers, transactions, staff = [], bi
               </div>
               <span class="account-badge ${unlocked ? 'success' : 'warning'}">${unlocked ? 'Active' : 'Setup required'}</span>
             </div>
-            <p class="account-muted">Choose a section below to manage it. Only one section opens at a time, keeping your account portal focused and easy to navigate.</p>
+            ${activation ? `
+              <div class="account-activation-prompt">
+                <div><strong>Finish setting up your store</strong><p>Your account is ready. Activate to unlock sales, inventory, staff access, and app downloads.</p></div>
+                <button class="button" type="button" data-account-open-section="billing">Continue to activation</button>
+              </div>
+            ` : '<p class="account-muted">Manage your store, team, billing, and downloads.</p>'}
             <div class="account-overview-grid">
               <button class="account-overview-card" type="button" data-account-open-section="profile">
                 <span class="section-kicker">Owner</span>
@@ -1105,16 +1210,29 @@ function renderPortal({ overview, plans, providers, transactions, staff = [], bi
             <div class="account-panel-heading">
               <div>
                 <span class="section-kicker">Billing</span>
-                <h2 tabindex="-1">${subscription?.activation_required ? 'Activate your store' : 'Manage subscription'}</h2>
-                <p>Manage payment preferences, subscription access, and transaction records.</p>
+                <h2 tabindex="-1">${activation ? 'Activate your store' : 'Manage subscription'}</h2>
+                <p>${activation ? 'Pay once to unlock five months of QuickPOS and download the app. No automatic renewal.' : 'Review your access, billing plans, and confirmed payments.'}</p>
               </div>
-              <span class="account-badge ${unlocked ? 'success' : 'warning'}">${unlocked ? 'Paid access' : 'Pending payment'}</span>
+              <span class="account-badge ${unlocked ? 'success' : 'warning'}">${escapeHtml(subscriptionStatusLabel(subscription))}</span>
+            </div>
+            ${activation ? checkout : `
+            <div class="billing-status-band">
+              <div>
+                <span>Subscription status</span>
+                <strong>${escapeHtml(subscriptionStatusLabel(subscription))}</strong>
+                <p>${escapeHtml(statusCopy(subscription))}</p>
+              </div>
+              <div>
+                <span>Next action</span>
+                <strong>${escapeHtml(billingNextAction(subscription))}</strong>
+                <p>Payments are approved automatically only after the selected provider confirms them.</p>
+              </div>
             </div>
             <div class="billing-summary-grid">
               <article>
-                <span>Current status</span>
-                <strong>${escapeHtml(subscriptionStatusLabel(subscription))}</strong>
-                <p>${escapeHtml(statusCopy(subscription))}</p>
+                <span>Account access</span>
+                <strong>${unlocked ? 'Full access' : 'Limited access'}</strong>
+                <p>${unlocked ? 'Sales, staff, reports, inventory, and downloads are available.' : 'Complete payment to unlock the full product.'}</p>
               </article>
               <article>
                 <span>Current plan</span>
@@ -1127,7 +1245,8 @@ function renderPortal({ overview, plans, providers, transactions, staff = [], bi
                 <p>${unlocked ? 'Your store currently has full write access.' : 'Complete payment to unlock full access.'}</p>
               </article>
             </div>
-            ${renderPlanCards(plans, providers, subscription, billingCurrency)}
+            ${checkout}
+            `}
             <div class="account-subpanel billing-history-panel">
               <div class="billing-history-heading">
                 <div>
@@ -1151,7 +1270,7 @@ function renderPortal({ overview, plans, providers, transactions, staff = [], bi
             </div>
             ${unlocked ? `
               <div class="download-experience account-download-experience" data-account-download-grid>
-                <div class="download-loading"><span class="download-spinner"></span>Loading your verified downloads...</div>
+                <div class="download-loading"><span class="download-spinner"></span>Loading your verified downloads…</div>
               </div>
             ` : `
               <div class="account-locked-downloads">
@@ -1166,8 +1285,11 @@ function renderPortal({ overview, plans, providers, transactions, staff = [], bi
     </section>
   `;
 
+  if (flash) {
+    setFlash(typeof flash === 'string' ? flash : flash.message, typeof flash === 'string' ? 'success' : flash.type);
+  }
   attachPortalHandlers();
-  activatePortalSection(activeSection);
+  activatePortalSection(activeSection, { focus });
 }
 
 function payloadFromForm(form, omitBlankKeys = []) {
@@ -1179,6 +1301,20 @@ function payloadFromForm(form, omitBlankKeys = []) {
     payload[key] = text;
   });
   return payload;
+}
+
+function attachSignOutHandler() {
+  document.getElementById('account-logout')?.addEventListener('click', async (event) => {
+    event.currentTarget.disabled = true;
+    try {
+      await siteApi.post('/auth/logout', {});
+    } catch {
+      // Local sign-out should still complete.
+    }
+    siteApi.clearSession();
+    window.history.replaceState({}, '', `${window.location.pathname}#signin`);
+    renderSignIn();
+  });
 }
 
 function attachPortalHandlers() {
@@ -1194,23 +1330,14 @@ function attachPortalHandlers() {
     });
   });
 
-  document.getElementById('account-logout')?.addEventListener('click', async () => {
-    try {
-      await siteApi.post('/auth/logout', {});
-    } catch {
-      // Local sign-out should still complete.
-    }
-    siteApi.clearSession();
-    window.location.hash = '#signin';
-    renderSignIn();
-  });
+  attachSignOutHandler();
 
   document.getElementById('account-profile-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const button = event.submitter;
     const payload = payloadFromForm(event.target, ['password']);
     button.disabled = true;
-    button.textContent = 'Saving...';
+    button.textContent = 'Saving…';
     try {
       const result = await siteApi.patch('/account/profile', payload);
       siteApi.updateUser(result.user);
@@ -1228,7 +1355,7 @@ function attachPortalHandlers() {
     const payload = payloadFromForm(event.target, ['tax_rate']);
     if (payload.tax_rate !== undefined) payload.tax_rate = Number(payload.tax_rate);
     button.disabled = true;
-    button.textContent = 'Saving...';
+    button.textContent = 'Saving…';
     try {
       await siteApi.patch('/account/store', payload);
       await loadPortal('Store settings updated.');
@@ -1244,7 +1371,7 @@ function attachPortalHandlers() {
     const button = event.submitter;
     const payload = payloadFromForm(event.target, ['phone']);
     button.disabled = true;
-    button.textContent = 'Creating account...';
+    button.textContent = 'Creating account…';
     try {
       await siteApi.post('/settings/users', payload);
       await loadPortal(`${payload.name} was added as a ${payload.role}.`);
@@ -1272,7 +1399,7 @@ function attachPortalHandlers() {
       if (!staffId || !confirm('Delete this staff account and sign them out of QuickPOS?')) return;
       const originalText = button.textContent;
       button.disabled = true;
-      button.textContent = 'Deleting...';
+      button.textContent = 'Deleting…';
       try {
         await siteApi.delete(`/account/staff/${staffId}`);
         await loadPortal('Staff account deleted.');
@@ -1284,103 +1411,126 @@ function attachPortalHandlers() {
     });
   });
 
-  const acknowledgement = document.getElementById('account-billing-ack');
-  const currencyInput = document.getElementById('account-payment-currency');
-  const checkoutButtons = [...document.querySelectorAll('[data-checkout-provider]')];
-  const syncCheckoutButtons = () => {
-    const selectedCurrency = currencyInput?.value || DEFAULT_PAYMENT_CURRENCY;
-    checkoutButtons.forEach((button) => {
-      const option = button.closest('.account-provider-option');
-      const status = option?.querySelector(`[data-provider-status="${button.dataset.checkoutProvider}"]`);
-      const providerCurrencies = (button.dataset.currencies || '').split(',').filter(Boolean);
-      const currencyAvailable = providerCurrencies.includes(selectedCurrency);
-      const planAvailable = button.dataset.enabled === 'true';
-      const termsAccepted = Boolean(acknowledgement?.checked);
-      const enabled = planAvailable && currencyAvailable && termsAccepted;
-      button.disabled = !enabled;
-      button.dataset.state = enabled ? 'ready' : 'disabled';
-
-      if (!status) return;
-      if (!planAvailable) {
-        status.textContent = 'Unavailable for this plan';
-        status.dataset.state = 'unavailable';
-      } else if (!currencyAvailable) {
-        status.textContent = `${selectedCurrency} is not supported for this plan`;
-        status.dataset.state = 'unavailable';
-      } else if (!termsAccepted) {
-        status.textContent = 'Accept the payment terms above to continue';
-        status.dataset.state = 'waiting';
-      } else {
-        status.textContent = `Available in ${selectedCurrency}`;
-        status.dataset.state = 'ready';
-      }
-    });
-  };
-  acknowledgement?.addEventListener('change', syncCheckoutButtons);
-  syncCheckoutButtons();
-
-  checkoutButtons.forEach((button) => {
-    button.addEventListener('click', async () => {
-      if (button.disabled) return;
-      const originalMarkup = button.innerHTML;
-      button.disabled = true;
-      button.innerHTML = '<span>Opening secure</span><strong>Checkout...</strong>';
-      try {
-        const checkout = await siteApi.post('/billing/checkout', {
-          provider: button.dataset.checkoutProvider,
-          plan_code: button.dataset.plan,
-          currency: currencyInput?.value || DEFAULT_PAYMENT_CURRENCY,
-          locale: navigator.language || '',
-          time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
-          legal_acknowledged: true,
-        });
-        window.open(checkout.authorization_url, '_blank', 'noopener,noreferrer');
-        setFlash(
-          checkout.currency_notice ||
-            `Complete ${formatCurrency(checkout.amount, checkout.currency)} payment in the secure provider page. This portal will unlock downloads after confirmation.`,
-          'info'
-        );
-        pollForActivation(button.dataset.plan, checkout);
-      } catch (error) {
-        setFlash(error.message || 'Could not start checkout', 'error');
-      } finally {
-        button.innerHTML = originalMarkup;
-        syncCheckoutButtons();
-      }
-    });
-  });
+  attachBillingHandlers();
 }
 
-function pollForActivation(planCode, checkout = {}) {
-  if (activationPoll) clearInterval(activationPoll);
-  let attempts = 0;
-  activationPoll = setInterval(async () => {
-    attempts += 1;
-    if (attempts > 30) {
-      clearInterval(activationPoll);
-      return;
+function attachBillingHandlers() {
+  document.querySelector('[data-check-payment]')?.addEventListener('click', (event) => {
+    event.currentTarget.disabled = true;
+    event.currentTarget.textContent = 'Checking…';
+    bootstrap();
+  });
+  attachCheckoutHandler();
+}
+
+function attachCheckoutHandler() {
+  const form = document.getElementById('account-checkout-form');
+  if (!form) return;
+
+  const plan = form.elements.namedItem('plan_code');
+  const consent = form.elements.namedItem('legal_acknowledged');
+  const providers = [...form.querySelectorAll('input[name="provider"]')];
+  const providerGroup = form.querySelector('.billing-provider-fieldset');
+  const button = form.querySelector('[type="submit"]');
+  const requestError = form.querySelector('[data-checkout-error]');
+  const currency = form.dataset.currency;
+  const total = form.querySelector('[data-checkout-total]');
+  const cadence = form.querySelector('[data-checkout-cadence]');
+  const renewal = form.querySelector('[data-checkout-renewal]');
+  const currentProvider = () => providers.find((option) => option.checked && !option.disabled);
+  const selectedPlan = () => plan instanceof HTMLSelectElement ? plan.selectedOptions[0] : plan;
+
+  function fieldError(field, id, message = '', focusTarget = field) {
+    const error = form.querySelector(`#${id}`);
+    if (!error) return;
+    error.textContent = message;
+    error.hidden = !message;
+    if (message) {
+      field.setAttribute('aria-invalid', 'true');
+      focusTarget?.focus();
+    } else {
+      field.removeAttribute('aria-invalid');
     }
-    try {
-      if (checkout.provider && checkout.reference) {
-        const confirmation = await siteApi.post('/billing/confirm', {
-          provider: checkout.provider,
-          reference: checkout.reference,
-        });
-        if (confirmation.confirmed && confirmation.subscription?.can_write) {
-          clearInterval(activationPoll);
-          await loadPortal('Payment confirmed. Your store and staff access are now active.');
-          return;
-        }
-      }
-      const result = await siteApi.get('/billing/status');
-      if (result.subscription?.plan_code === planCode && result.subscription?.can_write) {
-        clearInterval(activationPoll);
-        await loadPortal('Payment confirmed. Downloads are now unlocked.');
-      }
-    } catch {
-      // Keep polling while the provider redirects and verifies payment.
+  }
+
+  function syncOptions() {
+    const choice = selectedPlan();
+    const available = choice?.dataset.providerOptions?.split(' ').filter(Boolean) || [];
+    for (const option of providers) {
+      option.disabled = !available.includes(option.value);
+      if (option.disabled) option.checked = false;
+      else if (available.length === 1) option.checked = true;
+      option.closest('label').querySelector('[data-billing-provider-status]').textContent = option.disabled
+        ? (plan.value ? 'Unavailable for this plan' : 'Choose a plan first')
+        : `Available in ${currency}`;
     }
-  }, 4000);
+    total.textContent = choice?.dataset.total || '—';
+    cadence.textContent = `${currency}${choice?.dataset.cadence ? ` · ${choice.dataset.cadence}` : ''}`;
+    renewal.textContent = !plan.value ? 'Choose a plan to see the amount and renewal schedule.'
+      : plan.value === 'activation_5m' ? 'Five months of full access. Does not auto-renew.'
+        : choice.dataset.recurring === 'true' ? 'Renews automatically until cancelled.' : 'Does not auto-renew.';
+    const provider = currentProvider();
+    button.textContent = provider ? `Continue to ${CHECKOUT_PROVIDERS[provider.value]}` : 'Continue to secure payment';
+  }
+
+  const clearRequestError = () => { requestError.hidden = true; requestError.textContent = ''; };
+  function restoreCheckout() {
+    button.disabled = plan.disabled = consent.disabled = false;
+    syncOptions();
+  }
+  plan.addEventListener('change', () => {
+    fieldError(plan, 'account-plan-error');
+    fieldError(providerGroup, 'account-provider-error');
+    clearRequestError();
+    syncOptions();
+  });
+  providerGroup.addEventListener('change', () => {
+    fieldError(providerGroup, 'account-provider-error');
+    clearRequestError();
+    syncOptions();
+  });
+  consent.addEventListener('change', () => fieldError(consent, 'account-consent-error'));
+  syncOptions();
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (button.disabled) return;
+    clearRequestError();
+    const provider = currentProvider();
+    if (!plan.value || selectedPlan()?.disabled) {
+      fieldError(plan, 'account-plan-error', 'Choose a billing plan to continue.');
+    } else if (!provider) {
+      fieldError(providerGroup, 'account-provider-error', 'Choose a payment provider to continue.', providers.find((option) => !option.disabled));
+    } else if (!consent.checked) {
+      fieldError(consent, 'account-consent-error', 'Check the agreement to continue to payment.');
+    } else {
+      const payload = {
+        provider: provider.value,
+        plan_code: plan.value,
+        currency,
+        locale: navigator.language || '',
+        time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+        legal_acknowledged: consent.checked,
+      };
+      button.disabled = true;
+      button.textContent = 'Opening secure checkout…';
+      plan.disabled = consent.disabled = true;
+      providers.forEach((option) => { option.disabled = true; });
+      try {
+        const checkout = await siteApi.post('/billing/checkout', payload);
+        if (!checkout.authorization_url) throw new Error('The payment provider didn’t return a checkout link. Please try again.');
+        window.location.assign(checkout.authorization_url);
+        window.addEventListener('pageshow', () => {
+          if (form.isConnected) restoreCheckout();
+        }, { once: true });
+      } catch (error) {
+        restoreCheckout();
+        requestError.textContent = error.message || 'Could not start checkout. Please try again.';
+        requestError.hidden = false;
+        requestError.focus();
+      }
+    }
+  });
 }
 
 function returnedPayment(params) {
@@ -1399,21 +1549,24 @@ function returnedPayment(params) {
 
 async function confirmReturnedPayment(params) {
   const payment = returnedPayment(params);
-  if (!payment) return '';
-  if (payment.provider === 'flutterwave' && payment.status && payment.status !== 'successful') {
-    return 'Payment was not completed. Your store has not been charged or activated.';
+  if (!payment) return null;
+  const routeTo = (section) => window.history.replaceState({}, '', `${window.location.pathname}#${section}`);
+  if (payment.provider === 'flutterwave' && ['cancelled', 'canceled', 'failed'].includes(payment.status)) {
+    routeTo('billing');
+    return { message: 'Checkout did not complete. If you see a charge, contact support before retrying.', type: 'info' };
   }
 
   const result = await siteApi.post('/billing/confirm', payment);
-  if (result.confirmed && result.subscription?.can_write) {
-    window.history.replaceState({}, '', `${window.location.pathname}#billing`);
-    return 'Payment confirmed. Your store and staff access are now active.';
+  if (result.confirmed) {
+    const unlocked = downloadsUnlocked(result.subscription);
+    routeTo(unlocked ? 'downloads' : 'billing');
+    return { message: unlocked ? 'Payment confirmed. Your store is active and downloads are unlocked.' : 'Payment confirmed. See your current access and payment history in Billing.', type: 'success' };
   }
   if (result.duplicate_review) {
-    window.history.replaceState({}, '', `${window.location.pathname}#billing`);
-    return 'Payment received. A possible duplicate charge has been flagged for support review.';
+    routeTo('billing');
+    return { message: 'Payment received. A possible duplicate charge has been flagged for support review.', type: 'info' };
   }
-  return 'Payment is still being confirmed. This page will update automatically.';
+  return { message: 'The payment provider hasn’t confirmed your payment yet.', type: 'info' };
 }
 
 async function loadDownloads() {
@@ -1435,11 +1588,11 @@ async function loadDownloads() {
   }
 }
 
-async function loadPortal(flash = '') {
+async function loadPortal(flash = '', { focus = false } = {}) {
   root.innerHTML = `
     <section class="page-hero account-hero">
       <div class="site-shell">
-        <div class="download-loading"><span class="download-spinner"></span>Loading your QuickPOS account...</div>
+        <div class="download-loading"><span class="download-spinner"></span>Loading your QuickPOS account…</div>
       </div>
     </section>
   `;
@@ -1456,24 +1609,23 @@ async function loadPortal(flash = '') {
       locale: navigator.language || '',
       time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
     });
-    const [plansResult, statusResult, transactionsResult, staffResult] = await Promise.all([
+    const [plansResult, statusResult] = await Promise.all([
       siteApi.get(`/billing/plans?${billingHints}`),
       siteApi.get('/billing/status'),
+    ]);
+    const subscription = statusResult.subscription || overview.subscription;
+    const [transactionsResult, staffResult] = needsInitialActivation(subscription) ? [{}, {}] : await Promise.all([
       siteApi.get('/billing/transactions'),
       siteApi.get('/settings/users'),
     ]);
 
     renderPortal({
-      overview: {
-        ...overview,
-        subscription: statusResult.subscription || overview.subscription,
-      },
+      overview: { ...overview, subscription },
       plans: plansResult.plans || [],
-      providers: plansResult.providers || {},
       billingCurrency: plansResult.currency?.recommended || '',
       transactions: transactionsResult.transactions || [],
       staff: staffResult.users || [],
-    }, flash);
+    }, flash, { focus });
   } catch (error) {
     siteApi.clearSession();
     renderSignIn();
@@ -1507,16 +1659,27 @@ async function bootstrap() {
     return;
   }
   let flash;
+  const payment = returnedPayment(params);
+  if (payment && mode !== 'billing') {
+    const query = new URLSearchParams({ [payment.provider === 'flutterwave' ? 'tx_ref' : 'reference']: payment.reference });
+    if (payment.transaction_id) query.set('transaction_id', payment.transaction_id);
+    if (payment.status) query.set('status', payment.status);
+    window.history.replaceState({}, '', `${window.location.pathname}?${query}#billing`);
+  }
   try {
     flash = await confirmReturnedPayment(params);
   } catch (error) {
-    flash = error.message || 'Payment confirmation is still pending. Please refresh shortly.';
+    flash = { message: error.message || 'Couldn’t check this payment right now.', type: 'error' };
   }
-  await loadPortal(flash);
+  await loadPortal(flash, { focus: Boolean(payment) });
 }
 
 function handleAccountNavigation() {
-  const { mode } = routeInfo();
+  const { mode, params } = routeInfo();
+  if (siteApi.accessToken && !returnedPayment(params) && document.querySelector('[data-account-gate]')) {
+    keepActivationRoute();
+    return;
+  }
   if (siteApi.accessToken && PORTAL_SECTIONS.includes(mode) && document.querySelector('[data-account-portal]')) {
     activatePortalSection(mode, { focus: true });
     return;

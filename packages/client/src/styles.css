@@ -1588,6 +1588,18 @@ select.input { appearance: none; cursor: pointer; }
   border-radius: 0.75rem;
   font-size: 0.85rem;
 }
+.subscription-banner > div { display: grid; gap: 0.2rem; min-width: 0; }
+.subscription-banner strong { font-size: 0.78rem; }
+.subscription-banner span { color: var(--color-text-muted); font-size: 0.75rem; line-height: 1.45; }
+.subscription-banner .btn { flex: 0 0 auto; }
+
+.pos-activation { min-height: 100dvh; padding: clamp(1rem, 6vw, 2rem); }
+.pos-activation .install-gate-panel { padding: clamp(1.25rem, 5vw, 2.25rem); }
+.pos-activation h1 { max-width: none; font-size: clamp(1.75rem, 6vw, 2.35rem); }
+.pos-activation .btn { min-height: 44px; }
+.pos-activation-status { color: var(--color-text-muted); font-size: 0.875rem; line-height: 1.5; margin-block: 0.75rem; }
+.pos-activation-status:empty { margin: 0; }
+.pos-activation-utilities { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; padding-top: 0.5rem; border-top: 1px solid var(--color-border); }
 
 .subscription-banner.trial {
   background: oklch(0.72 0.16 85 / 0.12);
