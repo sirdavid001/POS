@@ -8,6 +8,7 @@ import { validate } from '../../middleware/validate.js';
 import { createOrderSchema, refundOrderSchema } from './schema.js';
 import { refundOrder, RefundError } from './refund.js';
 import { pagination } from '../../utils/pagination.js';
+import { RegisterError, audit, loadSession, presentRegisterBasket, presentSession, registerPolicy, requireMatchingBasket } from '../register-control/service.js';
 
 const router = Router();
 router.use(authenticate);
@@ -33,7 +34,10 @@ router.post('/', validate(createOrderSchema), async (req, res, next) => {
       discount_amount = 0,
       notes,
       client_order_id,
+      register_session_id,
+      register_revision,
     } = req.body;
+    const badgeMode = req.subscription?.paid_staff_tools && await registerPolicy(client, req.user.store_id);
 
     if (!Array.isArray(items) || items.length === 0) {
       await client.query('ROLLBACK');
@@ -72,6 +76,17 @@ router.post('/', validate(createOrderSchema), async (req, res, next) => {
         [req.user.store_id, client_order_id]
       );
       if (existingOrder.rows[0]) {
+        const previous = existingOrder.rows[0];
+        let currentRegister = null;
+        if (previous.register_session_id) {
+          if (previous.register_session_id !== register_session_id) {
+            throw new RegisterError(409, 'That sale belongs to another register session.', 'SALE_SESSION_MISMATCH');
+          }
+          // Replaying a completed sale never repeats payment, stock or audit writes.
+          currentRegister = await loadSession(client, req.user, register_session_id);
+        } else if (previous.user_id !== req.user.id || register_session_id) {
+          throw new RegisterError(409, 'That sale belongs to another checkout.', 'SALE_SESSION_MISMATCH');
+        }
         const existingItems = await client.query(
           'SELECT * FROM order_items WHERE order_id = $1 AND store_id = $2 ORDER BY id',
           [existingOrder.rows[0].id, req.user.store_id]
@@ -80,17 +95,30 @@ router.post('/', validate(createOrderSchema), async (req, res, next) => {
           'SELECT reference FROM payments WHERE order_id = $1 AND store_id = $2 ORDER BY id DESC LIMIT 1',
           [existingOrder.rows[0].id, req.user.store_id]
         );
+        const registerView = currentRegister
+          ? await presentRegisterBasket(client, req.user.store_id, presentSession(currentRegister)) : null;
         await client.query('COMMIT');
         return res.json({
           order: {
             ...existingOrder.rows[0],
             items: existingItems.rows,
+            cashier_name: currentRegister?.cashier_name || req.user.name,
             payment_reference: existingPayment.rows[0]?.reference || null,
           },
           idempotent: true,
+          ...(registerView ? { register_session: registerView } : {}),
         });
       }
     }
+
+    if (!badgeMode && register_session_id) {
+      throw new RegisterError(409, 'Badge checkout is no longer enabled. Reopen the terminal.', 'BADGE_MODE_DISABLED');
+    }
+    const registerSession = badgeMode ? await loadSession(client, req.user, register_session_id) : null;
+    if (registerSession) requireMatchingBasket(registerSession, items, register_revision);
+    const cashier = registerSession
+      ? { ...req.user, id: registerSession.cashier_id, name: registerSession.cashier_name, role: registerSession.cashier_role }
+      : req.user;
 
     // Get store tax rate
     const storeResult = await client.query('SELECT tax_rate FROM stores WHERE id = $1', [req.user.store_id]);
@@ -151,7 +179,7 @@ router.post('/', validate(createOrderSchema), async (req, res, next) => {
       await client.query(
         `INSERT INTO inventory_logs (product_id, store_id, user_id, type, quantity, reason)
          VALUES ($1, $2, $3, 'out', $4, 'Sale')`,
-        [product.id, req.user.store_id, req.user.id, item.quantity]
+        [product.id, req.user.store_id, cashier.id, item.quantity]
       );
     }
 
@@ -168,10 +196,10 @@ router.post('/', validate(createOrderSchema), async (req, res, next) => {
     const orderResult = await client.query(
       `INSERT INTO orders
        (store_id, user_id, customer_id, order_number, subtotal, tax_amount, discount_amount,
-        total, status, payment_method, notes, paid_at, client_order_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'completed',$9,$10,NOW(),$11) RETURNING *`,
-      [req.user.store_id, req.user.id, customer_id || null, orderNumber, subtotal, taxAmount,
-       orderDiscount, total, payment_method, notes || null, client_order_id || null]
+        total, status, payment_method, notes, paid_at, client_order_id, register_session_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'completed',$9,$10,NOW(),$11,$12) RETURNING *`,
+      [req.user.store_id, cashier.id, customer_id || null, orderNumber, subtotal, taxAmount,
+       orderDiscount, total, payment_method, notes || null, client_order_id || null, register_session_id || null]
     );
 
     const order = orderResult.rows[0];
@@ -194,28 +222,35 @@ router.post('/', validate(createOrderSchema), async (req, res, next) => {
        payment_method === 'cash' ? 'cash' : 'manual', payment_reference?.trim() || null]
     );
 
-    // Audit log
-    await client.query(
-      `INSERT INTO audit_logs (store_id, user_id, entity_type, entity_id, action, new_values)
-       VALUES ($1,$2,'order',$3,'create',$4)`,
-      [req.user.store_id, req.user.id, order.id, JSON.stringify({ order_number: orderNumber, total, items: orderItems.length })]
-    );
+    await audit(client, cashier, 'order', order.id, 'create', {
+      order_number: orderNumber, total, items: orderItems.length, terminal_user_id: req.user.id,
+    });
+    let registerView = null;
+    if (registerSession) {
+      const { rows: [updated] } = await client.query(
+        `UPDATE register_sessions SET cart = '[]'::jsonb, revision = revision + 1
+         WHERE id = $1 AND store_id = $2 RETURNING *`, [registerSession.id, req.user.store_id]
+      );
+      registerView = presentSession({ ...updated, cashier_name: cashier.name });
+    }
 
     await client.query('COMMIT');
-    logger.info(`Order ${orderNumber} created by user ${req.user.id}, total: ${total}`);
+    logger.info(`Order ${orderNumber} created by user ${cashier.id}, total: ${total}`);
 
     // Broadcast event to connected clients (like Dashboard)
     broadcast('NEW_ORDER', {
       order_number: orderNumber,
       total,
-      cashier_id: req.user.id
+      cashier_id: cashier.id
     }, req.user.store_id);
 
     res.status(201).json({
-      order: { ...order, items: orderItems, payment_reference: payment_reference?.trim() || null },
+      order: { ...order, items: orderItems, cashier_name: cashier.name, payment_reference: payment_reference?.trim() || null },
+      ...(registerView ? { register_session: registerView } : {}),
     });
   } catch (err) {
     await client.query('ROLLBACK');
+    if (err instanceof RegisterError) return res.status(err.status).json({ error: err.message, code: err.code });
     next(err);
   } finally {
     client.release();

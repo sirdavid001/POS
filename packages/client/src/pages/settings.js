@@ -1,5 +1,8 @@
 import { api } from '../api.js';
 import { renderLayout } from './layout.js';
+import { mountActivity, openStaffBadge, openStaffProfile, openSupervisorPin } from './staff-identity.js';
+import { registerGet, registerPatch } from '../register-badge.js';
+import { getSubscription } from '../entitlement.js';
 import { SUPPORTED_CURRENCIES, escapeAttribute, escapeHTML, formatCurrency, icons, setStoreCurrency, toast } from '../utils.js';
 
 // Shrinks an uploaded logo to at most 240px so it stays small enough to store and print.
@@ -33,10 +36,12 @@ export async function renderSettings() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isAdmin = user.role === 'admin';
   const isManager = user.role === 'manager';
+  const paidTools = Boolean(getSubscription()?.paid_staff_tools);
 
   const tabs = [
     ...(isAdmin ? [['store', 'Store'], ['receipt', 'Receipt']] : []),
     ['staff', 'Staff'],
+    ...(isAdmin && paidTools ? [['activity', 'Activity log']] : []),
     ['permissions', 'Permissions'],
     ['legal', 'Legal & privacy'],
   ];
@@ -111,9 +116,19 @@ export async function renderSettings() {
         <p class="settings-help">${isAdmin
           ? 'You can create admins, managers and cashiers, and change their access.'
           : 'As a manager you can create and manage cashier accounts.'}</p>
+        ${paidTools ? `<section class="badge-policy" aria-labelledby="badge-policy-title">
+          <h3 id="badge-policy-title">Register access</h3>
+          <p class="settings-help">Issue cards from the staff list. Keep your card private and revoke it if it’s lost.</p>
+          <div class="register-actions">
+            ${isAdmin ? '<button type="button" class="btn btn-ghost" data-badge-policy disabled>Checking badge checkout…</button>' : ''}
+            <button type="button" class="btn btn-ghost" data-supervisor-pin>Manage my supervisor PIN</button>
+          </div>
+          <p role="status" class="register-message" data-badge-policy-status></p>
+        </section>` : '<p class="settings-help">Printable ID cards, badge checkout and the activity log are available with an active paid subscription.</p>'}
         <div id="staff-list"><div class="spinner" style="margin:1rem auto;"></div></div>
       </section>
 
+      ${isAdmin && paidTools ? '<section class="glass-card settings-panel" role="tabpanel" id="panel-activity" aria-labelledby="tab-activity" tabindex="0"></section>' : ''}
       <section class="glass-card settings-panel" role="tabpanel" id="panel-permissions" aria-labelledby="tab-permissions" tabindex="0">
         <h2>What each role can do</h2>
         <div class="table-scroll-wrapper">
@@ -176,6 +191,7 @@ export async function renderSettings() {
     });
     content.querySelectorAll('.settings-panel').forEach((panel) => { panel.hidden = panel.id !== `panel-${id}`; });
     history.replaceState(null, '', `#/settings?tab=${id}`);
+    if (id === 'activity') mountActivity(content.querySelector('#panel-activity'));
   }
   tabButtons.forEach((button, index) => {
     button.addEventListener('click', () => showTab(button.dataset.tab));
@@ -188,6 +204,41 @@ export async function renderSettings() {
     });
   });
   showTab(activeTab);
+  const policyButton = content.querySelector('[data-badge-policy]');
+  const policyStatus = content.querySelector('[data-badge-policy-status]');
+  if (policyButton) {
+    let enabled;
+    function paintPolicy() {
+      policyButton.textContent = enabled ? 'Turn off badge checkout' : 'Require badges at checkout';
+      policyStatus.textContent = enabled ? 'Badge checkout is on. Register sessions and approvals need an internet connection.' : 'Badge checkout is off. Existing checkout still works as before.';
+    }
+    api.get('/settings/store', { skipOfflineQueue: true }).then(({ store, offline }) => {
+      if (!store || offline) throw new Error('Reconnect to manage badge checkout.');
+      enabled = Boolean(store.badge_checkout_required);
+      policyButton.disabled = false;
+      paintPolicy();
+    }).catch((error) => { policyButton.textContent = 'Badge checkout unavailable'; policyStatus.textContent = error.message; });
+    policyButton.addEventListener('click', async () => {
+      const next = !enabled;
+      if (!confirm(next
+        ? 'Require staff badges for checkout and supervisor approval for reductions? Issue all required cards first and reconnect any offline tills.'
+        : 'Turn off badge checkout and close active badge registers? Finish all in-progress sales first.')) return;
+      policyButton.disabled = true;
+      policyStatus.textContent = 'Saving…';
+      try { ({ enabled } = await registerPatch('/policy', { enabled: next })); paintPolicy(); }
+      catch (error) { policyStatus.textContent = error.message; }
+      finally { policyButton.disabled = false; }
+    });
+  }
+  content.querySelector('[data-supervisor-pin]')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      const { profile } = await registerGet('/profile');
+      if (button.isConnected) openSupervisorPin({ enabled: profile.supervisor_pin_set });
+    } catch (error) { policyStatus.textContent = error.message; }
+    finally { button.disabled = false; }
+  });
 
   // Store details, logo and receipt (admin only)
   if (isAdmin) {
@@ -317,7 +368,7 @@ export async function renderSettings() {
         const canToggle = canModify && !isSelf;
 
         return `
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:0.75rem 0;border-bottom:1px solid var(--color-border);">
+          <div class="staff-identity-row" style="display:flex;align-items:center;justify-content:space-between;padding:0.75rem 0;border-bottom:1px solid var(--color-border);">
             <div style="display:flex;align-items:center;gap:0.75rem;">
               <div style="width:36px;height:36px;border-radius:50%;background:var(--color-surface-3);display:flex;align-items:center;justify-content:center;font-size:0.9rem;font-weight:700;" aria-hidden="true">${initial}</div>
               <div>
@@ -326,9 +377,9 @@ export async function renderSettings() {
                 ${u.created_by ? `<div style="font-size:0.7rem;color:var(--color-text-muted);margin-top:0.15rem;">Created by ${escapeHTML(u.created_by)}</div>` : ''}
               </div>
             </div>
-            <div style="display:flex;align-items:center;gap:0.5rem;">
+            <div class="staff-identity-actions">
               ${canChangeRole ? `
-                <select class="input" style="width:auto;padding:0.3rem 0.5rem;font-size:0.75rem;" data-user-id="${escapeAttribute(u.id)}" data-action="change-role">
+                <select class="input" aria-label="Change role for ${escapeAttribute(u.name || u.email)}" style="width:auto;padding:0.3rem 0.5rem;font-size:0.75rem;" data-user-id="${escapeAttribute(u.id)}" data-action="change-role">
                   <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
                   <option value="manager" ${u.role === 'manager' ? 'selected' : ''}>Manager</option>
                   <option value="cashier" ${u.role === 'cashier' ? 'selected' : ''}>Cashier</option>
@@ -338,6 +389,8 @@ export async function renderSettings() {
               `}
               <button type="button" class="badge ${u.is_active ? 'badge-success' : 'badge-danger'} staff-status" style="cursor:${canToggle ? 'pointer' : 'default'};" ${canToggle ? `data-user-id="${escapeAttribute(u.id)}" data-action="toggle-active" data-active="${u.is_active}"` : 'disabled'}>${u.is_active ? 'Active' : 'Inactive'}</button>
               ${canEdit ? `<button class="btn btn-ghost btn-sm" data-user-id="${escapeAttribute(u.id)}" data-user-name="${escapeAttribute(u.name)}" data-user-email="${escapeAttribute(u.email)}" data-action="edit-staff" style="padding:0.25rem 0.5rem;font-size:0.75rem;" aria-label="Edit ${escapeAttribute(u.name)} credentials">Edit</button>` : ''}
+              ${paidTools && (canModify || isSelf) ? `<button class="btn btn-ghost btn-sm" type="button" data-profile-id="${escapeAttribute(u.id)}" aria-label="Profile for ${escapeAttribute(u.name)}">Profile</button>
+                <button class="btn btn-ghost btn-sm" type="button" data-badge-id="${escapeAttribute(u.id)}" aria-label="ID card for ${escapeAttribute(u.name)}">ID card</button>` : ''}
               ${canDelete ? `<button class="btn btn-ghost btn-sm" data-user-id="${escapeAttribute(u.id)}" data-action="delete" style="color:var(--color-danger);padding:0.25rem 0.5rem;font-size:0.75rem;" aria-label="Remove ${escapeAttribute(u.name)}">Remove</button>` : ''}
             </div>
           </div>
@@ -351,6 +404,17 @@ export async function renderSettings() {
       }
 
       // Event delegation for staff actions
+      for (const button of staffList.querySelectorAll('[data-profile-id], [data-badge-id]')) {
+        button.addEventListener('click', async () => {
+          button.disabled = true;
+          const id = Number(button.dataset.profileId || button.dataset.badgeId);
+          try {
+            if (button.dataset.badgeId) await openStaffBadge({ id, onUpdate: loadStaff });
+            else await openStaffProfile({ id, self: id === user.id, onUpdate: loadStaff });
+          } catch (error) { toast(error.message, 'error'); }
+          finally { button.disabled = false; }
+        });
+      }
       staffList.querySelectorAll('[data-action="change-role"]').forEach(el => {
         el.addEventListener('change', async (e) => {
           const uid = e.target.dataset.userId;

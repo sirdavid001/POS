@@ -48,6 +48,10 @@ export function renderLayout(activePage) {
         <div class="sidebar-footer">
           <div class="offline-status" id="offline-status"></div>
           ${supportChatButtonMarkup('sidebar')}
+          ${getSubscription()?.paid_staff_tools ? `<button id="profile-btn" class="nav-item" type="button">
+            <span class="nav-icon" aria-hidden="true">${icons.users || icons.settings}</span>
+            <span>My profile</span>
+          </button>` : ''}
           <button id="logout-btn" class="nav-item" type="button" style="color:var(--color-danger);">
             <span class="nav-icon" aria-hidden="true">${icons.logout}</span>
             <span>Logout</span>
@@ -85,6 +89,22 @@ export function renderLayout(activePage) {
 
   // Logout handler
   document.getElementById('logout-btn').addEventListener('click', signOut);
+  app.querySelector('#profile-btn')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      const { openStaffProfile } = await import('./staff-identity.js');
+      if (!button.isConnected) return;
+      await openStaffProfile({ self: true, onUpdate: () => {
+        const current = JSON.parse(localStorage.getItem('user') || '{}');
+        const label = app.querySelector('.sidebar-logo p');
+        if (label) label.textContent = `${current.name} · ${String(current.role || '').replace(/^./, (value) => value.toUpperCase())}`;
+      } });
+    } catch (error) {
+      const { toast } = await import('../utils.js');
+      toast(error.message || 'Could not open your profile.', 'error');
+    } finally { button.disabled = false; }
+  });
 
   function renderSubscriptionBanner() {
     const subscription = getSubscription();

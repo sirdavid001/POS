@@ -21,6 +21,7 @@ import customersRouter from './modules/customers/router.js';
 import paymentsRouter from './modules/payments/router.js';
 import reportsRouter from './modules/reports/router.js';
 import settingsRouter from './modules/settings/router.js';
+import registerControlRouter from './modules/register-control/router.js';
 import billingRouter from './modules/billing/router.js';
 import jobsRouter from './modules/jobs/router.js';
 import accountRouter from './modules/account/router.js';
@@ -70,6 +71,7 @@ const limiter = rateLimit({
   store: new PostgresRateLimitStore('api'),
   skip: (req) =>
     req.originalUrl === '/api/health' ||
+    (req.method === 'PATCH' && /^\/api\/v1\/register-control\/sessions\/[0-9a-f-]{36}\/basket(?:\?|$)/i.test(req.originalUrl)) ||
     req.originalUrl.startsWith('/api/v1/billing/webhooks/'),
   message: { error: 'Too many requests, please try again later' },
 });
@@ -99,6 +101,7 @@ app.use('/api/v1/customers', customersRouter);
 app.use('/api/v1/payments', paymentsRouter);
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/settings', settingsRouter);
+app.use('/api/v1/register-control', registerControlRouter);
 app.use('/api/v1/billing', billingRouter);
 app.use('/api/v1/jobs', jobsRouter);
 app.use('/api/v1/account', accountRouter);

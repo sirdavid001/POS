@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "chart.js": "^4.5.1",
-    "html5-qrcode": "^2.3.8"
+    "html5-qrcode": "^2.3.8",
+    "jsbarcode": "3.12.3"
   }
 }

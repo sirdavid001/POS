@@ -25,7 +25,12 @@ export const createOrderSchema = z.object({
     discount_amount: z.coerce.number().min(0).optional().default(0),
     notes: z.string().trim().max(1000).optional(),
     client_order_id: z.string().trim().min(8).max(100).optional(),
+    register_session_id: z.uuid().optional(),
+    register_revision: z.number().int().nonnegative().optional(),
   }).superRefine((order, context) => {
+    if (Boolean(order.register_session_id) !== (order.register_revision !== undefined)) {
+      context.addIssue({ code: 'custom', path: ['register_session_id'], message: 'Register session and basket revision are both required' });
+    }
     if (order.payment_method !== 'cash' && !order.payment_reference) {
       context.addIssue({
         code: 'custom',

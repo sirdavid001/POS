@@ -1,0 +1,66 @@
+:is(.staff-identity-dialog, .register-prompt) { width: min(100%, 36rem); }
+.staff-identity-header, .staff-profile-summary, .register-actions, .register-bar, .activity-controls {
+  display: flex; align-items: center; flex-wrap: wrap; gap: .65rem .9rem;
+}
+.staff-identity-header, .register-bar { justify-content: space-between; }
+.staff-identity-header { margin-bottom: 1rem; }
+.staff-identity-header h2, .register-prompt h2 { font-size: 1.25rem; line-height: 1.25; }
+.staff-profile-summary { margin-bottom: 1rem; }
+.staff-profile-summary p { font-size: .875rem; color: var(--color-text-muted); }
+.staff-photo, .staff-card-photo {
+  display: grid; place-items: center; overflow: hidden; width: 3.25rem; height: 3.25rem; flex: none;
+  border-radius: .55rem; border: 1px solid var(--color-border); background: var(--color-surface-3); font-weight: 700;
+}
+.staff-photo img, .staff-card-photo img { width: 100%; height: 100%; object-fit: cover; }
+.register-bar { border: 1px solid var(--color-border); border-radius: .65rem; padding: .65rem .9rem; margin-bottom: 1rem; }
+.register-bar[hidden], .register-actions [hidden] { display: none; }
+.register-message { color: var(--color-text-muted); font-size: .875rem; line-height: 1.45; }
+.register-message:not(:empty) { margin-block: .65rem; }
+.register-prompt .register-actions, .register-prompt details { margin-top: .65rem; }
+.register-prompt :is(button, summary), .staff-identity-dialog button, .register-bar button, .activity-controls button { min-height: 44px; }
+.register-prompt summary { padding: .65rem 0; cursor: pointer; color: var(--color-text); }
+.register-prompt details form { display: grid; gap: .45rem; padding: .65rem 0; }
+.register-prompt details form button { justify-self: start; margin-top: .4rem; }
+.staff-card-sheet { display: flex; flex-wrap: wrap; align-items: flex-start; gap: .75rem; margin-block: 1rem; }
+.staff-card-face {
+  flex: 0 1 85.6mm; width: 85.6mm; aspect-ratio: 85.6 / 54; max-width: 100%; min-width: 0;
+  display: grid; align-content: space-between; gap: .35rem; padding: 4mm;
+  border: 1px solid #213545; border-radius: 2mm; color: #152535; background: #fff;
+  font-size: 11px; line-height: 1.35; box-sizing: border-box; overflow: hidden;
+}
+.staff-card-front { border-top: 2mm solid #1d5668; }
+.staff-card-store, .staff-card-person { display: flex; align-items: center; gap: .65rem; min-width: 0; overflow-wrap: anywhere; }
+.staff-card-store { font-size: 12px; }
+.staff-card-person h3 { font-size: 17px; line-height: 1.15; }
+.staff-card-person p { font-size: 12px; margin-top: 2px; }
+.staff-card-photo { width: 15mm; height: 18mm; border-color: #c7d5dc; background: #eaf3f6; }
+.staff-card-back svg { width: 100%; height: 15mm; display: block; }
+.staff-card-back span { overflow-wrap: anywhere; }
+.activity-controls { align-items: end; }
+.staff-activity td { vertical-align: top; white-space: normal; min-width: 8rem; }
+.staff-activity td small { display: block; color: var(--color-text-muted); }
+.staff-activity th { white-space: nowrap; }
+.badge-policy { border-block: 1px solid var(--color-border); padding-block: .75rem; margin-bottom: 1rem; }
+.badge-policy h3 { font-size: 1rem; }
+.staff-identity-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: end; gap: .4rem; }
+@media (max-width: 560px) {
+  .staff-identity-row { align-items: start !important; flex-direction: column; gap: .5rem; }
+  .staff-identity-actions { justify-content: start; }
+}
+@media print {
+  body.staff-card-printing { background: white !important; overflow: visible !important; }
+  body.staff-card-printing > :not(.modal-overlay) { display: none !important; }
+  body.staff-card-printing .modal-overlay {
+    position: static !important; display: block !important; background: none !important; padding: 0 !important;
+  }
+  body.staff-card-printing .staff-identity-dialog {
+    width: auto; max-width: none; max-height: none; overflow: visible; background: white !important;
+    border: 0; box-shadow: none; padding: 0;
+  }
+  body.staff-card-printing .staff-identity-dialog > :not([data-badge-content]),
+  body.staff-card-printing [data-badge-content] > :not(.staff-card-sheet) { display: none !important; }
+  body.staff-card-printing .staff-card-sheet { display: grid; gap: 8mm; margin: 0; }
+  body.staff-card-printing .staff-card-face {
+    width: 85.6mm; height: 54mm; break-inside: avoid; print-color-adjust: exact; -webkit-print-color-adjust: exact;
+  }
+}

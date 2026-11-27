@@ -1,9 +1,10 @@
 import { api } from '../api.js';
-import { canWriteBusinessData } from '../entitlement.js';
+import { canWriteBusinessData, getSubscription } from '../entitlement.js';
 import { renderLayout } from './layout.js';
 import { mountCustomerPicker } from '../customer-picker.js';
 import { currencySymbol, escapeAttribute, escapeHTML, formatCurrency, toast, debounce, icons } from '../utils.js';
 import { startUSBScanner, stopUSBScanner, openCameraScanner, scanButtonHTML } from '../scanner.js';
+import { isStaffBadge, openRegisterPrompt, registerDelete, registerPatch, registerPost, terminalId } from '../register-badge.js';
 import {
   calculateCartTotals,
   changeDue,
@@ -17,6 +18,12 @@ let cart = [];
 let products = [];
 let categories = [];
 let activeCategory = '';
+let register = null;
+let badgeMode = null;
+let deviceKey = '';
+let terminalRoot;
+let badgeWork = Promise.resolve();
+let checkoutId;
 let storeSettings = {
   name: 'QuickPOS Store',
   tax_rate: 0,
@@ -92,6 +99,16 @@ function renderCart() {
 }
 
 function addToCart(product) {
+  if (badgeMode !== false) {
+    if (!ensureRegister()) return;
+    const current = register.id;
+    badgeWork = badgeWork.then(async () => {
+      if (register?.id !== current || !terminalRoot?.isConnected) return;
+      try { await changeBasket('add', { id: product.id }); }
+      catch (error) { toast(error.message || 'Could not add item to the register.', 'error'); }
+    });
+    return;
+  }
   const existing = cart.find(item => item.id === product.id);
   if (existing) {
     if (existing.qty >= product.stock_quantity) {
@@ -111,19 +128,31 @@ function addToCart(product) {
 
 // Barcode scan handler — looks up product by barcode/SKU and adds to cart
 function handleBarcodeScan(barcode) {
+  if (isStaffBadge(barcode)) {
+    if (badgeMode && !register) {
+      openRegister(barcode).catch((error) => toast(error.message, 'error'));
+    } else if (badgeMode) toast('Open an approval prompt before scanning a supervisor badge.', 'info');
+    return;
+  }
   const product = products.find(p =>
     p.barcode === barcode || p.sku === barcode || p.name.toLowerCase() === barcode.toLowerCase()
   );
 
   if (product) {
     addToCart(product);
-    toast(`✓ Scanned: ${product.name}`, 'success');
+    if (badgeMode === false) toast(`✓ Scanned: ${product.name}`, 'success');
   } else {
     toast(`Product not found for barcode: ${barcode}`, 'error');
   }
 }
 
 function updateCartQuantity(index, delta) {
+  if (!cart[index]) return;
+  if (badgeMode !== false) {
+    if (delta > 0) addToCart({ id: cart[index].id });
+    else approveBasket('decrease', cart[index]);
+    return;
+  }
   cart[index].qty += delta;
   if (cart[index].qty <= 0) cart.splice(index, 1);
   else if (cart[index].qty > cart[index].stock) {
@@ -134,12 +163,15 @@ function updateCartQuantity(index, delta) {
 }
 
 function removeCartItem(index) {
+  if (!cart[index]) return;
+  if (badgeMode !== false) { approveBasket('remove', cart[index]); return; }
   cart.splice(index, 1);
   renderCart();
 }
 
 function clearCart() {
   if (cart.length === 0) return;
+  if (badgeMode !== false) { approveBasket('clear'); return; }
   if (!confirm('Clear every item from this cart?')) return;
   cart = [];
   renderCart();
@@ -147,7 +179,108 @@ function clearCart() {
 
 function checkoutCart() {
   if (cart.length === 0) return;
-  showPaymentModal();
+  if (!ensureRegister()) return;
+  if (badgeMode) {
+    badgeWork.then(() => {
+      if (terminalRoot?.isConnected && register && cart.length && !document.querySelector('.modal-overlay')) showPaymentModal();
+    });
+  } else showPaymentModal();
+}
+
+function ensureRegister() {
+  if (badgeMode === false) return true;
+  if (badgeMode && register) return true;
+  if (badgeMode) openRegister().catch((error) => toast(error.message, 'error'));
+  else toast('Wait for the register settings before adding items.', 'warning');
+  return false;
+}
+
+function paintRegister() {
+  const panel = terminalRoot?.querySelector('[data-register-bar]');
+  if (!panel) return;
+  panel.hidden = badgeMode !== true;
+  panel.querySelector('[data-register-state]').textContent = register
+    ? `Serving as ${register.cashier.name}` : 'Register locked';
+  panel.querySelector('[data-register-lock]').hidden = !register;
+  panel.querySelector('[data-register-scan]').hidden = Boolean(register);
+}
+
+function applyBasket(session) {
+  register = session;
+  cart = session.cart.map(({ product_id, quantity, name, price, stock_quantity }) => {
+    const product = products.find((row) => Number(row.id) === product_id);
+    return {
+      id: product_id, name: product?.name || name || 'Product',
+      price: Number(product?.price ?? price ?? 0), qty: quantity, stock: product?.stock_quantity ?? stock_quantity ?? quantity,
+      image_url: product?.image_url || '',
+    };
+  });
+  paintRegister();
+  renderCart();
+}
+
+async function openRegister(initialBadge) {
+  const root = terminalRoot;
+  if (register || !root?.isConnected) return;
+  if (!navigator.onLine) throw new Error('Reconnect to open a badge register.');
+  openRegisterPrompt({
+    title: 'Open register', initialBadge,
+    description: 'Scan your QuickPOS staff card with the barcode scanner, or use the camera.',
+    handle: async ({ badge }) => {
+      const { session } = await registerPost('/sessions', { badge, terminal_id: deviceKey });
+      if (!root.isConnected) return;
+      applyBasket(session);
+      checkoutId = null;
+    },
+  });
+}
+
+function resetRegister(error) {
+  if (error.code === 'BADGE_SESSION_REQUIRED' || error.code === 'BADGE_MODE_DISABLED') {
+    register = null;
+    checkoutId = null;
+    cart = [];
+    if (terminalRoot?.isConnected) { paintRegister(); renderCart(); }
+  } else if (error.code === 'BASKET_CHANGED' && error.details?.session && terminalRoot?.isConnected) {
+    applyBasket(error.details.session);
+    checkoutId = null;
+  }
+}
+
+async function changeBasket(operation, item, credential) {
+  const root = terminalRoot;
+  const sessionId = register?.id;
+  if (!sessionId || !root.isConnected) throw new Error('Open the register before changing the basket.');
+  if (!navigator.onLine) throw new Error('Reconnect to change a badge register basket.');
+  try {
+    const { session } = await registerPatch(`/sessions/${sessionId}/basket`, {
+      operation, product_id: item?.id, revision: register.revision,
+      approval_badge: credential?.badge, approval_pin: credential?.pin,
+    });
+    if (root.isConnected && register?.id === sessionId) {
+      applyBasket(session);
+      checkoutId = null;
+    }
+  } catch (error) {
+    if (root.isConnected) resetRegister(error);
+    throw error;
+  }
+}
+
+function approveBasket(operation, item) {
+  if (!ensureRegister()) return;
+  const session = register.id;
+  const title = operation === 'clear' ? 'Approve clearing the basket'
+    : operation === 'decrease' ? `Approve removing one ${item.name}` : `Approve removing ${item.name}`;
+  openRegisterPrompt({
+    title, description: 'A manager or admin can scan their ID card or enter their supervisor PIN. This approves only this change.',
+    supervisor: true,
+    handle: async (credential) => {
+      await badgeWork;
+      if (register?.id !== session) throw new Error('The register session changed. Restart this approval.');
+      await changeBasket(operation, item, credential);
+    },
+  });
 }
 
 function showPaymentModal() {
@@ -158,7 +291,7 @@ function showPaymentModal() {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
-    <div class="modal payment-modal" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title" style="max-width:440px;">
+    <form class="modal payment-modal" id="payment-form" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title" style="max-width:440px;">
       <h3 id="payment-modal-title" style="font-size:1.15rem;font-weight:700;margin-bottom:1.25rem;">Complete Payment</h3>
       <div class="payment-total">
         <div class="payment-total-label">Total to pay</div>
@@ -169,8 +302,8 @@ function showPaymentModal() {
       <div class="form-group">
         <label class="label" for="payment-discount">Discount (optional)</label>
         <div class="discount-row">
-          <input class="input" id="payment-discount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" autocomplete="off">
-          <select class="input" id="payment-discount-unit" aria-label="Discount type">
+          <input class="input" id="payment-discount" name="discount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" autocomplete="off" aria-describedby="payment-discount-help">
+          <select class="input" id="payment-discount-unit" name="discount_unit" aria-label="Discount type">
             <option value="amount">${currencySymbol()} off</option>
             <option value="percent">% off</option>
           </select>
@@ -187,7 +320,8 @@ function showPaymentModal() {
 
       <div class="form-group" id="cash-group">
         <label class="label" for="cash-received">Amount received</label>
-        <input class="input" id="cash-received" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Leave empty if exact" autocomplete="off">
+        <input class="input" id="cash-received" name="cash_received" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Leave empty if exact…" autocomplete="off" aria-describedby="cash-received-help">
+        <p class="field-help" id="cash-received-help">Leave this empty when the customer gives the exact amount.</p>
         <div class="quick-cash" role="group" aria-label="Quick cash amounts" id="quick-cash"></div>
         <div class="change-due" id="change-due-row" aria-live="polite">
           <span>Change due</span><strong id="change-due">${formatCurrency(0)}</strong>
@@ -196,19 +330,19 @@ function showPaymentModal() {
 
       <div class="form-group" id="payment-reference-group" hidden>
         <label class="label" for="payment-reference">Payment Reference</label>
-        <input class="input" id="payment-reference" autocomplete="off" placeholder="Terminal or bank reference">
-        <p class="field-help">Confirm the payment on the external terminal or bank app before completing this sale.</p>
+        <input class="input" id="payment-reference" name="payment_reference" autocomplete="off" placeholder="Terminal or bank reference…" aria-describedby="payment-reference-help">
+        <p class="field-help" id="payment-reference-help">Confirm the payment on the external terminal or bank app before completing this sale.</p>
       </div>
 
       <div class="form-group" id="customer-picker"></div>
 
       <div class="payment-actions">
         <button class="btn btn-ghost" id="cancel-payment" type="button" data-dialog-close style="flex:1;">Cancel</button>
-        <button class="btn btn-accent btn-lg" id="confirm-payment" type="button" style="flex:2;">
+        <button class="btn btn-accent btn-lg" id="confirm-payment" type="submit" style="flex:2;">
           Confirm ${formatCurrency(billTotal)}
         </button>
       </div>
-    </div>
+    </form>
   `;
 
   document.body.appendChild(overlay);
@@ -305,13 +439,15 @@ function showPaymentModal() {
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closePaymentModal(); });
 
   // Confirm
-  document.getElementById('confirm-payment').addEventListener('click', async () => {
+  document.getElementById('payment-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
     if (!canWriteBusinessData()) {
       toast('QuickPOS is read-only. Ask the store owner to renew the subscription.', 'warning', 5000);
       return;
     }
 
     const confirmBtn = document.getElementById('confirm-payment');
+    if (confirmBtn.disabled) return;
     const paymentReference = document.getElementById('payment-reference').value.trim();
     if (selectedMethod !== 'cash' && !paymentReference) {
       toast('Enter the confirmed terminal or bank reference', 'warning');
@@ -325,6 +461,11 @@ function showPaymentModal() {
       cashInput.focus();
       return;
     }
+    if (badgeMode && !navigator.onLine) {
+      toast('Reconnect before completing this sale. It hasn’t been recorded yet.', 'warning');
+      return;
+    }
+    const paymentRoot = terminalRoot;
     const confirmLabel = confirmBtn.textContent;
     confirmBtn.disabled = true;
     confirmBtn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;"></div> Processing…';
@@ -338,15 +479,18 @@ function showPaymentModal() {
       payment_reference: paymentReference || undefined,
       customer_id: customerPicker.customerId,
       discount_amount: discountAmount,
-      client_order_id: createClientOrderId(),
+      client_order_id: checkoutId ||= createClientOrderId(),
+      ...(register ? { register_session_id: register.id, register_revision: register.revision } : {}),
     };
 
     try {
-      const result = await api.post('/orders', orderData);
+      const result = await api.post('/orders', orderData, badgeMode ? { skipOfflineQueue: true } : {});
 
       closePaymentModal();
-      cart = [];
-      renderCart();
+      if (!paymentRoot?.isConnected) return;
+    checkoutId = null;
+      if (result.register_session && terminalRoot?.isConnected) applyBasket(result.register_session);
+      else { cart = []; renderCart(); }
 
       // Show receipt modal
       showReceiptModal(result.order, { cashReceived, cashChange, customerName: customerPicker.customer?.name || result.order.customer_name || null });
@@ -359,6 +503,13 @@ function showPaymentModal() {
         toast('Sale saved on this device and queued for sync', 'warning', 5000);
       }
     } catch (err) {
+      if (!paymentRoot?.isConnected) return;
+      resetRegister(err);
+      if (err.code === 'BASKET_CHANGED' || err.code === 'BADGE_SESSION_REQUIRED' || err.code === 'BADGE_MODE_DISABLED') {
+        closePaymentModal();
+        toast(err.message, 'warning');
+        return;
+      }
       if (err.code === 'SUBSCRIPTION_EXPIRED') {
         toast('QuickPOS is read-only until the store renews.', 'warning', 5000);
       } else {
@@ -375,7 +526,7 @@ function receiptRow(label, value, extra = '') {
 }
 
 function showReceiptModal(order, { cashReceived = null, cashChange = null, customerName = null } = {}) {
-  const cashier = JSON.parse(localStorage.getItem('user') || '{}').name || order.cashier_name || '';
+  const cashier = order.cashier_name || register?.cashier.name || JSON.parse(localStorage.getItem('user') || '{}').name || '';
   const customer = customerName || order.customer_name || '';
   const taxRate = Number(storeSettings.tax_rate || 0);
   const storeContact = [storeSettings.address, storeSettings.phone]
@@ -539,10 +690,14 @@ export async function renderPOS() {
   // Cleanup previous scanner listeners
   stopUSBScanner();
   cart = [];
+  register = null;
+  badgeMode = null;
+  badgeWork = Promise.resolve();
+  checkoutId = null;
   const content = renderLayout('pos');
 
   content.innerHTML = `
-    <div class="animate-fade-in">
+    <div class="animate-fade-in" data-pos-root>
       <div class="page-header" style="margin-bottom:1rem;">
         <h1>POS Terminal</h1>
         <div style="display:flex;align-items:center;gap:0.5rem;">
@@ -550,6 +705,13 @@ export async function renderPOS() {
           ${scanButtonHTML('pos-camera-scan', { label: 'Scan', variant: 'btn-primary btn-sm' })}
         </div>
       </div>
+      <section class="register-bar" aria-label="Badge register" data-register-bar hidden>
+        <strong data-register-state role="status"></strong>
+        <div class="register-actions">
+          <button type="button" class="btn btn-primary" data-register-scan>Scan staff badge</button>
+          <button type="button" class="btn btn-ghost" data-register-lock hidden>Close register</button>
+        </div>
+      </section>
 
       <div class="pos-grid">
         <div>
@@ -582,6 +744,25 @@ export async function renderPOS() {
       </button>
     </div>
   `;
+  terminalRoot = content.querySelector('[data-pos-root]');
+  const mountedRoot = terminalRoot;
+  terminalRoot.querySelector('[data-register-scan]').addEventListener('click', () => openRegister().catch((error) => toast(error.message, 'error')));
+  terminalRoot.querySelector('[data-register-lock]').addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    if (!register) return;
+    button.disabled = true;
+    try {
+      await badgeWork;
+      await registerDelete(`/sessions/${register.id}`);
+      if (!mountedRoot.isConnected) return;
+      register = null;
+      paintRegister();
+    } catch (error) {
+      if (!mountedRoot.isConnected) return;
+      resetRegister(error);
+      toast(error.message, 'error');
+    } finally { button.disabled = false; }
+  });
 
   // Wire up mobile cart toggle
   const cartToggleBtn = document.getElementById('mobile-cart-toggle');
@@ -629,13 +810,24 @@ export async function renderPOS() {
 
   try {
     const { store } = await api.get('/settings/store');
+    if (!mountedRoot.isConnected) return;
     storeSettings = { ...storeSettings, ...store };
-  } catch {}
+    badgeMode = Boolean(getSubscription()?.paid_staff_tools && store?.badge_checkout_required);
+    if (badgeMode) {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      deviceKey = terminalId(user.storeId, user.id);
+    }
+    paintRegister();
+  } catch {
+    if (!mountedRoot.isConnected) return;
+    toast('Could not check register settings. Reconnect and reopen the terminal.', 'warning');
+  }
 
   // Start USB/Bluetooth barcode scanner listener
   await loadProducts();
+  if (!mountedRoot.isConnected) return;
 
   startUSBScanner((barcode) => {
-    handleBarcodeScan(barcode);
+    if (mountedRoot.isConnected && !document.querySelector('.modal-overlay')) handleBarcodeScan(barcode);
   });
 }

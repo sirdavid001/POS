@@ -101,7 +101,7 @@ class ApiClient {
       json = await response.json();
     } catch {
       if (response.status >= 500) {
-        if (method === 'GET' && isGetCacheable(path)) {
+        if (method === 'GET' && !options.skipOfflineQueue && isGetCacheable(path)) {
           const cached = getCachedResponse(path);
           if (cached) return cached;
         }
@@ -119,7 +119,7 @@ class ApiClient {
     }
 
     if (!response.ok) {
-      if (method === 'GET' && response.status >= 500 && isGetCacheable(path)) {
+      if (method === 'GET' && response.status >= 500 && !options.skipOfflineQueue && isGetCacheable(path)) {
         const cached = getCachedResponse(path);
         if (cached) return cached;
       }

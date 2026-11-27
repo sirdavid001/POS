@@ -69,4 +69,15 @@ describe('subscription entitlement boundaries', () => {
     expect(addMonths(new Date('2026-01-31T12:00:00.000Z'), 1).toISOString())
       .toBe('2026-02-28T12:00:00.000Z');
   });
+
+  test('staff tools require payment evidence and time left in a paid period', () => {
+    const end = '2026-06-14T12:00:00.000Z';
+    const paid = { status: 'active', current_period_end: end, activation_fee_paid: true, has_confirmed_payment: true };
+    expect(serializeSubscription(paid, now).paid_staff_tools).toBe(true);
+    expect(serializeSubscription({ ...paid, status: 'cancelled' }, now).paid_staff_tools).toBe(true);
+    expect(serializeSubscription({ ...paid, has_confirmed_payment: false }, now).paid_staff_tools).toBe(false);
+    expect(serializeSubscription({ ...paid, status: 'grandfathered' }, now).paid_staff_tools).toBe(false);
+    expect(serializeSubscription({ ...paid, status: 'trialing', trial_ends_at: end }, now).paid_staff_tools).toBe(false);
+    expect(serializeSubscription(paid, new Date(end)).paid_staff_tools).toBe(false);
+  });
 });

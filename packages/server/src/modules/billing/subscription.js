@@ -17,6 +17,7 @@ export function serializeSubscription(row, now = new Date()) {
     return {
       status: 'expired',
       can_write: false,
+      paid_staff_tools: false,
       offline_valid_until: now.toISOString(),
     };
   }
@@ -71,6 +72,8 @@ export function serializeSubscription(row, now = new Date()) {
       row.status !== 'grandfathered' && !row.activation_fee_paid,
     last_verified_at: row.last_verified_at,
     can_write: canWrite,
+    paid_staff_tools: canWrite && Boolean(row.has_confirmed_payment) &&
+      ['active', 'past_due', 'cancelled'].includes(effectiveStatus),
     entitlement_ends_at: knownEntitlementEnd?.toISOString() || null,
     offline_valid_until: offlineValidUntil.toISOString(),
     days_remaining: remainingMs == null ? null : Math.ceil(remainingMs / (24 * 60 * 60 * 1000)),
@@ -80,7 +83,9 @@ export function serializeSubscription(row, now = new Date()) {
 
 export async function getStoreSubscription(storeId, queryFn = query) {
   const result = await queryFn(
-    `SELECT ss.*, sp.name AS plan_name, sp.price_ngn, sp.recurring
+    `SELECT ss.*, sp.name AS plan_name, sp.price_ngn, sp.recurring,
+       EXISTS (SELECT 1 FROM billing_transactions bt
+         WHERE bt.store_id = ss.store_id AND bt.status = 'success' AND bt.amount_ngn > 0) AS has_confirmed_payment
      FROM store_subscriptions ss
      LEFT JOIN subscription_plans sp ON sp.code = ss.plan_code
      WHERE ss.store_id = $1`,

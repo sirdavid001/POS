@@ -35,6 +35,12 @@ export function stopUSBScanner() {
 }
 
 function _handleUSBKey(e) {
+  // A register prompt has a dedicated focused field for keyboard-wedge scanners.
+  // Never send badge credentials to the background product lookup.
+  if (document.querySelector('[data-register-prompt]')) {
+    _usbBuffer = '';
+    return;
+  }
   // Ignore if user is typing in an input/textarea
   const tag = e.target.tagName.toLowerCase();
   const isTyping = (tag === 'input' || tag === 'textarea' || tag === 'select');
@@ -190,6 +196,11 @@ export function openCameraScanner(onScan, options = {}) {
       aspectRatio: 1.5,
     },
     (decodedText) => {
+      if (options.sensitive || /^QPB[0-9]{38}$/i.test(decodedText)) {
+        cleanup();
+        onScan(decodedText);
+        return;
+      }
       // Show result briefly
       const resultDiv = document.getElementById('camera-scanner-result');
       const valueSpan = document.getElementById('scanned-value');
