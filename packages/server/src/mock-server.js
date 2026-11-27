@@ -45,31 +45,65 @@ const mockSubscription = {
 };
 
 const categories = [
-  { id: 1, store_id: 1, name: 'Beverages', description: 'Drinks and beverages', created_at: new Date().toISOString() },
-  { id: 2, store_id: 1, name: 'Snacks', description: 'Quick bites and snacks', created_at: new Date().toISOString() },
-  { id: 3, store_id: 1, name: 'Electronics', description: 'Gadgets and accessories', created_at: new Date().toISOString() },
-  { id: 4, store_id: 1, name: 'Groceries', description: 'Daily grocery items', created_at: new Date().toISOString() },
-  { id: 5, store_id: 1, name: 'Stationery', description: 'Office supplies', created_at: new Date().toISOString() },
+  { id: 1, store_id: 1, name: 'Grains & Flour', description: 'Rice, garri, semolina, beans and pasta', created_at: new Date().toISOString() },
+  { id: 2, store_id: 1, name: 'Provisions', description: 'Noodles, milk, tins and cooking essentials', created_at: new Date().toISOString() },
+  { id: 3, store_id: 1, name: 'Drinks', description: 'Water and soft drinks', created_at: new Date().toISOString() },
+  { id: 4, store_id: 1, name: 'Bakery & Eggs', description: 'Bread and fresh eggs', created_at: new Date().toISOString() },
+  { id: 5, store_id: 1, name: 'Snacks', description: 'Chin chin, chips and small chops', created_at: new Date().toISOString() },
+  { id: 6, store_id: 1, name: 'Stationery', description: 'School and office supplies', created_at: new Date().toISOString() },
+  { id: 7, store_id: 1, name: 'Phone Accessories', description: 'Cables and earphones', created_at: new Date().toISOString() },
 ];
 
-let productIdCounter = 11;
-const products = [
-  { id: 1, store_id: 1, category_id: 1, name: 'Coca-Cola 50cl', description: 'Chilled Coca-Cola', sku: 'BEV-001', barcode: '5449000000996', price: '350.00', cost_price: '250.00', stock_quantity: 100, low_stock_threshold: 20, is_active: true, category_name: 'Beverages', image_url: '/products/coca-cola.png', created_at: new Date().toISOString() },
-  { id: 2, store_id: 1, category_id: 1, name: 'Fanta Orange 50cl', description: 'Chilled Fanta Orange', sku: 'BEV-002', barcode: '5449000000997', price: '350.00', cost_price: '250.00', stock_quantity: 80, low_stock_threshold: 20, is_active: true, category_name: 'Beverages', image_url: '/products/fanta-orange.png', created_at: new Date().toISOString() },
-  { id: 3, store_id: 1, category_id: 1, name: 'Water 75cl', description: 'Eva table water', sku: 'BEV-003', barcode: '5449000000998', price: '200.00', cost_price: '120.00', stock_quantity: 150, low_stock_threshold: 30, is_active: true, category_name: 'Beverages', image_url: '/products/water.png', created_at: new Date().toISOString() },
-  { id: 4, store_id: 1, category_id: 2, name: 'Chin Chin (Medium)', description: 'Crunchy chin chin snack', sku: 'SNK-001', barcode: '1234567890001', price: '500.00', cost_price: '300.00', stock_quantity: 50, low_stock_threshold: 15, is_active: true, category_name: 'Snacks', image_url: '/products/chin-chin.png', created_at: new Date().toISOString() },
-  { id: 5, store_id: 1, category_id: 2, name: 'Plantain Chips', description: 'Crispy plantain chips', sku: 'SNK-002', barcode: '1234567890002', price: '400.00', cost_price: '220.00', stock_quantity: 60, low_stock_threshold: 15, is_active: true, category_name: 'Snacks', image_url: '/products/plantain-chips.png', created_at: new Date().toISOString() },
-  { id: 6, store_id: 1, category_id: 3, name: 'USB Cable Type-C', description: 'Fast charging cable', sku: 'ELC-001', barcode: '2345678901234', price: '2500.00', cost_price: '1200.00', stock_quantity: 30, low_stock_threshold: 10, is_active: true, category_name: 'Electronics', image_url: '/products/usb-cable.png', created_at: new Date().toISOString() },
-  { id: 7, store_id: 1, category_id: 3, name: 'Earphones', description: 'In-ear wired earphones', sku: 'ELC-002', barcode: '2345678901235', price: '3500.00', cost_price: '1800.00', stock_quantity: 25, low_stock_threshold: 10, is_active: true, category_name: 'Electronics', image_url: '/products/earphones.png', created_at: new Date().toISOString() },
-  { id: 8, store_id: 1, category_id: 4, name: 'Rice (5kg)', description: 'Long grain rice', sku: 'GRC-001', barcode: '3456789012345', price: '8500.00', cost_price: '6500.00', stock_quantity: 40, low_stock_threshold: 10, is_active: true, category_name: 'Groceries', image_url: '/products/rice.png', created_at: new Date().toISOString() },
-  { id: 9, store_id: 1, category_id: 4, name: 'Cooking Oil (1L)', description: 'Vegetable cooking oil', sku: 'GRC-002', barcode: '3456789012346', price: '3200.00', cost_price: '2300.00', stock_quantity: 35, low_stock_threshold: 10, is_active: true, category_name: 'Groceries', image_url: '/products/cooking-oil.png', created_at: new Date().toISOString() },
-  { id: 10, store_id: 1, category_id: 5, name: 'Notebook A5', description: 'Ruled exercise notebook', sku: 'STN-001', barcode: '4567890123456', price: '300.00', cost_price: '150.00', stock_quantity: 8, low_stock_threshold: 25, is_active: true, category_name: 'Stationery', image_url: '/products/notebook.png', created_at: new Date().toISOString() },
+// A Nigerian supermarket catalogue for the demo store. Every brand is made up.
+const catalogue = [
+  [1, 'Long Grain Rice 5kg', 'Premium parboiled long grain rice', 'GRN-001', 12500, 10800, 34, 8, 'rice.png'],
+  [1, 'Semolina 2kg', 'Fine wheat semolina for swallow', 'GRN-002', 4200, 3500, 26, 6, 'semolina.jpg'],
+  [1, 'Garri (White) 2kg', 'Ijebu-style white garri', 'GRN-003', 3000, 2400, 40, 10, 'garri.jpg'],
+  [1, 'Honey Beans (Oloyin) 1kg', 'Sorted brown honey beans', 'GRN-004', 2800, 2200, 30, 8, 'beans.jpg'],
+  [1, 'Spaghetti 500g', 'Long spaghetti', 'GRN-005', 1300, 1050, 60, 15, 'spaghetti.jpg'],
+  [2, 'Instant Noodles Chicken 120g', 'Chicken flavour instant noodles', 'PRV-001', 450, 360, 180, 40, 'noodles.jpg'],
+  [2, 'Evaporated Milk 160g', 'Full cream evaporated milk', 'PRV-002', 650, 520, 96, 24, 'milk.jpg'],
+  [2, 'Tomato Paste 400g', 'Double concentrated tomato paste', 'PRV-003', 1800, 1450, 48, 12, 'tomato-paste.jpg'],
+  [2, 'Sardines in Oil 125g', 'Sardines in vegetable oil', 'PRV-004', 1300, 1050, 7, 12, 'sardines.jpg'],
+  [2, 'Granulated Sugar 1kg', 'Refined white sugar', 'PRV-005', 2200, 1850, 35, 10, 'sugar.jpg'],
+  [2, 'Vegetable Oil 1L', 'Pure vegetable cooking oil', 'PRV-006', 3800, 3200, 22, 8, 'cooking-oil.png'],
+  [3, 'Malt Drink 33cl Can', 'Non-alcoholic malt drink', 'DRK-001', 700, 560, 120, 24, 'malt-drink.jpg'],
+  [3, 'Table Water 75cl', 'Purified table water', 'DRK-002', 250, 170, 200, 48, 'water.png'],
+  [4, 'Sliced Bread', 'Soft sliced white bread', 'BKE-001', 1500, 1200, 18, 6, 'bread.jpg'],
+  [4, 'Crate of Eggs (30)', 'Fresh farm eggs, 30 per tray', 'BKE-002', 6500, 5600, 5, 8, 'eggs.jpg'],
+  [5, 'Chin Chin 250g', 'Crunchy chin chin', 'SNK-001', 1000, 700, 45, 12, 'chin-chin.png'],
+  [5, 'Plantain Chips', 'Crispy salted plantain chips', 'SNK-002', 500, 320, 64, 15, 'plantain-chips.png'],
+  [6, 'Exercise Book A5', 'Ruled exercise book, 40 leaves', 'STN-001', 400, 250, 80, 20, 'notebook.png'],
+  [7, 'USB-C Charging Cable', 'Fast charging cable, 1m', 'ACC-001', 2500, 1400, 20, 5, 'usb-cable.png'],
+  [7, 'Wired Earphones', 'In-ear earphones with mic', 'ACC-002', 3500, 2000, 15, 4, 'earphones.png'],
 ];
+
+let productIdCounter = catalogue.length + 1;
+const products = catalogue.map(([categoryId, name, description, sku, price, cost, stock, alertAt, image], index) => ({
+  id: index + 1,
+  store_id: 1,
+  category_id: categoryId,
+  name,
+  description,
+  sku,
+  barcode: `615${String(4021000 + index * 37).padStart(7, '0')}${String(index).padStart(3, '0')}`,
+  price: price.toFixed(2),
+  cost_price: cost.toFixed(2),
+  stock_quantity: stock,
+  low_stock_threshold: alertAt,
+  is_active: true,
+  category_name: categories.find((category) => category.id === categoryId).name,
+  image_url: `/products/${image}`,
+  created_at: new Date(Date.now() - 45 * 86400000).toISOString(),
+}));
 
 const customers = [
-  { id: 1, store_id: 1, name: 'Adebayo Johnson', email: 'adebayo@email.com', phone: '+234 801 234 5678', loyalty_points: 120, created_at: new Date().toISOString() },
-  { id: 2, store_id: 1, name: 'Chioma Okafor', email: 'chioma@email.com', phone: '+234 802 345 6789', loyalty_points: 85, created_at: new Date().toISOString() },
-  { id: 3, store_id: 1, name: 'Emeka Eze', email: 'emeka@email.com', phone: '+234 803 456 7890', loyalty_points: 45, created_at: new Date().toISOString() },
+  { id: 1, store_id: 1, name: 'Adebayo Johnson', email: 'adebayo@email.com', phone: '+234 801 234 5678', loyalty_points: 120, notes: 'Buys rice and oil every month end', created_at: new Date(Date.now() - 40 * 86400000).toISOString() },
+  { id: 2, store_id: 1, name: 'Chioma Okafor', email: 'chioma@email.com', phone: '+234 802 345 6789', loyalty_points: 85, notes: '', created_at: new Date(Date.now() - 38 * 86400000).toISOString() },
+  { id: 3, store_id: 1, name: 'Emeka Eze', email: 'emeka@email.com', phone: '+234 803 456 7890', loyalty_points: 45, notes: '', created_at: new Date(Date.now() - 30 * 86400000).toISOString() },
+  { id: 4, store_id: 1, name: 'Funmilayo Bakare', email: 'funmi@email.com', phone: '+234 805 112 9087', loyalty_points: 150, notes: 'Orders eggs in bulk for her bakery', created_at: new Date(Date.now() - 28 * 86400000).toISOString() },
+  { id: 5, store_id: 1, name: 'Ibrahim Musa', email: 'ibrahim@email.com', phone: '+234 806 774 2210', loyalty_points: 30, notes: '', created_at: new Date(Date.now() - 20 * 86400000).toISOString() },
+  { id: 6, store_id: 1, name: 'Ngozi Nwachukwu', email: 'ngozi@email.com', phone: '+234 809 553 6421', loyalty_points: 64, notes: '', created_at: new Date(Date.now() - 12 * 86400000).toISOString() },
 ];
 
 const suppliers = [
@@ -80,6 +114,66 @@ const suppliers = [
 let orderIdCounter = 1;
 const orders = [];
 const inventoryLogs = [];
+
+// Sixty days of believable counter sales so the dashboard, reports and
+// orders pages have real numbers in demos and screenshots.
+function seedDemoSales() {
+  let seed = 20261128;
+  const random = () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return seed / 4294967296;
+  };
+  const pick = (list) => list[Math.floor(random() * list.length)];
+  const fastMovers = [6, 7, 12, 13, 17, 16, 5, 8, 10, 14, 3, 2, 1, 4, 11, 9, 15, 18, 19, 20];
+  const cashiers = ['Amaka Obi', 'Tunde Bello'];
+  const now = new Date();
+  for (let daysAgo = 59; daysAgo >= 0; daysAgo -= 1) {
+    const day = new Date(now);
+    day.setDate(now.getDate() - daysAgo);
+    const weekend = [0, 6].includes(day.getDay());
+    // A store that is growing: a few more sales a day as the weeks go by.
+    const growth = ((59 - daysAgo) / 59) * 5;
+    const count = Math.round(7 + random() * 8 + growth + (weekend ? 6 : 0));
+    for (let n = 0; n < count; n += 1) {
+      const createdAt = new Date(day);
+      createdAt.setHours(8 + Math.floor(random() * 12), Math.floor(random() * 60), Math.floor(random() * 60), 0);
+      if (createdAt > now) continue;
+      const lineCount = 1 + Math.floor(random() * 4);
+      const used = new Set();
+      const items = [];
+      for (let line = 0; line < lineCount; line += 1) {
+        // Cheaper everyday items sell far more often than electronics.
+        const productId = fastMovers[Math.min(fastMovers.length - 1, Math.floor(Math.pow(random(), 1.8) * fastMovers.length))];
+        if (used.has(productId)) continue;
+        used.add(productId);
+        const product = products.find((p) => p.id === productId);
+        const quantity = Number(product.price) <= 700 ? 1 + Math.floor(random() * 5) : 1 + Math.floor(random() * 2);
+        const total = Number(product.price) * quantity;
+        items.push({ id: orderIdCounter * 100 + items.length, product_id: product.id, product_name: product.name, quantity, unit_price: product.price, discount: '0.00', total: total.toFixed(2) });
+      }
+      const subtotal = items.reduce((sum, item) => sum + Number(item.total), 0);
+      const taxAmount = subtotal * 0.075;
+      const roll = random();
+      const paymentMethod = roll < 0.48 ? 'cash' : roll < 0.84 ? 'transfer' : 'card';
+      const customer = random() < 0.3 ? pick(customers) : null;
+      orders.unshift({
+        id: orderIdCounter++, store_id: 1, user_id: 1, customer_id: customer?.id || null,
+        order_number: `ORD-${createdAt.toISOString().slice(2, 10).replace(/-/g, '')}-${String(orderIdCounter).padStart(4, '0')}`,
+        subtotal: subtotal.toFixed(2), tax_amount: taxAmount.toFixed(2), discount_amount: '0.00', total: (subtotal + taxAmount).toFixed(2),
+        status: 'completed', payment_method: paymentMethod,
+        payment_reference: paymentMethod === 'cash' ? null : `${paymentMethod === 'card' ? 'POS' : 'TRF'}${Math.floor(100000 + random() * 899999)}`,
+        client_order_id: null, cashier_name: pick(cashiers), customer_name: customer?.name || null,
+        paid_at: createdAt.toISOString(), created_at: createdAt.toISOString(), items,
+      });
+    }
+  }
+  orders.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  [[1, 20, 8], [15, 30, 2], [6, 240, 5], [12, 144, 3], [9, 24, 1]].forEach(([productId, quantity, daysAgo]) => {
+    const product = products.find((p) => p.id === productId);
+    inventoryLogs.push({ id: inventoryLogs.length + 1, product_id: product.id, product_name: product.name, store_id: 1, user_id: 1, user_name: 'Amaka Obi', type: 'in', quantity, reason: 'Restock from Lagos Wholesale Ltd', created_at: new Date(Date.now() - daysAgo * 86400000).toISOString() });
+  });
+}
+seedDemoSales();
 
 function broadcast(event, data) {
   const message = JSON.stringify({ event, data });
@@ -400,13 +494,21 @@ app.get('/api/v1/reports/insights', auth, (req, res) => {
 });
 
 app.get('/api/v1/reports/revenue', auth, (req, res) => {
-  const todayOrders = orders.filter(o => o.status === 'completed');
-  const totalRevenue = todayOrders.reduce((s, o) => s + parseFloat(o.total), 0);
+  const completed = orders.filter((o) => o.status === 'completed');
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfWeek = new Date(startOfDay);
+  startOfWeek.setDate(startOfDay.getDate() - ((startOfDay.getDay() + 6) % 7));
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const since = (from) => {
+    const list = completed.filter((o) => new Date(o.created_at) >= from);
+    return { revenue: list.reduce((sum, o) => sum + parseFloat(o.total), 0).toFixed(2), orders: list.length };
+  };
   res.json({
-    today: { revenue: totalRevenue.toFixed(2), orders: todayOrders.length },
-    thisWeek: { revenue: totalRevenue.toFixed(2), orders: todayOrders.length },
-    thisMonth: { revenue: totalRevenue.toFixed(2), orders: todayOrders.length },
-    allTime: { revenue: totalRevenue.toFixed(2), orders: todayOrders.length },
+    today: since(startOfDay),
+    thisWeek: since(startOfWeek),
+    thisMonth: since(startOfMonth),
+    allTime: since(new Date(0)),
   });
 });
 
@@ -417,6 +519,7 @@ app.get('/api/v1/reports/recent-orders', auth, (req, res) => {
 app.get('/api/v1/reports/top-products', auth, (req, res) => {
   const productSales = {};
   for (const order of orders) {
+    if (order.status !== 'completed') continue;
     for (const item of (order.items || [])) {
       if (!productSales[item.product_name]) productSales[item.product_name] = { product_name: item.product_name, total_quantity: 0, total_revenue: 0 };
       productSales[item.product_name].total_quantity += item.quantity;
@@ -429,9 +532,35 @@ app.get('/api/v1/reports/top-products', auth, (req, res) => {
 });
 
 app.get('/api/v1/reports/sales', auth, (req, res) => {
-  if (orders.length === 0) return res.json({ sales: [] });
-  const totalRevenue = orders.reduce((s, o) => s + parseFloat(o.total), 0);
-  res.json({ sales: [{ period: new Date().toISOString().slice(0, 10), total_orders: orders.length, revenue: totalRevenue.toFixed(2), total_discounts: '0.00', total_tax: '0.00', avg_order_value: (totalRevenue / orders.length).toFixed(2) }] });
+  // Daily totals, newest first, like the real report.
+  const dayKey = (value) => {
+    const date = new Date(value);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+  const end = req.query.end || dayKey(new Date());
+  const start = req.query.start || dayKey(new Date(Date.now() - 29 * 86400000));
+  const days = new Map();
+  for (const order of orders) {
+    if (order.status !== 'completed') continue;
+    const key = dayKey(order.created_at);
+    if (key < start || key > end) continue;
+    const day = days.get(key) || { period: key, total_orders: 0, revenue: 0, total_discounts: 0, total_tax: 0 };
+    day.total_orders += 1;
+    day.revenue += parseFloat(order.total);
+    day.total_discounts += parseFloat(order.discount_amount || 0);
+    day.total_tax += parseFloat(order.tax_amount || 0);
+    days.set(key, day);
+  }
+  res.json({
+    sales: [...days.values()].sort((a, b) => b.period.localeCompare(a.period)).slice(0, 30).map((day) => ({
+      period: day.period,
+      total_orders: day.total_orders,
+      revenue: day.revenue.toFixed(2),
+      total_discounts: day.total_discounts.toFixed(2),
+      total_tax: day.total_tax.toFixed(2),
+      avg_order_value: (day.revenue / day.total_orders).toFixed(2),
+    })),
+  });
 });
 
 // ===== Settings =====
