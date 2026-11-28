@@ -77,6 +77,103 @@ function providerPlanId(provider, planCode, currency = 'NGN') {
   return providerPlanIdForCurrency(config, provider, planCode, currency);
 }
 
+// The Paystack and Flutterwave accounts belong to Sir David Multitrade Limited
+// and also collect payments for its other businesses. QuickPOS acts only on
+// payments it can tie to itself: its own QP- checkout references, its own plan
+// IDs, its own checkout metadata, or a subscription it has already recorded.
+const QUICKPOS_REFERENCE = /^QP-(\d+)-/;
+
+function providerPlanCode(value) {
+  if (value == null || value === '') return '';
+  if (typeof value === 'object') return String(value.plan_code || value.id || '');
+  return String(value);
+}
+
+function isQuickposPlan(provider, value) {
+  const code = providerPlanCode(value);
+  if (!code) return false;
+  const settings = config[provider] || {};
+  return [
+    ...Object.values(settings.plans || {}),
+    ...Object.values(settings.plansByCurrency || {}).flatMap((plans) => Object.values(plans || {})),
+  ].some((planId) => planId && String(planId) === code);
+}
+
+function parsedMetadata(value) {
+  if (typeof value !== 'string') return value && typeof value === 'object' ? value : {};
+  try {
+    const parsed = JSON.parse(value || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function hasQuickposMetadata(metadata) {
+  return metadata?.source === 'quickpos' || QUICKPOS_REFERENCE.test(String(metadata?.reference || ''));
+}
+
+function quickposStoreIdFromReference(reference) {
+  const match = String(reference || '').match(QUICKPOS_REFERENCE);
+  return match ? Number(match[1]) : null;
+}
+
+function notQuickposPayment() {
+  const error = new Error('Payment does not belong to QuickPOS');
+  error.code = 'NOT_QUICKPOS_PAYMENT';
+  return error;
+}
+
+// Decides from a signed notification whether it concerns QuickPOS at all, so a
+// notification for another business is answered without being stored.
+export async function webhookConcernsQuickpos(provider, body) {
+  const data = body?.data;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return false;
+  const type = String(body?.event || body?.type || '');
+  const references = [
+    data.reference,
+    data.tx_ref,
+    data.txRef,
+    data.transaction_reference,
+    data.transaction?.reference,
+  ].filter(Boolean).map(String);
+  if (references.some((reference) => QUICKPOS_REFERENCE.test(reference))) return true;
+  if ([data.metadata, data.meta, body.meta_data].some((value) => hasQuickposMetadata(parsedMetadata(value)))) {
+    return true;
+  }
+  if ([data.plan, data.plan_code, data.payment_plan, data.subscription?.plan]
+    .some((plan) => isQuickposPlan(provider, plan))) {
+    return true;
+  }
+
+  const subscriptionIds = [
+    data.subscription_code,
+    data.subscription?.subscription_code,
+    data.subscription_id,
+    // On a Flutterwave cancellation the subscription is the event's own id.
+    provider === 'flutterwave' && type.includes('cancel') ? data.id : null,
+  ].filter((value) => value != null && value !== '').map(String);
+  // Flutterwave renewals carry no plan or subscription, so a charge from a
+  // QuickPOS customer goes on to payment activation, which checks it properly.
+  const customerIds = provider === 'flutterwave' && type.startsWith('charge.') && data.customer?.id
+    ? [String(data.customer.id)]
+    : [];
+  if (!references.length && !subscriptionIds.length && !customerIds.length) return false;
+
+  const known = await query(
+    `SELECT EXISTS (
+       SELECT 1 FROM billing_transactions
+       WHERE provider = $1 AND provider_reference = ANY($2::text[])
+     ) OR EXISTS (
+       SELECT 1 FROM store_subscriptions
+       WHERE provider = $1
+         AND (provider_subscription_id = ANY($3::text[]) OR provider_customer_id = ANY($4::text[]))
+     ) AS known`,
+    [provider, references, subscriptionIds, customerIds]
+  );
+  return Boolean(known.rows[0]?.known);
+}
+
 function formatMoney(amount, currency = 'NGN') {
   return new Intl.NumberFormat('en-NG', {
     style: 'currency',
@@ -130,7 +227,8 @@ export async function verifyPaystackTransaction(reference) {
     amountNgn: Number(data.amount) / 100,
     currency: data.currency,
     paidAt: data.paid_at || data.paidAt,
-    metadata: typeof data.metadata === 'string' ? JSON.parse(data.metadata || '{}') : data.metadata || {},
+    metadata: parsedMetadata(data.metadata),
+    planId: providerPlanCode(data.plan) || providerPlanCode(data.plan_object),
     providerCustomerId: data.customer?.customer_code,
     providerSubscriptionId: data.subscription?.subscription_code,
     providerEmailToken: data.subscription?.email_token,
@@ -152,11 +250,37 @@ function normalizeFlutterwaveTransaction(response) {
     amountNgn: Number(data.amount),
     currency: data.currency,
     paidAt: data.created_at,
-    metadata: data.meta || {},
+    metadata: parsedMetadata(data.meta),
+    planId: providerPlanCode(data.plan) || providerPlanCode(data.payment_plan),
     providerCustomerId: data.customer?.id ? String(data.customer.id) : null,
+    customerEmail: data.customer?.email || null,
     providerSubscriptionId: data.subscription_id ? String(data.subscription_id) : null,
     raw: data,
   };
+}
+
+// Flutterwave's renewal notices name neither the plan nor the subscription, so
+// a renewal counts as QuickPOS's only when Flutterwave reports an active
+// subscription for that customer's email on a QuickPOS plan, at the amount
+// that was charged. This only reads from the account.
+async function flutterwaveRenewalOnQuickposPlan(verified) {
+  if (!verified.customerEmail) return false;
+  let response;
+  try {
+    response = await axios.get('https://api.flutterwave.com/v3/subscriptions', {
+      params: { email: verified.customerEmail, status: 'active' },
+      headers: { Authorization: `Bearer ${config.flutterwave.secretKey}` },
+    });
+  } catch (error) {
+    throw providerError(error, 'Flutterwave', 'Subscription lookup failed');
+  }
+  const subscriptions = Array.isArray(response.data?.data) ? response.data.data : [];
+  return subscriptions.some((subscription) =>
+    isQuickposPlan('flutterwave', subscription.plan) &&
+    String(subscription.status || 'active').toLowerCase() === 'active' &&
+    Number(subscription.amount) === Number(verified.amountNgn) &&
+    (!subscription.currency || subscription.currency === verified.currency)
+  );
 }
 
 export async function verifyFlutterwaveTransaction(transactionId) {
@@ -206,6 +330,17 @@ export async function activateVerifiedPayment(provider, verified) {
     let transaction = transactionResult.rows[0];
 
     if (!transaction) {
+      // An automatic renewal has a reference QuickPOS never issued. A matching
+      // customer alone is not enough: the same person may also pay another
+      // business on the shared account. Customer matches need a QuickPOS plan,
+      // and store matches need QuickPOS's own reference or checkout metadata.
+      let ownPlan = isQuickposPlan(provider, verified.planId);
+      const ownStoreId = hasQuickposMetadata(verified.metadata)
+        ? Number(verified.metadata.store_id) || null
+        : quickposStoreIdFromReference(verified.reference);
+      if (!ownPlan && !ownStoreId && provider === 'flutterwave' && verified.providerCustomerId) {
+        ownPlan = await flutterwaveRenewalOnQuickposPlan(verified);
+      }
       const subscriptionResult = await client.query(
         `SELECT *
          FROM store_subscriptions
@@ -221,12 +356,12 @@ export async function activateVerifiedPayment(provider, verified) {
         [
           provider,
           verified.providerSubscriptionId || null,
-          verified.providerCustomerId || null,
-          Number(verified.metadata?.store_id) || null,
+          ownPlan ? verified.providerCustomerId || null : null,
+          ownStoreId,
         ]
       );
       const subscription = subscriptionResult.rows[0];
-      if (!subscription) throw new Error('Verified renewal could not be matched to a QuickPOS store');
+      if (!subscription) throw notQuickposPayment();
       const planCode = verified.metadata?.plan_code || subscription.plan_code;
 
       transactionResult = await client.query(
@@ -465,6 +600,37 @@ async function finishWebhook(id, status, error = null) {
   );
 }
 
+function logOtherBusiness(provider, req) {
+  // Log only the event type: the payload belongs to another business's customer.
+  logger.info('Ignored a payment notification for another business', {
+    provider,
+    event: String(req.body?.event || req.body?.type || 'unknown').slice(0, 80),
+  });
+}
+
+// Answers a notification for another business on the shared account with 200,
+// so the provider stops retrying, without storing it. Returns true if answered.
+async function answeredAsAnotherBusiness(provider, req, res) {
+  try {
+    if (await webhookConcernsQuickpos(provider, req.body)) return false;
+  } catch (error) {
+    logger.error('Payment notification check failed', { provider, error: error.message });
+    res.sendStatus(500);
+    return true;
+  }
+  logOtherBusiness(provider, req);
+  res.sendStatus(200);
+  return true;
+}
+
+// The payment was verified and turned out to be another business's: drop the
+// stored copy instead of keeping its customer's details.
+async function forgetWebhook(provider, req, res, id) {
+  if (id) await query('DELETE FROM billing_webhook_events WHERE id = $1', [id]);
+  logOtherBusiness(provider, req);
+  return res.sendStatus(200);
+}
+
 router.get('/plans', async (req, res, next) => {
   try {
     const providers = getProviderAvailability(config);
@@ -507,6 +673,7 @@ router.post('/webhooks/paystack', async (req, res) => {
   if (!config.paystack.secretKey || !verifyPaystackSignature(req)) {
     return res.status(401).json({ error: 'Invalid Paystack webhook signature' });
   }
+  if (await answeredAsAnotherBusiness('paystack', req, res)) return undefined;
 
   const event = await markWebhookEvent('paystack', req);
   if (event.duplicate) return res.sendStatus(200);
@@ -514,9 +681,13 @@ router.post('/webhooks/paystack', async (req, res) => {
   try {
     const type = req.body?.event;
     const data = req.body?.data || {};
+    const ownCharge =
+      QUICKPOS_REFERENCE.test(String(data.reference || '')) ||
+      isQuickposPlan('paystack', data.plan) ||
+      isQuickposPlan('paystack', data.subscription?.plan);
     if (type === 'charge.success') {
       await activateVerifiedPayment('paystack', await verifyPaystackTransaction(data.reference));
-    } else if (type === 'subscription.create') {
+    } else if (type === 'subscription.create' && isQuickposPlan('paystack', data.plan)) {
       await query(
         `UPDATE store_subscriptions SET
            provider_subscription_id = $1,
@@ -539,7 +710,12 @@ router.post('/webhooks/paystack', async (req, res) => {
              OR provider_customer_id = $2
            )
          RETURNING store_id, current_period_end`,
-        [data.subscription?.subscription_code || data.subscription_code || '', data.customer?.customer_code || '']
+        [
+          data.subscription?.subscription_code || data.subscription_code || '',
+          // Matching on the customer alone could catch a failed charge for
+          // another business, so only QuickPOS's own charges use it.
+          ownCharge ? data.customer?.customer_code || '' : '',
+        ]
       );
       for (const row of failed.rows) {
         const identity = await getBillingIdentity(row.store_id);
@@ -566,6 +742,7 @@ router.post('/webhooks/paystack', async (req, res) => {
     await finishWebhook(event.id, 'processed');
     return res.sendStatus(200);
   } catch (error) {
+    if (error.code === 'NOT_QUICKPOS_PAYMENT') return forgetWebhook('paystack', req, res, event.id);
     logger.error('Paystack webhook failed', { error: error.message });
     await finishWebhook(event.id, 'failed', error.message);
     return res.sendStatus(500);
@@ -576,6 +753,7 @@ router.post('/webhooks/flutterwave', async (req, res) => {
   if (!config.flutterwave.webhookSecret || !verifyFlutterwaveSignature(req)) {
     return res.status(401).json({ error: 'Invalid Flutterwave webhook signature' });
   }
+  if (await answeredAsAnotherBusiness('flutterwave', req, res)) return undefined;
 
   const event = await markWebhookEvent('flutterwave', req);
   if (event.duplicate) return res.sendStatus(200);
@@ -620,6 +798,7 @@ router.post('/webhooks/flutterwave', async (req, res) => {
     await finishWebhook(event.id, 'processed');
     return res.sendStatus(200);
   } catch (error) {
+    if (error.code === 'NOT_QUICKPOS_PAYMENT') return forgetWebhook('flutterwave', req, res, event.id);
     logger.error('Flutterwave webhook failed', { error: error.message });
     await finishWebhook(event.id, 'failed', error.message);
     return res.sendStatus(500);
@@ -805,6 +984,7 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
     returnUrl.searchParams.set('payment_return', '1');
     const reference = `QP-${req.user.store_id}-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
     const metadata = {
+      source: 'quickpos',
       store_id: req.user.store_id,
       plan_code: planCode,
       reference,
