@@ -107,10 +107,11 @@ async function initialActivationEligible(storeId, subscription) {
   return !(subscription?.initial_payment_confirmed ?? await hasConfirmedStorePayment(storeId));
 }
 
-function paymentNotComplete(message) {
+function paymentNotComplete(message, transactionStatus) {
   const error = new Error(message);
   error.code = 'PAYMENT_NOT_COMPLETE';
   error.statusCode = 409;
+  error.paymentFailed = ['failed', 'cancelled', 'canceled', 'reversed'].includes(transactionStatus);
   return error;
 }
 
@@ -121,7 +122,7 @@ export async function verifyPaystackTransaction(reference) {
   );
   const data = response.data?.data;
   if (!response.data?.status || data?.status !== 'success') {
-    throw paymentNotComplete('Paystack transaction is not successful yet');
+    throw paymentNotComplete('Paystack transaction is not successful yet', data?.status);
   }
   return {
     reference: data.reference,
@@ -143,7 +144,7 @@ function normalizeFlutterwaveTransaction(response) {
     response.data?.status !== 'success' ||
     !['successful', 'succeeded'].includes(data?.status)
   ) {
-    throw paymentNotComplete('Flutterwave transaction is not successful yet');
+    throw paymentNotComplete('Flutterwave transaction is not successful yet', data?.status);
   }
   return {
     reference: data.tx_ref,
@@ -674,6 +675,7 @@ router.post('/confirm', authorize('admin'), async (req, res, next) => {
       verified = await verifyProviderTransaction(provider, reference, transactionId);
     } catch (error) {
       if (error.code === 'PAYMENT_NOT_COMPLETE') {
+        if (error.paymentFailed) return res.json({ confirmed: false, failed: true });
         return res.status(202).json({ confirmed: false, pending: true });
       }
       throw error;
@@ -798,6 +800,9 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
 
     const identity = await getBillingIdentity(req.user.store_id);
     if (!identity?.email) return res.status(400).json({ error: 'Add a store owner email before checkout' });
+    const returnUrl = new URL(config.billing.checkoutReturnUrl);
+    returnUrl.hash = '';
+    returnUrl.searchParams.set('payment_return', '1');
     const reference = `QP-${req.user.store_id}-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
     const metadata = {
       store_id: req.user.store_id,
@@ -829,13 +834,15 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
 
     let authorizationUrl;
     if (provider === 'paystack') {
+      const cancelUrl = new URL(returnUrl);
+      cancelUrl.searchParams.set('status', 'cancelled');
       const payload = {
         email: identity.email,
         amount: Math.round(Number(checkoutAmount) * 100),
         currency: checkoutCurrency,
         reference,
-        callback_url: config.billing.checkoutReturnUrl,
-        metadata,
+        callback_url: returnUrl.href,
+        metadata: { ...metadata, cancel_action: cancelUrl.href },
       };
       if (plan.recurring) payload.plan = providerPlanId(provider, planCode, checkoutCurrency);
       let response;
@@ -852,7 +859,7 @@ router.post('/checkout', authorize('admin'), async (req, res, next) => {
         tx_ref: reference,
         amount: Number(checkoutAmount),
         currency: checkoutCurrency,
-        redirect_url: config.billing.checkoutReturnUrl,
+        redirect_url: returnUrl.href,
         customer: { email: identity.email, name: identity.name },
         customizations: { title: 'QuickPOS subscription', description: `${plan.name} plan` },
         meta: metadata,

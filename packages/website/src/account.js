@@ -1580,25 +1580,30 @@ function returnedPayment(params) {
   const flutterwaveReference = params.get('tx_ref') || '';
   const paystackReference = params.get('reference') || params.get('trxref') || '';
   const reference = flutterwaveReference || paystackReference;
-  if (!reference) return null;
+  const status = params.get('status')?.trim().toLowerCase() || '';
+  if (!reference && !transactionId && !status && params.get('payment_return') !== '1') return null;
   return {
     provider: flutterwaveReference || transactionId ? 'flutterwave' : 'paystack',
     reference,
     transaction_id: transactionId || undefined,
-    status: params.get('status') || '',
+    status,
   };
 }
 
-async function confirmReturnedPayment(params) {
-  const payment = returnedPayment(params);
-  if (!payment) return null;
+async function confirmReturnedPayment(payment) {
   const routeTo = (section) => window.history.replaceState({}, '', `${window.location.pathname}#${section}`);
-  if (payment.provider === 'flutterwave' && ['cancelled', 'canceled', 'failed'].includes(payment.status)) {
+  const failed = () => {
     routeTo('billing');
     return { message: 'Checkout did not complete. If you see a charge, contact support before retrying.', type: 'info' };
+  };
+  if (['cancelled', 'canceled', 'failed', 'abandoned', 'expired', 'error', 'reversed'].includes(payment.status)) return failed();
+  if (!payment.reference) {
+    routeTo('billing');
+    return { message: 'No payment was confirmed. If you see a charge, contact support before retrying.', type: 'info' };
   }
 
   const result = await siteApi.post('/billing/confirm', payment);
+  if (result.failed) return failed();
   if (result.confirmed) {
     const unlocked = downloadsUnlocked(result.subscription);
     routeTo(unlocked ? 'downloads' : 'billing');
@@ -1719,25 +1724,25 @@ async function loadPortal(flash = '', { focus = false } = {}) {
 async function bootstrap() {
   if (!root) return;
   const { mode, params } = routeInfo();
-  const publicAuthRoutes = ['signin', 'login', 'create', 'register', 'signup', 'forgot-password'];
+  const payment = returnedPayment(params);
 
   if (mode === 'reset-password' || params.get('token')) {
     renderResetPassword();
     return;
   }
-  if (siteApi.accessToken && publicAuthRoutes.includes(mode)) {
+  if (!payment && siteApi.accessToken && ['signin', 'login', 'create', 'register', 'signup', 'forgot-password'].includes(mode)) {
     window.location.replace(readSiteSession().user?.role === 'manager' ? '#staff' : '#overview');
     return;
   }
-  if (mode === 'forgot-password') {
+  if (!payment && mode === 'forgot-password') {
     renderForgotPassword();
     return;
   }
-  if (mode === 'create' || mode === 'register' || mode === 'signup') {
+  if (!payment && ['create', 'register', 'signup'].includes(mode)) {
     renderRegister();
     return;
   }
-  if (!siteApi.accessToken || mode === 'signin' || mode === 'login') {
+  if (!siteApi.accessToken) {
     renderSignIn();
     return;
   }
@@ -1746,17 +1751,13 @@ async function bootstrap() {
     return;
   }
   let flash;
-  const payment = returnedPayment(params);
-  if (payment && mode !== 'billing') {
-    const query = new URLSearchParams({ [payment.provider === 'flutterwave' ? 'tx_ref' : 'reference']: payment.reference });
-    if (payment.transaction_id) query.set('transaction_id', payment.transaction_id);
-    if (payment.status) query.set('status', payment.status);
-    window.history.replaceState({}, '', `${window.location.pathname}?${query}#billing`);
-  }
-  try {
-    flash = await confirmReturnedPayment(params);
-  } catch (error) {
-    flash = { message: error.message || 'Couldn’t check this payment right now.', type: 'error' };
+  if (payment) {
+    window.history.replaceState({}, '', `${window.location.pathname}?${params}#billing`);
+    try {
+      flash = await confirmReturnedPayment(payment);
+    } catch (error) {
+      flash = { message: error.message || 'Couldn’t check this payment right now.', type: 'error' };
+    }
   }
   await loadPortal(flash, { focus: Boolean(payment) });
 }
@@ -1769,7 +1770,11 @@ function handleAccountNavigation() {
     keepManagerStaffRoute();
     return;
   }
-  if (siteApi.accessToken && !returnedPayment(params) && document.querySelector('[data-account-gate]')) {
+  if (returnedPayment(params)) {
+    bootstrap();
+    return;
+  }
+  if (siteApi.accessToken && document.querySelector('[data-account-gate]')) {
     keepActivationRoute();
     return;
   }
