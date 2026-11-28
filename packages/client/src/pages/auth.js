@@ -15,7 +15,7 @@ export function renderLoginPage() {
   const app = document.getElementById('app');
 
   app.innerHTML = `
-    <div class="login-page">
+    <div class="login-page login-split">
       <div class="login-card glass-card animate-fade-in">
         ${authBrand}
         <p>Sign in to your point of sale system</p>
@@ -44,6 +44,16 @@ export function renderLoginPage() {
           </a>.
         </p>
       </div>
+      <aside class="login-showcase" aria-hidden="true">
+        <div class="login-showcase-copy">
+          <span>QuickPOS for Nigerian stores</span>
+          <strong>Your counter, stock and sales in one place.</strong>
+        </div>
+        <figure class="login-showcase-shot"><img src="./showcase/pos-terminal.webp" alt="" width="1920" height="1080" loading="lazy" decoding="async"></figure>
+        <ul class="login-product-strip">
+          ${['rice', 'noodles', 'milk', 'tomato-paste', 'malt-drink', 'garri'].map((name) => `<li><img src="./showcase/items/${name}.jpg" alt="" width="64" height="64" decoding="async"></li>`).join('')}
+        </ul>
+      </aside>
     </div>
   `;
 

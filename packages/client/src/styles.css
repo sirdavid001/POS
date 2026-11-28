@@ -1712,3 +1712,29 @@ select.input { appearance: none; cursor: pointer; }
   .chat-overlay .chat-panel { animation: chatSlideIn 0.2s ease-out; }
 }
 @keyframes chatSlideIn { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Sign-in page: a real store beside the form on computers, a row of products on phones. */
+/* The sign-in background follows the app's colours, so a device in dark mode no longer shows dark blotches behind a light card. */
+.login-page {
+  background:
+    radial-gradient(ellipse at 30% 20%, color-mix(in oklch, var(--color-primary) 16%, transparent), transparent 52%),
+    radial-gradient(ellipse at 75% 80%, color-mix(in oklch, var(--color-accent) 12%, transparent), transparent 52%),
+    var(--color-surface);
+}
+.login-split { gap: 1.5rem; padding: 1.5rem 1rem; flex-direction: column; }
+.login-showcase { display: grid; justify-items: center; gap: 1.25rem; order: -1; width: 100%; max-width: 420px; }
+.login-showcase-copy,
+.login-showcase-shot { display: none; }
+.login-product-strip { display: flex; justify-content: center; gap: 0.5rem; margin: 0; padding: 0; list-style: none; }
+.login-product-strip li { display: grid; width: 3rem; height: 3rem; place-items: center; overflow: hidden; border: 1px solid var(--color-border); border-radius: 0.75rem; background: #fff; box-shadow: 0 6px 16px oklch(0 0 0 / 0.12); }
+.login-product-strip img { width: 100%; height: 100%; object-fit: contain; }
+@media (min-width: 1024px) {
+  .login-split { display: grid; grid-template-columns: minmax(360px, 420px) minmax(0, 820px); align-items: center; justify-content: center; gap: clamp(2rem, 5vw, 4.5rem); padding: 2rem clamp(1.5rem, 4vw, 4rem); }
+  .login-showcase { order: 0; justify-items: start; gap: 1.1rem; max-width: none; }
+  .login-showcase-copy { display: grid; gap: 0.4rem; }
+  .login-showcase-copy span { color: var(--color-primary-light); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+  .login-showcase-copy strong { max-width: 22ch; font-size: clamp(1.6rem, 2.4vw, 2.25rem); line-height: 1.15; letter-spacing: -0.03em; }
+  .login-showcase-shot { display: block; width: 100%; margin: 0; overflow: hidden; border: 1px solid var(--color-border); border-radius: 1rem; background: var(--color-surface-2); box-shadow: 0 30px 70px oklch(0 0 0 / 0.28); }
+  .login-showcase-shot img { display: block; width: 100%; height: auto; }
+  .login-product-strip { justify-content: flex-start; }
+}
