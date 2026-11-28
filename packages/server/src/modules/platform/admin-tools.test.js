@@ -11,7 +11,8 @@ vi.doMock('../../config/database.js', () => ({
   query: mockQuery,
   getClient: vi.fn(async () => ({ query: mockQuery, release: mockRelease })),
 }));
-vi.doMock('../billing/subscription.js', () => ({
+vi.doMock('../billing/subscription.js', async (importOriginal) => ({
+  ...await importOriginal(),
   getStoreSubscription: vi.fn(async () => ({ status: 'active', can_write: true })),
   getPlan: vi.fn(async (code) => (code === 'activation_5m'
     ? { code, name: 'Initial Activation', price_ngn: 20000, duration_months: 5 }
@@ -77,6 +78,7 @@ beforeEach(() => {
       throw Object.assign(new Error('relation does not exist'), { code: '42P01' });
     }
     if (sql.includes('SELECT * FROM store_subscriptions WHERE store_id = $1 FOR UPDATE')) return { rows: state.subscription ? [state.subscription] : [] };
+    if (sql.includes('AS confirmed') && sql.includes('FROM billing_transactions')) return { rows: [{ confirmed: state.hasSuccessfulPayment === true }] };
     if (sql.includes('INSERT INTO billing_transactions')) return { rows: [{ id: 91 }] };
     if (sql.includes('UPDATE store_subscriptions SET')) return { rows: [{ status: 'active', current_period_end: '2027-04-12T00:00:00Z' }] };
     if (sql.includes('COALESCE(s.email, owner.email)')) return { rows: [{ email: 'store@example.com' }] };
@@ -96,6 +98,7 @@ afterEach(() => vi.clearAllMocks());
 
 describe('manual payments', () => {
   test('records a bank transfer, activates the store and keeps provider links', async () => {
+    state.subscription = { status: 'grandfathered', activation_fee_paid: true, current_period_end: null };
     const response = await call('POST', '/platform/stores/8/manual-payment', { plan_code: 'activation_5m', amount: 20000, currency: 'NGN', reference: 'GTB-778812' });
     expect(response.status).toBe(201);
     const update = sqlCalls().find(({ sql }) => sql.includes('UPDATE store_subscriptions SET'));
@@ -108,7 +111,7 @@ describe('manual payments', () => {
   });
 
   test('refuses a second activation fee', async () => {
-    state.subscription.activation_fee_paid = true;
+    state.hasSuccessfulPayment = true;
     const response = await call('POST', '/platform/stores/8/manual-payment', { plan_code: 'activation_5m', amount: 20000, reference: 'GTB-1' });
     expect(response.status).toBe(409);
     expect(mockQuery).toHaveBeenCalledWith('ROLLBACK');

@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { query } from '../../config/database.js';
 import { authenticate, authorize } from '../../middleware/auth.js';
 import { requireActiveSubscription } from '../../middleware/subscription.js';
+import { isStaffPhoto } from '../../../../shared/src/staff-photo.js';
 
 const router = Router();
 router.use(authenticate);
@@ -68,7 +69,7 @@ router.get('/users', authorize('admin', 'manager'), async (req, res, next) => {
 
 router.post('/users', authorize('admin', 'manager'), async (req, res, next) => {
   try {
-    const { name, email, password, role = 'cashier', phone } = req.body;
+    const { name, email, password, role = 'cashier', phone, staff_photo } = req.body;
     if (!name?.trim() || !email?.trim() || !password || password.length < 8) {
       return res.status(400).json({ error: 'Name, email, and a password of at least 8 characters are required' });
     }
@@ -78,13 +79,16 @@ router.post('/users', authorize('admin', 'manager'), async (req, res, next) => {
     if (req.user.role === 'manager' && role !== 'cashier') {
       return res.status(403).json({ error: 'Managers can create cashier accounts only' });
     }
+    if (staff_photo != null && !isStaffPhoto(staff_photo)) {
+      return res.status(400).json({ error: 'Choose a valid portrait in JPG, PNG, or WebP.' });
+    }
 
     const roleResult = await query('SELECT id FROM roles WHERE name = $1', [role]);
     const passwordHash = await bcrypt.hash(password, 12);
     const result = await query(
       `INSERT INTO users
-       (store_id, role_id, email, password_hash, name, phone, created_by_user_id)
-       VALUES ($1, $2, LOWER($3), $4, $5, $6, $7)
+       (store_id, role_id, email, password_hash, name, phone, created_by_user_id, staff_photo)
+       VALUES ($1, $2, LOWER($3), $4, $5, $6, $7, $8)
        RETURNING id, email, name, phone, is_active, created_at`,
       [
         req.user.store_id,
@@ -94,6 +98,7 @@ router.post('/users', authorize('admin', 'manager'), async (req, res, next) => {
         name.trim(),
         phone?.trim() || null,
         req.user.id,
+        staff_photo ?? null,
       ]
     );
     res.status(201).json({ user: { ...result.rows[0], role } });

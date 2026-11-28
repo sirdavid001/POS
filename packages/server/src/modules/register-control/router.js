@@ -7,6 +7,7 @@ import { requireActiveSubscription } from '../../middleware/subscription.js';
 import { getClient, query } from '../../config/database.js';
 import { validate } from '../../middleware/validate.js';
 import { PostgresRateLimitStore } from '../../middleware/postgres-rate-limit-store.js';
+import { isStaffPhoto } from '../../../../shared/src/staff-photo.js';
 import {
   RegisterError, audit, badgeDigest, canIssueBadge, canManageStaff, issueBadge,
   loadSession, presentRegisterBasket, presentSession, privileged, registerPolicy, resolveBadge, startSession,
@@ -45,7 +46,6 @@ const supervisorPinLimiter = rateLimit({
 const actions = ['account_login', 'register_opened', 'register_closed', 'basket_reduced', 'basket_cleared',
   'sale_completed', 'sale_refunded', 'staff_profile_updated', 'staff_badge_issued', 'staff_badge_revoked',
   'supervisor_pin_changed', 'register_policy_changed'];
-const inlinePhoto = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 
 const route = (work) => async (req, res, next) => {
   try { await work(req, res); }
@@ -116,7 +116,7 @@ const profileBody = z.object({
   name: z.string().trim().min(1).max(255),
   email: z.string().trim().toLowerCase().email().max(255),
   phone: z.string().trim().max(50),
-  photo: z.string().max(180000).regex(inlinePhoto, 'Choose a JPG, PNG or WebP photo').nullable().optional(),
+  photo: z.string().refine(isStaffPhoto, 'Choose a JPG, PNG or WebP photo').nullable().optional(),
   current_password: z.string().max(1024).optional(),
 });
 router.patch('/profiles/:id', validate(z.object({ params: memberParams, body: profileBody })), route(async (req, res) => {

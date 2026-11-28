@@ -22,12 +22,13 @@ export function getSubscription() {
     const entitlementEnd = subscription.entitlement_ends_at
       ? new Date(subscription.entitlement_ends_at).getTime()
       : Infinity;
-    const locallyValid = now <= offlineLimit && now <= entitlementEnd;
+    const paid = subscription.initial_payment_confirmed ?? subscription.paid_staff_tools;
+    const locallyValid = now < offlineLimit && now < entitlementEnd;
 
     return {
       ...subscription,
-      can_write: Boolean(subscription.can_write && locallyValid),
-      offline_expired: Boolean(subscription.can_write && !locallyValid),
+      can_write: Boolean(paid && subscription.can_write && locallyValid),
+      offline_expired: Boolean(paid && subscription.can_write && !locallyValid),
     };
   } catch {
     return null;
@@ -39,5 +40,5 @@ export function canWriteBusinessData() {
 }
 
 export function needsInitialActivation(subscription = getSubscription()) {
-  return Boolean(subscription?.activation_required && !subscription.can_write && !subscription.offline_expired);
+  return !subscription?.can_write;
 }

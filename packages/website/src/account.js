@@ -8,8 +8,11 @@ import {
 } from './session.js';
 import { resolveApiBase } from '../../shared/src/api.js';
 import { canIssueStaffCard } from '../../shared/src/staff-card-access.js';
+import { staffPhotoField, bindStaffPhotoField, readStaffPhoto } from './staff-photo-field.js';
+import './staff-photo-field.css';
 
 const root = document.querySelector('[data-account-root]');
+let paidThrough = Infinity;
 
 const API_BASE = resolveApiBase(import.meta.env.VITE_API_URL, {
   development: import.meta.env.DEV,
@@ -336,6 +339,8 @@ function showAccountStaffEditModal(member) {
             <input name="password" type="password" minlength="8" autocomplete="new-password" placeholder="Leave blank to keep current password">
           </label>
         </div>
+        ${staffPhotoField('edit-staff-portrait', true)}
+        <p class="account-muted" role="status" data-staff-edit-status></p>
         <div class="staff-form-note">
           <strong>${member.is_current_user ? 'Use profile settings for your own admin access.' : 'Role and status changes apply to the installed app.'}</strong>
           <span>${member.is_current_user ? 'Your role and active status are protected here so the store does not lock itself out.' : 'Deleted or inactive staff cannot continue using QuickPOS.'}</span>
@@ -356,23 +361,27 @@ function showAccountStaffEditModal(member) {
   });
   overlay.querySelector('#account-staff-edit-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
+    const form = event.currentTarget;
     const button = event.submitter;
-    const payload = payloadFromForm(event.target, ['phone', 'password']);
+    const payload = payloadFromForm(form, ['phone', 'password']);
+    const status = form.querySelector('[data-staff-edit-status]');
     if (payload.is_active !== undefined) payload.is_active = payload.is_active === 'true';
     button.disabled = true;
     button.textContent = 'Saving...';
     try {
+      payload.staff_photo = await readStaffPhoto(form);
       await siteApi.patch(`/account/staff/${member.id}`, payload);
       close();
       await loadPortal('Staff account updated.');
     } catch (error) {
-      setFlash(error.message || 'Could not update staff account', 'error');
+      status.textContent = error.message || 'Could not update staff account';
       button.disabled = false;
       button.textContent = 'Save staff account';
     }
   });
 
   document.body.appendChild(overlay);
+  bindStaffPhotoField(overlay.querySelector('form'));
   overlay.querySelector('input[name="name"]')?.focus();
 }
 
@@ -933,7 +942,14 @@ function renderBillingCheckout(plans, subscription, billingCurrency) {
 }
 
 function needsInitialActivation(subscription) {
-  return Boolean(subscription?.activation_required && !subscription.can_write);
+  return !subscription?.can_write;
+}
+
+function updateStoreAccess(subscription) {
+  document.body.toggleAttribute('data-account-access-locked', needsInitialActivation(subscription));
+  paidThrough = subscription?.can_write
+    ? Date.now() + (Date.parse(subscription.entitlement_ends_at) - Date.parse(subscription.server_time))
+    : Infinity;
 }
 
 function keepActivationRoute() {
@@ -943,16 +959,16 @@ function keepActivationRoute() {
   window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}#billing`);
 }
 
-function renderActivationGate(store, checkout, flash) {
+function renderActivationGate(store, checkout, flash, renewal = false) {
   keepActivationRoute();
   root.innerHTML = `
     <section class="section account-section" data-account-gate aria-labelledby="activation-gate-title">
       <div class="site-shell account-gate-shell">
         <header class="account-gate-heading">
           <div class="page-intro">
-            <span class="eyebrow">Setup · Step 2 of 3</span>
-            <h1 id="activation-gate-title" tabindex="-1">Activate your store</h1>
-            <p>${escapeHtml(store?.name || 'Your store')} is registered. Complete the one-time payment to unlock the portal and start using QuickPOS.</p>
+            <span class="eyebrow">${renewal ? 'Billing' : 'Setup · Step 2 of 3'}</span>
+            <h1 id="activation-gate-title" tabindex="-1">${renewal ? 'Renew your store access' : 'Activate your store'}</h1>
+            <p>${renewal ? 'Your paid term has ended. Renew to reopen the staff area, downloads, and the POS app.' : `${escapeHtml(store?.name || 'Your store')} is registered. Complete the one-time payment to unlock the portal and start using QuickPOS.`}</p>
           </div>
           <button class="button button-secondary" type="button" id="account-logout">Sign out</button>
         </header>
@@ -983,7 +999,7 @@ function renderPortal({ overview, plans, transactions, staff = [], billingCurren
     </div>
   ` : renderBillingCheckout(plans, subscription, billingCurrency);
   if (needsInitialActivation(subscription)) {
-    renderActivationGate(store, checkout, flash);
+    renderActivationGate(store, checkout, flash, subscription?.activation_required === false);
     return;
   }
   const confirmedTransactions = transactions.filter((transaction) => transaction.status === 'success');
@@ -1184,6 +1200,7 @@ function renderPortal({ overview, plans, transactions, staff = [], billingCurren
                       Temporary password
                       <input name="password" type="password" autocomplete="new-password" minlength="8" required placeholder="At least 8 characters">
                     </label>
+                    ${staffPhotoField('new-staff-portrait')}
                     <div class="staff-form-note">
                       <strong>Keep access private</strong>
                       <span>Share the temporary password securely. Staff use these details to sign in to the QuickPOS app.</span>
@@ -1387,13 +1404,17 @@ function attachPortalHandlers() {
     }
   });
 
-  document.getElementById('account-staff-form')?.addEventListener('submit', async (event) => {
+  const staffForm = document.getElementById('account-staff-form');
+  if (staffForm) bindStaffPhotoField(staffForm);
+  staffForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
+    const form = event.currentTarget;
     const button = event.submitter;
-    const payload = payloadFromForm(event.target, ['phone']);
+    const payload = payloadFromForm(form, ['phone']);
     button.disabled = true;
     button.textContent = 'Creating account…';
     try {
+      payload.staff_photo = await readStaffPhoto(form);
       await siteApi.post('/settings/users', payload);
       await loadPortal(`${payload.name} was added as a ${payload.role}.`);
     } catch (error) {
@@ -1625,13 +1646,14 @@ async function renderManagerStaff({ user, subscription }, { focus = false } = {}
     <section class="section account-section" data-manager-staff>
       <div class="site-shell account-panel account-staff-panel">
         <div class="account-panel-heading">
-          <div><h1 tabindex="-1">Cashier ID cards</h1><p>Print or revoke register cards for cashiers in your store.</p></div>
+          <div><h1 tabindex="-1">${paidTools ? 'Cashier ID cards' : 'Store access requires payment'}</h1>${paidTools ? '<p>Print or revoke register cards for cashiers in your store.</p>' : ''}</div>
           <button type="button" class="button button-secondary" id="account-logout">Sign out</button>
         </div>
         <div data-account-alert></div>
         <div class="staff-directory-card">
           ${paidTools ? renderStaffDirectory(cashiers, user, { paidTools, readOnly: true }) : `
-            <p class="account-muted">Staff ID cards require a paid subscription. Ask your store admin to activate or renew QuickPOS.</p>`}
+            <p class="account-muted">Ask your store admin to ${subscription?.activation_required ? 'activate QuickPOS' : 'renew QuickPOS'} to restore access.</p>
+            <a class="button button-secondary" href="/support">Contact support</a>`}
         </div>
       </div>
     </section>`;
@@ -1651,6 +1673,7 @@ async function loadPortal(flash = '', { focus = false } = {}) {
 
   try {
     const identity = await siteApi.get('/auth/me');
+    updateStoreAccess(identity.subscription);
     if (identity.user?.role === 'manager') {
       siteApi.updateUser(identity.user);
       await renderManagerStaff(identity, { focus });
@@ -1673,6 +1696,7 @@ async function loadPortal(flash = '', { focus = false } = {}) {
       siteApi.get('/billing/status'),
     ]);
     const subscription = statusResult.subscription || overview.subscription;
+    updateStoreAccess(subscription);
     const [transactionsResult, staffResult] = needsInitialActivation(subscription) ? [{}, {}] : await Promise.all([
       siteApi.get('/billing/transactions'),
       siteApi.get('/settings/users'),
@@ -1738,6 +1762,7 @@ async function bootstrap() {
 }
 
 function handleAccountNavigation() {
+  if (checkPaidTerm()) return;
   const { mode, params } = routeInfo();
   if (siteApi.accessToken && document.querySelector('[data-manager-staff]') &&
       mode !== 'reset-password' && !params.has('token')) {
@@ -1755,6 +1780,18 @@ function handleAccountNavigation() {
   bootstrap();
 }
 
+function checkPaidTerm() {
+  if (!siteApi.accessToken || Date.now() < paidThrough || !Number.isFinite(paidThrough)) return false;
+  paidThrough = Infinity;
+  document.body.setAttribute('data-account-access-locked', '');
+  document.querySelector('.site-card-dialog[open]')?.close();
+  document.querySelectorAll('.account-modal-overlay').forEach((dialog) => dialog.remove());
+  loadPortal('', { focus: true });
+  return true;
+}
+
 window.addEventListener('hashchange', handleAccountNavigation);
 window.addEventListener('popstate', handleAccountNavigation);
+window.addEventListener('focus', checkPaidTerm);
+if (root) window.setInterval(checkPaidTerm, 60_000);
 bootstrap();

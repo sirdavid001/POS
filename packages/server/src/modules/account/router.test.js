@@ -176,7 +176,8 @@ describe('website account and download gates', () => {
     }
   });
 
-  test('allows a pending-activation admin to update profile and store setup', async () => {
+  test('allows an actively paid admin to update profile and store setup', async () => {
+    currentSubscription = { status: 'active', can_write: true, activation_required: false };
     const server = await startServer();
     try {
       const profileResponse = await request(server, '/account/profile', {
@@ -204,6 +205,23 @@ describe('website account and download gates', () => {
       expect(storeResponse.status).toBe(200);
       const body = await storeResponse.json();
       expect(body.store.name).toBe('Updated Store');
+    } finally {
+      server.close();
+    }
+  });
+
+  test.each([true, false])('blocks account settings when store access is locked (initial activation: %s)', async (activationRequired) => {
+    currentSubscription = { can_write: false, activation_required: activationRequired };
+    const server = await startServer();
+    try {
+      const overview = await request(server, '/account/overview', { headers: authHeaders() });
+      expect(overview.status).toBe(200);
+      expect((await overview.json()).store).toBeNull();
+      const update = await request(server, '/account/store', {
+        method: 'PATCH', headers: authHeaders(), body: { name: 'Updated Store' },
+      });
+      expect(update.status).toBe(402);
+      expect((await update.json()).code).toBe(activationRequired ? 'INITIAL_ACTIVATION_REQUIRED' : 'SUBSCRIPTION_EXPIRED');
     } finally {
       server.close();
     }

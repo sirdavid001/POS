@@ -15,6 +15,13 @@ class Router {
     this.routes[path] = handler;
   }
 
+  checkStoreAccess() {
+    if (this.currentPage && !['activation', '/reset-password'].includes(this.currentPage) &&
+        localStorage.getItem('user') && needsInitialActivation()) {
+      this.navigate();
+    }
+  }
+
   navigate(path) {
     if (path) {
       window.location.hash = path;

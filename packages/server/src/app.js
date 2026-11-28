@@ -23,6 +23,7 @@ import reportsRouter from './modules/reports/router.js';
 import settingsRouter from './modules/settings/router.js';
 import registerControlRouter from './modules/register-control/router.js';
 import billingRouter from './modules/billing/router.js';
+import { getStoreSubscription } from './modules/billing/subscription.js';
 import jobsRouter from './modules/jobs/router.js';
 import accountRouter from './modules/account/router.js';
 import downloadsRouter from './modules/downloads/router.js';
@@ -167,8 +168,11 @@ async function authenticateWebSocket(request) {
      WHERE u.id = $1 AND u.store_id = $2 AND u.is_active = true`,
     [decoded.userId, decoded.storeId]
   );
-  if (!result.rows[0]) throw new Error('Invalid WebSocket credentials');
-  return result.rows[0];
+  const user = result.rows[0];
+  if (!user) throw new Error('Invalid WebSocket credentials');
+  const subscription = await getStoreSubscription(user.store_id);
+  if (!subscription.can_write) throw new Error('Active paid subscription required');
+  return { ...user, paidUntil: Date.parse(subscription.entitlement_ends_at) };
 }
 
 if (server) {
@@ -178,7 +182,7 @@ if (server) {
     const clientId = Date.now().toString(36);
     try {
       const user = await authenticateWebSocket(request);
-      wsClients.set(clientId, { ws, storeId: user.store_id });
+      wsClients.set(clientId, { ws, storeId: user.store_id, paidUntil: user.paidUntil });
       logger.info(`WebSocket client connected: ${clientId}`, { storeId: user.store_id });
     } catch (error) {
       logger.warn('Rejected unauthenticated WebSocket connection', { error: error.message });
@@ -204,9 +208,10 @@ export function broadcast(event, data, storeId) {
     return;
   }
   const message = JSON.stringify({ event, data, timestamp: new Date().toISOString() });
-  wsClients.forEach(({ ws, storeId: clientStoreId }) => {
+  wsClients.forEach(({ ws, storeId: clientStoreId, paidUntil }) => {
     if (String(clientStoreId) === String(storeId) && ws.readyState === 1) {
-      ws.send(message);
+      if (Date.now() >= paidUntil) ws.close(1008, 'Paid term ended');
+      else ws.send(message);
     }
   });
 }

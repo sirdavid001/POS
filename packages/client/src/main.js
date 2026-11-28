@@ -28,7 +28,12 @@ async function startApplication() {
   }
 
   // Register routes
-  const lazyRoute = (loader, exportName) => () => loader().then((module) => module[exportName]());
+  const lazyRoute = (loader, exportName) => () => {
+    const page = router.currentPage;
+    return loader().then((module) => {
+      if (router.currentPage === page) module[exportName]();
+    });
+  };
   const loadAuth = () => import('./pages/auth.js');
   router.addRoute('/login', lazyRoute(loadAuth, 'renderLoginPage'));
   router.addRoute('/forgot-password', lazyRoute(loadAuth, 'renderForgotPasswordPage'));
@@ -74,7 +79,10 @@ async function startApplication() {
       activeWebSocket?.close();
     }
   });
+  window.addEventListener('subscription-updated', () => router.checkStoreAccess());
+  window.addEventListener('focus', () => router.checkStoreAccess());
   window.setInterval(() => {
+    router.checkStoreAccess();
     if (navigator.onLine && localStorage.getItem('user')) attemptSync();
   }, 60_000);
   setTimeout(checkForAppUpdate, 2500);

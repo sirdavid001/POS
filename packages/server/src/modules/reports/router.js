@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { query } from '../../config/database.js';
 import { authenticate, authorize } from '../../middleware/auth.js';
+import { requireActiveSubscription } from '../../middleware/subscription.js';
 import logger from '../../config/logger.js';
 import {
   createStatementFile,
@@ -15,6 +16,7 @@ import { getInsights, insightsRange } from './insights.js';
 const router = Router();
 router.use(authenticate);
 router.use(authorize('admin', 'manager'));
+router.use(requireActiveSubscription());
 
 const statementEmailSchema = z.object({
   email: z.string().trim().email().optional(),

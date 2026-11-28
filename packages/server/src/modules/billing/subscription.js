@@ -17,38 +17,33 @@ export function serializeSubscription(row, now = new Date()) {
     return {
       status: 'expired',
       can_write: false,
+      activation_required: true,
       paid_staff_tools: false,
       offline_valid_until: now.toISOString(),
     };
   }
 
-  const trialEndsAt = toDate(row.trial_ends_at);
   const periodEndsAt = toDate(row.current_period_end);
-  const knownEntitlementEnd = row.status === 'trialing' ? trialEndsAt : periodEndsAt;
-  let effectiveStatus = row.status;
+  const hasPayment = row.has_confirmed_payment === true;
+  let effectiveStatus = !hasPayment ? 'pending_activation'
+    : row.status === 'grandfathered' ? 'active'
+      : ['active', 'past_due', 'cancelled'].includes(row.status) ? row.status : 'expired';
 
   if (
-    !['grandfathered', 'pending_activation'].includes(effectiveStatus) &&
-    (!knownEntitlementEnd || knownEntitlementEnd.getTime() <= now.getTime())
+    effectiveStatus !== 'pending_activation' &&
+    (!periodEndsAt || periodEndsAt.getTime() <= now.getTime())
   ) {
     effectiveStatus = 'expired';
   }
 
-  const canWrite =
-    effectiveStatus === 'grandfathered' ||
-    (
-      ['trialing', 'active', 'past_due', 'cancelled'].includes(effectiveStatus) &&
-      knownEntitlementEnd?.getTime() > now.getTime()
-    );
+  const canWrite = Boolean(hasPayment && ['active', 'past_due', 'cancelled'].includes(effectiveStatus) &&
+    periodEndsAt?.getTime() > now.getTime());
 
   const offlineLimit = new Date(now.getTime() + OFFLINE_WINDOW_MS);
-  const offlineValidUntil =
-    effectiveStatus === 'grandfathered'
-      ? offlineLimit
-      : earliestDate(knownEntitlementEnd, offlineLimit) || now;
+  const offlineValidUntil = canWrite ? earliestDate(periodEndsAt, offlineLimit) : now;
 
-  const remainingMs = knownEntitlementEnd
-    ? Math.max(0, knownEntitlementEnd.getTime() - now.getTime())
+  const remainingMs = hasPayment && periodEndsAt
+    ? Math.max(0, periodEndsAt.getTime() - now.getTime())
     : null;
 
   return {
@@ -68,13 +63,12 @@ export function serializeSubscription(row, now = new Date()) {
     cancel_at_period_end: row.cancel_at_period_end,
     launch_offer_redeemed: row.launch_offer_redeemed,
     activation_fee_paid: Boolean(row.activation_fee_paid),
-    activation_required:
-      row.status !== 'grandfathered' && !row.activation_fee_paid,
+    initial_payment_confirmed: hasPayment,
+    activation_required: !hasPayment,
     last_verified_at: row.last_verified_at,
     can_write: canWrite,
-    paid_staff_tools: canWrite && Boolean(row.has_confirmed_payment) &&
-      ['active', 'past_due', 'cancelled'].includes(effectiveStatus),
-    entitlement_ends_at: knownEntitlementEnd?.toISOString() || null,
+    paid_staff_tools: canWrite,
+    entitlement_ends_at: hasPayment ? periodEndsAt?.toISOString() || null : null,
     offline_valid_until: offlineValidUntil.toISOString(),
     days_remaining: remainingMs == null ? null : Math.ceil(remainingMs / (24 * 60 * 60 * 1000)),
     server_time: now.toISOString(),
@@ -93,6 +87,15 @@ export async function getStoreSubscription(storeId, queryFn = query) {
   );
 
   return serializeSubscription(result.rows[0]);
+}
+
+export async function hasConfirmedStorePayment(storeId, queryFn = query) {
+  const { rows: [result] } = await queryFn(
+    `SELECT EXISTS (SELECT 1 FROM billing_transactions
+       WHERE store_id = $1 AND status = 'success' AND amount_ngn > 0) AS confirmed`,
+    [storeId]
+  );
+  return result?.confirmed === true;
 }
 
 export async function createPendingActivation(client, storeId) {

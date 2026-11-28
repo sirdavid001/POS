@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { authenticate, authorize } from '../../middleware/auth.js';
+import { requireActiveSubscription } from '../../middleware/subscription.js';
 import { validate } from '../../middleware/validate.js';
 import { query } from '../../config/database.js';
+import { isStaffPhoto } from '../../../../shared/src/staff-photo.js';
 import { profileSchema, storeSchema } from './schema.js';
 
 const router = Router();
@@ -18,6 +20,9 @@ function addUpdate(updates, params, column, value, expression = null) {
 
 router.get('/overview', async (req, res, next) => {
   try {
+    if (!req.subscription?.can_write) {
+      return res.json({ user: req.user, store: null, subscription: req.subscription });
+    }
     const storeResult = await query(
       'SELECT * FROM stores WHERE id = $1',
       [req.user.store_id]
@@ -32,6 +37,8 @@ router.get('/overview', async (req, res, next) => {
     next(error);
   }
 });
+
+router.use(requireActiveSubscription());
 
 router.patch('/profile', validate(profileSchema), async (req, res, next) => {
   try {
@@ -140,7 +147,10 @@ router.patch('/staff/:id', async (req, res, next) => {
     const target = targetResult.rows[0];
     if (!target) return res.status(404).json({ error: 'User not found' });
 
-    const { role, is_active, name, email, password, phone } = req.body;
+    const { role, is_active, name, email, password, phone, staff_photo } = req.body;
+    if (staff_photo != null && !isStaffPhoto(staff_photo)) {
+      return res.status(400).json({ error: 'Choose a valid portrait in JPG, PNG, or WebP.' });
+    }
     if (Number(req.params.id) === Number(req.user.id) && (role || is_active === false)) {
       return res.status(400).json({ error: 'You cannot change your own role or deactivate your own account' });
     }
@@ -178,6 +188,7 @@ router.patch('/staff/:id', async (req, res, next) => {
         email = COALESCE(LOWER($4), email),
         password_hash = COALESCE($5, password_hash),
         phone = COALESCE($6, phone),
+        staff_photo = CASE WHEN $9 THEN $10 ELSE staff_photo END,
         updated_at = NOW()
        WHERE id = $7 AND store_id = $8
        RETURNING id, email, name, phone, is_active`,
@@ -190,6 +201,8 @@ router.patch('/staff/:id', async (req, res, next) => {
         phone?.trim() || null,
         req.params.id,
         req.user.store_id,
+        staff_photo !== undefined,
+        staff_photo ?? null,
       ]
     );
 

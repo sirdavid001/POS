@@ -5,7 +5,7 @@ import { authenticate, authorize } from '../../middleware/auth.js';
 import { getClient, query } from '../../config/database.js';
 import config from '../../config/index.js';
 import logger from '../../config/logger.js';
-import { addMonths, getPlan, getStoreSubscription } from './subscription.js';
+import { addMonths, getPlan, getStoreSubscription, hasConfirmedStorePayment } from './subscription.js';
 import { sendBillingEmail } from './email.js';
 import { sendPaymentSupportNotification } from '../notifications/support-email.js';
 import {
@@ -104,15 +104,7 @@ async function getBillingIdentity(storeId) {
 }
 
 async function initialActivationEligible(storeId, subscription) {
-  if (subscription.activation_fee_paid) return false;
-  const result = await query(
-    `SELECT EXISTS(
-       SELECT 1 FROM billing_transactions
-       WHERE store_id = $1 AND status = 'success'
-     ) AS has_paid`,
-    [storeId]
-  );
-  return !result.rows[0].has_paid;
+  return !(subscription?.initial_payment_confirmed ?? await hasConfirmedStorePayment(storeId));
 }
 
 function paymentNotComplete(message) {
@@ -279,7 +271,7 @@ export async function activateVerifiedPayment(provider, verified) {
     const current = currentResult.rows[0];
     const now = new Date();
 
-    if (plan.code === 'activation_5m' && current.activation_fee_paid) {
+    if (plan.code === 'activation_5m' && await hasConfirmedStorePayment(transaction.store_id, client.query.bind(client))) {
       await client.query(
         `UPDATE billing_transactions SET
            provider_transaction_id = $1,
@@ -558,7 +550,7 @@ router.post('/webhooks/paystack', async (req, res) => {
           subject: 'QuickPOS renewal payment failed',
           heading: 'We could not renew QuickPOS',
           body: row.current_period_end
-            ? `Your store keeps access through ${new Date(row.current_period_end).toLocaleDateString('en-NG')}. Update your payment authorization before then to avoid read-only mode.`
+            ? `Your store keeps access through ${new Date(row.current_period_end).toLocaleDateString('en-NG')}. Update your payment authorization before then to keep using QuickPOS.`
             : 'Open QuickPOS billing to choose a plan and restore access.',
         });
       }
@@ -612,7 +604,7 @@ router.post('/webhooks/flutterwave', async (req, res) => {
           subject: 'QuickPOS renewal payment failed',
           heading: 'We could not renew QuickPOS',
           body: row.current_period_end
-            ? `Your store keeps access through ${new Date(row.current_period_end).toLocaleDateString('en-NG')}. Update billing before then to avoid read-only mode.`
+            ? `Your store keeps access through ${new Date(row.current_period_end).toLocaleDateString('en-NG')}. Update billing before then to keep using QuickPOS.`
             : 'Open QuickPOS billing to choose a plan and restore access.',
         });
       }

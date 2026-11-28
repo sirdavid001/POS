@@ -8,15 +8,17 @@ function response() {
   };
 }
 
-describe('subscription mutation enforcement', () => {
-  test('allows reads after expiry', () => {
+describe('paid subscription enforcement', () => {
+  test('blocks business reads after expiry', () => {
     const next = vi.fn();
+    const res = response();
     requireActiveSubscription()(
       { method: 'GET', path: '/', subscription: { can_write: false } },
-      response(),
+      res,
       next
     );
-    expect(next).toHaveBeenCalledTimes(1);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(402);
   });
 
   test('allows mutations with a current entitlement', () => {

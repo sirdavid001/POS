@@ -4,7 +4,7 @@ import config from '../../config/index.js';
 import logger from '../../config/logger.js';
 import { getClient, query } from '../../config/database.js';
 import { validate } from '../../middleware/validate.js';
-import { addMonths, getPlan } from '../billing/subscription.js';
+import { addMonths, getPlan, hasConfirmedStorePayment } from '../billing/subscription.js';
 import { sendBillingEmail } from '../billing/email.js';
 import { activateVerifiedPayment, verifyProviderTransaction } from '../billing/router.js';
 import { sendPasswordResetEmail } from '../auth/email.js';
@@ -218,7 +218,7 @@ router.post('/stores/:id/manual-payment', validate(manualPaymentSchema), async (
   const outcome = await inTransaction(res, next, async (client) => {
     const current = (await client.query('SELECT * FROM store_subscriptions WHERE store_id = $1 FOR UPDATE', [req.params.id])).rows[0];
     if (!current) return { status: 404, error: 'This store has no subscription record yet' };
-    if (plan.code === 'activation_5m' && current.activation_fee_paid) {
+    if (plan.code === 'activation_5m' && await hasConfirmedStorePayment(req.params.id, client.query.bind(client))) {
       return { status: 409, error: 'This store has already paid the activation fee. Record a renewal plan instead.' };
     }
     const now = new Date();
@@ -238,7 +238,7 @@ router.post('/stores/:id/manual-payment', validate(manualPaymentSchema), async (
     const updated = (await client.query(
       `UPDATE store_subscriptions SET
          plan_code = $2,
-         status = CASE WHEN status = 'grandfathered' THEN status ELSE 'active' END,
+         status = 'active',
          current_period_start = $3,
          current_period_end = GREATEST(COALESCE(current_period_end, $4), $4),
          activation_fee_paid = activation_fee_paid OR $5,

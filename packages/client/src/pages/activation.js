@@ -21,6 +21,7 @@ export async function signOut() {
 export function renderActivationGate(resume) {
   const app = document.getElementById('app');
   const isAdmin = JSON.parse(localStorage.getItem('user') || '{}').role === 'admin';
+  const renewal = getSubscription()?.activation_required === false;
   document.title = 'Store activation · QuickPOS';
   app.innerHTML = `
     <main class="install-gate pos-activation" data-pos-activation>
@@ -28,13 +29,14 @@ export function renderActivationGate(resume) {
         <div class="install-gate-brand">
           <img src="./brand/quickpos-mark.svg" alt="" width="52" height="52"><span>QuickPOS</span>
         </div>
-        <p class="install-gate-kicker">Setup · Step 2 of 3</p>
-        <h1 id="pos-activation-title" tabindex="-1">${isAdmin ? 'Activate your store' : 'Store activation required'}</h1>
+        <p class="install-gate-kicker">${renewal ? 'Billing' : 'Setup · Step 2 of 3'}</p>
+        <h1 id="pos-activation-title" tabindex="-1">${renewal ? 'Store subscription expired' : isAdmin ? 'Activate your store' : 'Store activation required'}</h1>
         <p class="install-gate-copy">${isAdmin
-          ? 'Complete the one-time payment in the account portal to start using QuickPOS. Already paid? Check your activation status here.'
-          : 'Ask a store admin to complete activation in the account portal. After they confirm payment, check your activation status here.'}</p>
+          ? renewal ? 'Renew in the account portal to restore access. Already paid? Check your payment status here.'
+            : 'Complete the one-time payment in the account portal to start using QuickPOS. Already paid? Check your activation status here.'
+          : 'Ask a store admin to complete payment in the account portal. Then check your payment status here.'}</p>
         <div class="install-gate-actions">
-          ${isAdmin ? `<a class="btn btn-primary btn-lg" href="${ACCOUNT_PORTAL_URL}" target="_blank" rel="noopener noreferrer">Open activation checkout</a>` : ''}
+          ${isAdmin ? `<a class="btn btn-primary btn-lg" href="${ACCOUNT_PORTAL_URL}" target="_blank" rel="noopener noreferrer">${renewal ? 'Open renewal checkout' : 'Open activation checkout'}</a>` : ''}
           <button class="btn ${isAdmin ? 'btn-ghost' : 'btn-primary'} btn-lg" type="button" data-refresh-activation>Check activation status</button>
         </div>
         <p class="pos-activation-status" role="status"></p>

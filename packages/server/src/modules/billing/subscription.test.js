@@ -19,7 +19,7 @@ describe('subscription entitlement boundaries', () => {
     expect(subscription.can_write).toBe(false);
   });
 
-  test('allows an active trial but never caches it beyond its known expiry', () => {
+  test('requires payment even if a legacy trial would still be open', () => {
     const subscription = serializeSubscription({
       id: 1,
       store_id: 1,
@@ -31,10 +31,10 @@ describe('subscription entitlement boundaries', () => {
       activation_fee_paid: false,
     }, now);
 
-    expect(subscription.can_write).toBe(true);
-    expect(subscription.status).toBe('trialing');
+    expect(subscription.can_write).toBe(false);
+    expect(subscription.status).toBe('pending_activation');
     expect(subscription.activation_required).toBe(true);
-    expect(subscription.offline_valid_until).toBe('2026-06-12T12:00:00.000Z');
+    expect(subscription.offline_valid_until).toBe(now.toISOString());
   });
 
   test('expires at the exact paid-period boundary', () => {
@@ -46,23 +46,27 @@ describe('subscription entitlement boundaries', () => {
       cancel_at_period_end: false,
       launch_offer_redeemed: false,
       activation_fee_paid: true,
+      has_confirmed_payment: true,
     }, now);
 
     expect(subscription.status).toBe('expired');
     expect(subscription.can_write).toBe(false);
   });
 
-  test('limits grandfathered offline access to seven days between checks', () => {
+  test('does not grant a legacy account access solely from its old activation flag', () => {
     const subscription = serializeSubscription({
       id: 3,
       store_id: 3,
       status: 'grandfathered',
+      activation_fee_paid: true,
       cancel_at_period_end: false,
       launch_offer_redeemed: false,
     }, now);
 
-    expect(subscription.can_write).toBe(true);
-    expect(subscription.offline_valid_until).toBe('2026-06-17T12:00:00.000Z');
+    expect(subscription.status).toBe('pending_activation');
+    expect(subscription.activation_required).toBe(true);
+    expect(subscription.can_write).toBe(false);
+    expect(subscription.offline_valid_until).toBe(now.toISOString());
   });
 
   test('keeps month-end billing on the final valid calendar day', () => {
@@ -76,7 +80,8 @@ describe('subscription entitlement boundaries', () => {
     expect(serializeSubscription(paid, now).paid_staff_tools).toBe(true);
     expect(serializeSubscription({ ...paid, status: 'cancelled' }, now).paid_staff_tools).toBe(true);
     expect(serializeSubscription({ ...paid, has_confirmed_payment: false }, now).paid_staff_tools).toBe(false);
-    expect(serializeSubscription({ ...paid, status: 'grandfathered' }, now).paid_staff_tools).toBe(false);
+    expect(serializeSubscription({ ...paid, status: 'grandfathered' }, now).paid_staff_tools).toBe(true);
+    expect(serializeSubscription({ ...paid, status: 'grandfathered', current_period_end: null }, now).paid_staff_tools).toBe(false);
     expect(serializeSubscription({ ...paid, status: 'trialing', trial_ends_at: end }, now).paid_staff_tools).toBe(false);
     expect(serializeSubscription(paid, new Date(end)).paid_staff_tools).toBe(false);
   });
