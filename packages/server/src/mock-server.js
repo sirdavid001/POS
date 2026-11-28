@@ -19,7 +19,7 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
 // ===== In-memory data =====
-const store = { id: 1, name: 'QuickPOS Demo Store', address: '123 Main Street, Lagos', phone: '+234 800 000 0000', email: 'store@posapp.com', tax_rate: '7.50', currency: 'NGN', receipt_header: 'Thank you for shopping!', receipt_footer: 'Visit again soon!' };
+const store = { id: 1, name: 'Mama Nkechi Supermarket', address: 'Admiralty Way, Lekki, Lagos', phone: '+234 800 000 0000', email: 'store@posapp.com', tax_rate: '7.50', currency: 'NGN', receipt_header: 'Thank you for shopping with us!', receipt_footer: 'Goods sold in good condition. See you again soon.' };
 
 const users = [];
 if (process.env.SEED_ADMIN_EMAIL && process.env.SEED_ADMIN_PASSWORD) {
@@ -101,7 +101,7 @@ const customers = [
   { id: 1, store_id: 1, name: 'Adebayo Johnson', email: 'adebayo@email.com', phone: '+234 801 234 5678', loyalty_points: 120, notes: 'Buys rice and oil every month end', created_at: new Date(Date.now() - 40 * 86400000).toISOString() },
   { id: 2, store_id: 1, name: 'Chioma Okafor', email: 'chioma@email.com', phone: '+234 802 345 6789', loyalty_points: 85, notes: '', created_at: new Date(Date.now() - 38 * 86400000).toISOString() },
   { id: 3, store_id: 1, name: 'Emeka Eze', email: 'emeka@email.com', phone: '+234 803 456 7890', loyalty_points: 45, notes: '', created_at: new Date(Date.now() - 30 * 86400000).toISOString() },
-  { id: 4, store_id: 1, name: 'Funmilayo Bakare', email: 'funmi@email.com', phone: '+234 805 112 9087', loyalty_points: 150, notes: 'Orders eggs in bulk for her bakery', created_at: new Date(Date.now() - 28 * 86400000).toISOString() },
+  { id: 4, store_id: 1, name: 'Funmilayo Bakare', email: 'funmi@email.com', phone: '+234 805 112 9087', loyalty_points: 150, notes: 'Buys noodles and drinks for her canteen every week', created_at: new Date(Date.now() - 28 * 86400000).toISOString() },
   { id: 5, store_id: 1, name: 'Ibrahim Musa', email: 'ibrahim@email.com', phone: '+234 806 774 2210', loyalty_points: 30, notes: '', created_at: new Date(Date.now() - 20 * 86400000).toISOString() },
   { id: 6, store_id: 1, name: 'Ngozi Nwachukwu', email: 'ngozi@email.com', phone: '+234 809 553 6421', loyalty_points: 64, notes: '', created_at: new Date(Date.now() - 12 * 86400000).toISOString() },
 ];
@@ -137,7 +137,8 @@ function seedDemoSales() {
     for (let n = 0; n < count; n += 1) {
       const createdAt = new Date(day);
       createdAt.setHours(8 + Math.floor(random() * 12), Math.floor(random() * 60), Math.floor(random() * 60), 0);
-      if (createdAt > now) continue;
+      // MOCK_SEED_FULL_DAY=1 fills today's whole trading day, for screenshots taken in the morning.
+      if (createdAt > now && process.env.MOCK_SEED_FULL_DAY !== '1') continue;
       const lineCount = 1 + Math.floor(random() * 4);
       const used = new Set();
       const items = [];

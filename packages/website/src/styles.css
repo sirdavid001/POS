@@ -3561,3 +3561,29 @@ h1, h2, h3 { font-weight: 500; text-wrap: balance; }
   .footer-brand-row { align-items: flex-start; flex-direction: column; }
   .footer-grid { grid-template-columns: 1fr; gap: 32px; }
 }
+
+/* A real QuickPOS screen under each topic page's introduction. */
+.page-shot { padding: 8px 0 64px; }
+.page-shot-frame {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface-3);
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.14);
+}
+.page-shot-frame img { display: block; width: 100%; height: auto; }
+.page-shot-phone .page-shot-frame {
+  width: min(100%, 300px);
+  margin-inline: auto;
+  padding: 9px;
+  border-color: #333641;
+  border-radius: 30px;
+  background: #090a0d;
+}
+.page-shot-phone .page-shot-frame img { border-radius: 22px; }
+@media (max-width: 640px) {
+  .page-shot { padding-bottom: 44px; }
+  .page-shot-frame { border-radius: 10px; }
+  .page-shot-phone .page-shot-frame { width: min(100%, 260px); border-radius: 28px; }
+}
