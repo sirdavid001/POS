@@ -13,6 +13,7 @@ import './staff-photo-field.css';
 
 const root = document.querySelector('[data-account-root]');
 let paidThrough = Infinity;
+let checkingPayment = false;
 
 const API_BASE = resolveApiBase(import.meta.env.VITE_API_URL, {
   development: import.meta.env.DEV,
@@ -1750,16 +1751,24 @@ async function bootstrap() {
     await loadPortal('', { focus: true });
     return;
   }
-  let flash;
-  if (payment) {
+  if (!payment) {
+    await loadPortal();
+    return;
+  }
+  if (checkingPayment) return;
+  checkingPayment = true;
+  try {
+    let flash;
     window.history.replaceState({}, '', `${window.location.pathname}?${params}#billing`);
     try {
       flash = await confirmReturnedPayment(payment);
     } catch (error) {
       flash = { message: error.message || 'Couldn’t check this payment right now.', type: 'error' };
     }
+    await loadPortal(flash, { focus: true });
+  } finally {
+    checkingPayment = false;
   }
-  await loadPortal(flash, { focus: Boolean(payment) });
 }
 
 function handleAccountNavigation() {
