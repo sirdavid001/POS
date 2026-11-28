@@ -24,6 +24,16 @@ async function runSubscriptionReminders(req, res, next) {
   }
 
   try {
+    // Confirm payments that were made but never recorded before anything is
+    // marked expired or reminded, so a store that paid is not told otherwise.
+    let payments;
+    try {
+      payments = await reconcilePendingPayments();
+    } catch (error) {
+      logger.error('Daily payment check failed', { error: error.message });
+      payments = { error: error.message };
+    }
+
     await query(
       `UPDATE store_subscriptions
        SET status = 'expired', updated_at = NOW()
@@ -103,7 +113,7 @@ async function runSubscriptionReminders(req, res, next) {
       reviewRequests = { error: error.message };
     }
 
-    res.json({ processed: result.rows.length, sent, review_requests: reviewRequests });
+    res.json({ processed: result.rows.length, sent, review_requests: reviewRequests, payments });
   } catch (error) {
     logger.error('Subscription reminder job failed', { error: error.message });
     next(error);
@@ -165,70 +175,83 @@ async function sendStoreWelcome(req, res, next) {
   }
 }
 
+// Asks Paystack and Flutterwave about checkouts that never got confirmed.
+// A customer who pays and closes the page before returning to QuickPOS, with a
+// webhook that never arrives, would otherwise stay unpaid even though the
+// money was taken.
+export async function reconcilePendingPayments({ storeId = null, maxAgeDays = 14, limit = 100 } = {}) {
+  const result = await query(
+    `SELECT id, store_id, provider, provider_reference, provider_transaction_id
+     FROM billing_transactions
+     WHERE status = 'initialized'
+       AND provider IN ('paystack', 'flutterwave')
+       AND created_at > NOW() - make_interval(days => $2::int)
+       AND ($1::int IS NULL OR store_id = $1)
+     ORDER BY created_at DESC
+     LIMIT $3`,
+    [storeId, maxAgeDays, limit]
+  );
+  const outcomes = [];
+
+  for (const transaction of result.rows) {
+    try {
+      const verified = await verifyProviderTransaction(
+        transaction.provider,
+        transaction.provider_reference,
+        transaction.provider_transaction_id
+      );
+      if (verified.reference !== transaction.provider_reference) {
+        throw new Error('Provider returned a different payment reference');
+      }
+      await activateVerifiedPayment(transaction.provider, verified);
+      const updated = await query(
+        'SELECT status FROM billing_transactions WHERE id = $1',
+        [transaction.id]
+      );
+      outcomes.push({
+        reference: transaction.provider_reference,
+        provider: transaction.provider,
+        status: updated.rows[0]?.status || 'unknown',
+      });
+    } catch (error) {
+      if (error.code === 'PAYMENT_NOT_COMPLETE') continue;
+      logger.error('Pending payment reconciliation failed', {
+        storeId: transaction.store_id,
+        provider: transaction.provider,
+        reference: transaction.provider_reference,
+        error: error.message,
+      });
+      outcomes.push({
+        reference: transaction.provider_reference,
+        provider: transaction.provider,
+        status: 'error',
+        error: error.message,
+      });
+    }
+  }
+
+  return {
+    checked: result.rows.length,
+    reconciled: outcomes.filter((outcome) =>
+      ['success', 'paid_duplicate'].includes(outcome.status)
+    ).length,
+    outcomes,
+  };
+}
+
 async function reconcilePayments(req, res, next) {
   if (!authorized(req)) {
     return res.status(401).json({ error: 'Invalid cron credentials' });
   }
 
-  const requestedStoreId = req.body?.store_id == null ? null : Number(req.body.store_id);
+  const rawStoreId = req.body?.store_id ?? req.query?.store_id;
+  const requestedStoreId = rawStoreId == null || rawStoreId === '' ? null : Number(rawStoreId);
   if (requestedStoreId != null && (!Number.isSafeInteger(requestedStoreId) || requestedStoreId < 1)) {
     return res.status(400).json({ error: 'store_id must be a positive integer' });
   }
 
   try {
-    const result = await query(
-      `SELECT id, store_id, provider, provider_reference
-       FROM billing_transactions
-       WHERE status = 'initialized'
-         AND provider IN ('paystack', 'flutterwave')
-         AND ($1::int IS NULL OR store_id = $1)
-       ORDER BY created_at
-       LIMIT 100`,
-      [requestedStoreId]
-    );
-    const outcomes = [];
-
-    for (const transaction of result.rows) {
-      try {
-        const verified = await verifyProviderTransaction(
-          transaction.provider,
-          transaction.provider_reference
-        );
-        if (verified.reference !== transaction.provider_reference) {
-          throw new Error('Provider returned a different payment reference');
-        }
-        await activateVerifiedPayment(transaction.provider, verified);
-        const updated = await query(
-          'SELECT status FROM billing_transactions WHERE id = $1',
-          [transaction.id]
-        );
-        outcomes.push({
-          reference: transaction.provider_reference,
-          status: updated.rows[0]?.status || 'unknown',
-        });
-      } catch (error) {
-        if (error.code === 'PAYMENT_NOT_COMPLETE') continue;
-        logger.error('Pending payment reconciliation failed', {
-          storeId: transaction.store_id,
-          provider: transaction.provider,
-          reference: transaction.provider_reference,
-          error: error.message,
-        });
-        outcomes.push({
-          reference: transaction.provider_reference,
-          status: 'error',
-          error: error.message,
-        });
-      }
-    }
-
-    res.json({
-      checked: result.rows.length,
-      reconciled: outcomes.filter((outcome) =>
-        ['success', 'paid_duplicate'].includes(outcome.status)
-      ).length,
-      outcomes,
-    });
+    res.json(await reconcilePendingPayments({ storeId: requestedStoreId }));
   } catch (error) {
     logger.error('Payment reconciliation job failed', { error: error.message });
     next(error);
@@ -276,6 +299,7 @@ async function queueActivationReminders(req, res, next) {
 router.get('/subscription-reminders', runSubscriptionReminders);
 router.post('/subscription-reminders', runSubscriptionReminders);
 router.post('/welcome-email', sendStoreWelcome);
+router.get('/reconcile-payments', reconcilePayments);
 router.post('/reconcile-payments', reconcilePayments);
 router.post('/queue-activation-reminders', queueActivationReminders);
 
