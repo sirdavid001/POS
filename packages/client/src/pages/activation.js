@@ -21,23 +21,27 @@ export async function signOut() {
 export function renderActivationGate(resume) {
   const app = document.getElementById('app');
   const isAdmin = JSON.parse(localStorage.getItem('user') || '{}').role === 'admin';
-  const renewal = getSubscription()?.activation_required === false;
-  document.title = 'Store activation · QuickPOS';
+  const subscription = getSubscription();
+  const renewal = subscription?.activation_required === false;
+  const reconnect = !subscription || (subscription.offline_expired && Date.parse(subscription.entitlement_ends_at) > Date.now());
+  const title = reconnect ? 'Verify store access' : renewal ? 'Store subscription expired' : isAdmin ? 'Activate your store' : 'Store activation required';
+  const help = reconnect ? 'Connect to the internet and check the store’s payment status to continue.'
+    : !isAdmin ? 'Ask a store admin to complete payment in the account portal. Then check your payment status here.'
+      : renewal ? 'Renew in the account portal to restore access. Already paid? Check your payment status here.'
+        : 'Complete the one-time payment in the account portal to start using QuickPOS. Already paid? Check your activation status here.';
+  document.title = `${title} · QuickPOS`;
   app.innerHTML = `
     <main class="install-gate pos-activation" data-pos-activation>
       <section class="install-gate-panel" aria-labelledby="pos-activation-title">
         <div class="install-gate-brand">
           <img src="./brand/quickpos-mark.svg" alt="" width="52" height="52"><span>QuickPOS</span>
         </div>
-        <p class="install-gate-kicker">${renewal ? 'Billing' : 'Setup · Step 2 of 3'}</p>
-        <h1 id="pos-activation-title" tabindex="-1">${renewal ? 'Store subscription expired' : isAdmin ? 'Activate your store' : 'Store activation required'}</h1>
-        <p class="install-gate-copy">${isAdmin
-          ? renewal ? 'Renew in the account portal to restore access. Already paid? Check your payment status here.'
-            : 'Complete the one-time payment in the account portal to start using QuickPOS. Already paid? Check your activation status here.'
-          : 'Ask a store admin to complete payment in the account portal. Then check your payment status here.'}</p>
+        <p class="install-gate-kicker">${reconnect || renewal ? 'Store access' : 'Setup · Step 2 of 3'}</p>
+        <h1 id="pos-activation-title" tabindex="-1">${title}</h1>
+        <p class="install-gate-copy">${help}</p>
         <div class="install-gate-actions">
-          ${isAdmin ? `<a class="btn btn-primary btn-lg" href="${ACCOUNT_PORTAL_URL}" target="_blank" rel="noopener noreferrer">${renewal ? 'Open renewal checkout' : 'Open activation checkout'}</a>` : ''}
-          <button class="btn ${isAdmin ? 'btn-ghost' : 'btn-primary'} btn-lg" type="button" data-refresh-activation>Check activation status</button>
+          ${isAdmin && !reconnect ? `<a class="btn btn-primary btn-lg" href="${ACCOUNT_PORTAL_URL}" target="_blank" rel="noopener noreferrer">${renewal ? 'Open renewal checkout' : 'Open activation checkout'}</a>` : ''}
+          <button class="btn ${isAdmin && !reconnect ? 'btn-ghost' : 'btn-primary'} btn-lg" type="button" data-refresh-activation>Check payment status</button>
         </div>
         <p class="pos-activation-status" role="status"></p>
         <div class="pos-activation-utilities">
