@@ -1,4 +1,5 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { canIssueStaffCard } from '../../../../shared/src/staff-card-access.js';
 
 // A long numeric suffix lets Code 128 compress pairs of digits on a wallet-size card.
 export const issueBadge = () => `QPB${BigInt(`0x${randomBytes(15).toString('hex')}`).toString().padStart(38, '0')}`;
@@ -6,8 +7,7 @@ export const badgeDigest = (badge) => createHash('sha256').update(badge).digest(
 export const privileged = (role) => role === 'manager' || role === 'admin';
 export const canManageStaff = (actor, subject) => actor.id === subject.id ||
   actor.role === 'admin' || (actor.role === 'manager' && subject.role === 'cashier');
-export const canIssueBadge = (actor, subject) => actor.role === 'admin' ||
-  (actor.role === 'manager' && (actor.id === subject.id || subject.role === 'cashier'));
+export const canIssueBadge = (actor, subject) => canIssueStaffCard(actor.role, subject.role);
 
 export class RegisterError extends Error {
   constructor(status, message, code) {

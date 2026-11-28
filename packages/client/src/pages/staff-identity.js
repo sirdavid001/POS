@@ -191,7 +191,7 @@ function showBadgeCard(overlay, profile, token, barcode) {
 }
 
 export async function openStaffBadge({ id, onUpdate }) {
-  const { profile } = await registerGet(`/profiles/${id}`);
+  const { profile } = await registerGet(`/badges/${id}`);
   const overlay = makeDialog('Staff ID card', `
     <div class="staff-profile-summary"><div class="staff-photo">${avatar(profile)}</div><div>
       <strong>${escapeHTML(profile.name)}</strong>

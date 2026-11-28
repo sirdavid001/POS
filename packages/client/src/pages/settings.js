@@ -3,6 +3,7 @@ import { renderLayout } from './layout.js';
 import { mountActivity, openStaffBadge, openStaffProfile, openSupervisorPin } from './staff-identity.js';
 import { registerGet, registerPatch } from '../register-badge.js';
 import { getSubscription } from '../entitlement.js';
+import { canIssueStaffCard } from '../../../shared/src/staff-card-access.js';
 import { SUPPORTED_CURRENCIES, escapeAttribute, escapeHTML, formatCurrency, icons, setStoreCurrency, toast } from '../utils.js';
 
 // Shrinks an uploaded logo to at most 240px so it stays small enough to store and print.
@@ -389,8 +390,8 @@ export async function renderSettings() {
               `}
               <button type="button" class="badge ${u.is_active ? 'badge-success' : 'badge-danger'} staff-status" style="cursor:${canToggle ? 'pointer' : 'default'};" ${canToggle ? `data-user-id="${escapeAttribute(u.id)}" data-action="toggle-active" data-active="${u.is_active}"` : 'disabled'}>${u.is_active ? 'Active' : 'Inactive'}</button>
               ${canEdit ? `<button class="btn btn-ghost btn-sm" data-user-id="${escapeAttribute(u.id)}" data-user-name="${escapeAttribute(u.name)}" data-user-email="${escapeAttribute(u.email)}" data-action="edit-staff" style="padding:0.25rem 0.5rem;font-size:0.75rem;" aria-label="Edit ${escapeAttribute(u.name)} credentials">Edit</button>` : ''}
-              ${paidTools && (canModify || isSelf) ? `<button class="btn btn-ghost btn-sm" type="button" data-profile-id="${escapeAttribute(u.id)}" aria-label="Profile for ${escapeAttribute(u.name)}">Profile</button>
-                <button class="btn btn-ghost btn-sm" type="button" data-badge-id="${escapeAttribute(u.id)}" aria-label="ID card for ${escapeAttribute(u.name)}">ID card</button>` : ''}
+              ${paidTools && (canModify || isSelf) ? `<button class="btn btn-ghost btn-sm" type="button" data-profile-id="${escapeAttribute(u.id)}" aria-label="Profile for ${escapeAttribute(u.name)}">Profile</button>` : ''}
+              ${paidTools && canIssueStaffCard(user.role, u.role) ? `<button class="btn btn-ghost btn-sm" type="button" data-badge-id="${escapeAttribute(u.id)}" aria-label="ID card for ${escapeAttribute(u.name)}">ID card</button>` : ''}
               ${canDelete ? `<button class="btn btn-ghost btn-sm" data-user-id="${escapeAttribute(u.id)}" data-action="delete" style="color:var(--color-danger);padding:0.25rem 0.5rem;font-size:0.75rem;" aria-label="Remove ${escapeAttribute(u.name)}">Remove</button>` : ''}
             </div>
           </div>

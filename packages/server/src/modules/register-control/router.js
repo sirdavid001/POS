@@ -81,6 +81,11 @@ router.get('/profiles/:id', validate(z.object({ params: memberParams })), route(
   res.json({ profile: await getMember({ query }, req.user, req.params.id) });
 }));
 
+router.get('/badges/:id', authorize('admin', 'manager'), validate(z.object({ params: memberParams })), route(async (req, res) => {
+  const { id, name, role, staff_badge_issued_at, is_active } = await getMember({ query }, req.user, req.params.id, { badge: true });
+  res.json({ profile: { id, name, role, staff_badge_issued_at, is_active } });
+}));
+
 router.patch('/supervisor-pin', authorize('admin', 'manager'), validate(z.object({ body: z.object({
   pin: pin.nullable(),
   password: z.string().min(1).max(1024),

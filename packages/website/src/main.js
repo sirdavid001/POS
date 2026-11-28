@@ -211,8 +211,9 @@ function renderSiteHeader() {
   const session = readSiteSession();
   const signedIn = Boolean(session.accessToken);
   const onAccountPage = page === 'account';
+  const managerSession = session.user?.role === 'manager';
   const links = signedIn && onAccountPage
-    ? accountNavigation
+    ? (managerSession ? accountNavigation.filter(([id]) => id === 'staff') : accountNavigation)
     : onAccountPage ? accountPublicNavigation : navigation;
   const route = accountRoute();
   const accountHomeActive = onAccountPage && ['portal', 'overview', 'profile', 'store'].includes(route);
@@ -236,7 +237,7 @@ function renderSiteHeader() {
           <a href="${href}" class="${page === id || (onAccountPage && route === id) ? 'active' : ''}">${label}</a>
         `).join('')}
         ${signedIn ? `
-          <a href="/account#overview" class="nav-account ${accountHomeActive ? 'active' : ''}" aria-label="Open ${escapeNavigationText(displayName)} account">
+          <a href="/account#${managerSession ? 'staff' : 'overview'}" class="nav-account ${accountHomeActive ? 'active' : ''}" aria-label="Open ${escapeNavigationText(displayName)} account">
             <span>${escapeNavigationText(initial)}</span>
             <strong>${escapeNavigationText(displayName)}</strong>
           </a>

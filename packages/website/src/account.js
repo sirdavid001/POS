@@ -7,6 +7,7 @@ import {
   updateStoredSiteUser,
 } from './session.js';
 import { resolveApiBase } from '../../shared/src/api.js';
+import { canIssueStaffCard } from '../../shared/src/staff-card-access.js';
 
 const root = document.querySelector('[data-account-root]');
 
@@ -228,12 +229,12 @@ function paymentProviderName(provider = '') {
   return names[String(provider).toLowerCase()] || 'Secure payment';
 }
 
-function renderStaffDirectory(staff, currentUserId) {
+function renderStaffDirectory(staff, user, { paidTools = false, readOnly = false } = {}) {
   if (!staff.length) {
     return `
       <div class="staff-empty-state">
         <strong>No staff accounts yet</strong>
-        <p>Create the first account using the form beside this directory.</p>
+        <p>${readOnly ? 'Add a cashier in the installed QuickPOS app first.' : 'Create the first account using the form beside this directory.'}</p>
       </div>
     `;
   }
@@ -243,7 +244,7 @@ function renderStaffDirectory(staff, currentUserId) {
       ${staff.map((member) => {
         const role = String(member.role || 'cashier').toLowerCase();
         const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
-        const isCurrentUser = String(member.id) === String(currentUserId);
+        const isCurrentUser = String(member.id) === String(user.id);
         const isActive = member.is_active !== false;
         const encodedMember = encodeURIComponent(JSON.stringify({
           id: member.id,
@@ -274,8 +275,9 @@ function renderStaffDirectory(staff, currentUserId) {
               </div>
             </div>
             <div class="staff-member-actions" aria-label="Staff actions">
-              <button class="staff-action-button" type="button" data-account-staff-edit="${encodedMember}">Edit</button>
-              ${isCurrentUser ? '' : `
+              ${paidTools && canIssueStaffCard(user.role, role) ? `<button class="staff-action-button" type="button" data-account-staff-card="${escapeHtml(member.id)}" aria-label="ID card for ${escapeHtml(member.name || member.email)}">ID card</button>` : ''}
+              ${readOnly ? '' : `<button class="staff-action-button" type="button" data-account-staff-edit="${encodedMember}">Edit</button>`}
+              ${readOnly || isCurrentUser ? '' : `
                 <button class="staff-action-button danger" type="button" data-account-staff-archive="${escapeHtml(member.id)}">Delete</button>
               `}
             </div>
@@ -448,7 +450,7 @@ function renderSignIn({ createdEmail = '', message = '' } = {}) {
         email: normalizeEmail(form.get('email')),
         password: form.get('password'),
       });
-      if (data.user?.role !== 'admin') {
+      if (!['admin', 'manager'].includes(data.user?.role)) {
         try {
           await siteApi.post('/auth/logout', {});
         } catch {
@@ -459,6 +461,10 @@ function renderSignIn({ createdEmail = '', message = '' } = {}) {
         return;
       }
       siteApi.setSession(data);
+      if (data.user.role === 'manager') {
+        await loadPortal('', { focus: true });
+        return;
+      }
       const { mode, params } = routeInfo();
       if (returnedPayment(params)) {
         await bootstrap();
@@ -679,9 +685,9 @@ function renderAdminOnly() {
     <section class="page-hero account-hero">
       <div class="site-shell account-auth-grid">
         <div class="page-intro">
-          <span class="eyebrow">Admin only</span>
-          <h1>This portal is for store owners and admins.</h1>
-          <p>Manager and cashier accounts should sign in only through the installed QuickPOS app. The website portal has logged this session out.</p>
+          <span class="eyebrow">Staff access</span>
+          <h1>Cashiers sign in from the QuickPOS app.</h1>
+          <p>Store owners and managers can sign in to the website for their assigned tasks.</p>
           <a class="button" href="#signin">Back to website sign in</a>
         </div>
         <article class="account-auth-card account-empty-panel">
@@ -1123,14 +1129,14 @@ function renderPortal({ overview, plans, transactions, staff = [], billingCurren
                 <span class="staff-role-icon" aria-hidden="true">A</span>
                 <div>
                   <strong>Admin</strong>
-                  <p>Full access to settings, billing, reports, inventory, and staff management.</p>
+                  <p>Manages billing and store settings and issues manager and admin cards.</p>
                 </div>
               </article>
               <article class="staff-role-card staff-role-card-manager">
                 <span class="staff-role-icon" aria-hidden="true">M</span>
                 <div>
                   <strong>Manager</strong>
-                  <p>Runs daily operations and can create cashier accounts for the store.</p>
+                  <p>Runs daily operations and issues cashier cards.</p>
                 </div>
               </article>
               <article class="staff-role-card staff-role-card-cashier">
@@ -1201,7 +1207,8 @@ function renderPortal({ overview, plans, transactions, staff = [], billingCurren
                   </div>
                   <span>${escapeHtml(String(staff.filter((member) => member.is_active !== false).length))} active</span>
                 </div>
-                ${renderStaffDirectory(staff, user.id)}
+                <p class="account-muted">${subscription?.paid_staff_tools ? 'Use ID card next to a manager or admin to print both sides. Managers issue cashier cards from their own sign-in.' : 'Printable staff ID cards require an active paid subscription.'}</p>
+                ${renderStaffDirectory(staff, user, { paidTools: subscription?.paid_staff_tools })}
               </article>
             </div>
           </section>
@@ -1317,6 +1324,19 @@ function attachSignOutHandler() {
   });
 }
 
+function attachStaffCardHandlers() {
+  root.querySelectorAll('[data-account-staff-card]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      try {
+        const { openWebsiteStaffCard } = await import('./staff-card.js');
+        await openWebsiteStaffCard(siteApi, Number(button.dataset.accountStaffCard), button);
+      } catch (error) { setFlash(error.message || 'Could not open the staff card.', 'error'); }
+      finally { button.disabled = false; }
+    });
+  });
+}
+
 function attachPortalHandlers() {
   document.querySelectorAll('[data-account-section-link]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -1331,6 +1351,7 @@ function attachPortalHandlers() {
   });
 
   attachSignOutHandler();
+  attachStaffCardHandlers();
 
   document.getElementById('account-profile-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -1588,6 +1609,37 @@ async function loadDownloads() {
   }
 }
 
+function keepManagerStaffRoute() {
+  if (routeInfo().mode !== 'staff' || window.location.search) {
+    history.replaceState(null, '', `${window.location.pathname}#staff`);
+  }
+}
+
+async function renderManagerStaff({ user, subscription }, { focus = false } = {}) {
+  keepManagerStaffRoute();
+  const paidTools = Boolean(subscription?.paid_staff_tools);
+  const { users = [] } = paidTools ? await siteApi.get('/settings/users') : {};
+  const cashiers = users.filter((member) => member.role === 'cashier');
+  if (!siteApi.accessToken) return;
+  root.innerHTML = `
+    <section class="section account-section" data-manager-staff>
+      <div class="site-shell account-panel account-staff-panel">
+        <div class="account-panel-heading">
+          <div><h1 tabindex="-1">Cashier ID cards</h1><p>Print or revoke register cards for cashiers in your store.</p></div>
+          <button type="button" class="button button-secondary" id="account-logout">Sign out</button>
+        </div>
+        <div data-account-alert></div>
+        <div class="staff-directory-card">
+          ${paidTools ? renderStaffDirectory(cashiers, user, { paidTools, readOnly: true }) : `
+            <p class="account-muted">Staff ID cards require a paid subscription. Ask your store admin to activate or renew QuickPOS.</p>`}
+        </div>
+      </div>
+    </section>`;
+  attachSignOutHandler();
+  attachStaffCardHandlers();
+  if (focus) root.querySelector('h1')?.focus();
+}
+
 async function loadPortal(flash = '', { focus = false } = {}) {
   root.innerHTML = `
     <section class="page-hero account-hero">
@@ -1598,12 +1650,19 @@ async function loadPortal(flash = '', { focus = false } = {}) {
   `;
 
   try {
-    const overview = await siteApi.get('/account/overview');
-    if (overview.user?.role !== 'admin') {
+    const identity = await siteApi.get('/auth/me');
+    if (identity.user?.role === 'manager') {
+      siteApi.updateUser(identity.user);
+      await renderManagerStaff(identity, { focus });
+      return;
+    }
+    if (identity.user?.role !== 'admin') {
       siteApi.clearSession();
       renderAdminOnly();
       return;
     }
+    if (readSiteSession().user?.role !== 'admin') siteApi.updateUser(identity.user);
+    const overview = await siteApi.get('/account/overview');
 
     const billingHints = new URLSearchParams({
       locale: navigator.language || '',
@@ -1643,7 +1702,7 @@ async function bootstrap() {
     return;
   }
   if (siteApi.accessToken && publicAuthRoutes.includes(mode)) {
-    window.location.replace('#overview');
+    window.location.replace(readSiteSession().user?.role === 'manager' ? '#staff' : '#overview');
     return;
   }
   if (mode === 'forgot-password') {
@@ -1656,6 +1715,10 @@ async function bootstrap() {
   }
   if (!siteApi.accessToken || mode === 'signin' || mode === 'login') {
     renderSignIn();
+    return;
+  }
+  if (readSiteSession().user?.role === 'manager') {
+    await loadPortal('', { focus: true });
     return;
   }
   let flash;
@@ -1676,6 +1739,11 @@ async function bootstrap() {
 
 function handleAccountNavigation() {
   const { mode, params } = routeInfo();
+  if (siteApi.accessToken && document.querySelector('[data-manager-staff]') &&
+      mode !== 'reset-password' && !params.has('token')) {
+    keepManagerStaffRoute();
+    return;
+  }
   if (siteApi.accessToken && !returnedPayment(params) && document.querySelector('[data-account-gate]')) {
     keepActivationRoute();
     return;

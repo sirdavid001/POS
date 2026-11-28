@@ -19,12 +19,16 @@ describe('staff badges', () => {
     expect(query.mock.calls[0][1]).toEqual([18, badgeDigest(code)]);
     expect(query.mock.calls[0][0]).toMatch(/u\.store_id = \$1.*is_active = true/);
   });
-  it('does not let a manager issue privileged cards for other accounts', () => {
+  it('restricts cashier cards to managers and manager or admin cards to admins', () => {
     const manager = { role: 'manager', id: 1 };
     expect(canIssueBadge(manager, { role: 'admin', id: 2 })).toBe(false);
     expect(canIssueBadge(manager, { role: 'manager', id: 2 })).toBe(false);
     expect(canIssueBadge(manager, { role: 'cashier', id: 3 })).toBe(true);
-    expect(canIssueBadge(manager, manager)).toBe(true);
+    expect(canIssueBadge(manager, manager)).toBe(false);
+    const admin = { role: 'admin', id: 2 };
+    expect(canIssueBadge(admin, manager)).toBe(true);
+    expect(canIssueBadge(admin, admin)).toBe(true);
+    expect(canIssueBadge(admin, { role: 'cashier', id: 3 })).toBe(false);
     expect(canManageStaff({ id: 3, role: 'cashier' }, manager)).toBe(false);
     expect(canIssueBadge({ id: 3, role: 'cashier' }, { id: 3, role: 'cashier' })).toBe(false);
   });

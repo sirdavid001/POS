@@ -10,7 +10,8 @@
     "seo:indexnow": "node scripts/indexnow.mjs"
   },
   "dependencies": {
-    "@vercel/analytics": "^2.0.1"
+    "@vercel/analytics": "^2.0.1",
+    "jsbarcode": "3.12.3"
   },
   "devDependencies": {
     "vite": "^8.3.4"
